@@ -1,0 +1,250 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Overview - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="./mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="welcome"><a class="header" href="#welcome">Welcome</a></h1>
+<p>Learn what the <code>zksync-js</code> is and how it simplifies ZKsync cross-chain flows for <strong>viem</strong> and <strong>ethers</strong>.</p>
+<h2 id="introduction"><a class="header" href="#introduction">Introduction</a></h2>
+<p>The <strong><code>zksync-js</code></strong> is a lightweight extension for <a href="https://viem.sh"><code>viem</code></a> and <a href="https://docs.ethers.io/"><code>ethers</code></a> that makes <strong>ZKsync cross-chain actions simple and consistent</strong>.</p>
+<p>Instead of re-implementing accounts or low-level RPC logic, this SDK focuses only on <strong>ZKsync-specific flows</strong>:</p>
+<ul>
+<li>Deposits (<strong>L1 → L2</strong>)</li>
+<li>Withdrawals (<strong>L2 → L1</strong>, including finalization)</li>
+<li><em>Try</em> variants for functional error handling (e.g. <code>tryCreate</code>)</li>
+<li>Status and wait helpers</li>
+<li>ZKsync-specific JSON-RPC methods</li>
+</ul>
+<blockquote>
+<p>[!INFO]
+The SDK doesn’t replace your existing Ethereum libraries — it <strong>extends</strong> them with ZKsync-only
+capabilities while keeping your current tooling intact.</p>
+</blockquote>
+<h2 id="key-supported-features"><a class="header" href="#key-supported-features">Key Supported Features</a></h2>
+<h3 id="deposits-l1--l2"><a class="header" href="#deposits-l1--l2">Deposits (L1 → L2)</a></h3>
+<p>Supports ETH, Custom Base Token, and ERC-20.</p>
+<ul>
+<li><strong>Initiate on L1:</strong> Build and send the deposit transaction from Ethereum.</li>
+<li><strong>Track progress:</strong> Query intermediate states (queued, included, executed).</li>
+<li><strong>Verify completion on L2:</strong> Confirm funds credited and available on ZKsync.</li>
+</ul>
+<h3 id="withdrawals-l2--l1"><a class="header" href="#withdrawals-l2--l1">Withdrawals (L2 → L1)</a></h3>
+<p>Supports ETH, Custom Base Token, and ERC-20.</p>
+<ul>
+<li><strong>Initiate on L2:</strong> Create the withdrawal transaction on ZKsync.</li>
+<li><strong>Track progress:</strong> Monitor execution and finalization availability.</li>
+<li><strong>Finalize on L1:</strong> Finalize withdrawal to release funds back to Ethereum.</li>
+</ul>
+<h3 id="zksync-rpc-extensions"><a class="header" href="#zksync-rpc-extensions">ZKsync RPC Extensions</a></h3>
+<ul>
+<li><strong><code>getBridgehubAddress</code></strong> (<code>zks_getBridgehubContract</code>) — resolve the canonical Bridgehub contract address.</li>
+<li><strong><code>getL2ToL1LogProof</code></strong> (<code>zks_getL2ToL1LogProof</code>) — retrieve the log proof for an L2 → L1 transaction.</li>
+<li><strong><code>getReceiptWithL2ToL1</code></strong> — returns a standard Ethereum <code>TransactionReceipt</code> <strong>augmented</strong> with <code>l2ToL1Logs</code>.</li>
+<li><strong><code>getGenesis</code></strong> (<code>zks_getGenesis</code>) - returns Genesis json.</li>
+</ul>
+<h2 id="what-youll-find-here"><a class="header" href="#what-youll-find-here">What You’ll Find Here</a></h2>
+<ul>
+<li><a href="./overview/mental-model.html"><strong>Mental Model</strong></a> — understand the core flow:
+<code>quote → prepare → create → status → wait → finalize</code>.</li>
+<li><a href="./overview/adapters.html"><strong>Adapters (viem &amp; ethers)</strong></a> — how the SDK integrates with your existing stack.</li>
+<li><a href="./overview/finalization.html"><strong>Withdrawal Finalization</strong></a> — learn the finalization process and how to ensure withdrawals are completed.</li>
+</ul>
+<hr />
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<p>👉 Ready to build? Start with the <a href="../quickstart/index.html"><strong>Quickstart</strong></a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+                            <a rel="next prefetch" href="overview/mental-model.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+                    <a rel="next prefetch" href="overview/mental-model.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
