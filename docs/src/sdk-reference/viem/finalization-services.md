@@ -18,7 +18,7 @@ These utilities fetch the required L2→L1 proof data, check readiness, and subm
 
 ```ts
 import { createPublicClient, createWalletClient, http, type Address } from 'viem';
-import { createViemClient, createViemSdk, createFinalizationServices } from '@matterlabs/zksync-js/viem';
+import { createViemClient, createViemSdk, createFinalizationServices } from '@matter-labs/zksync-js/viem';
 
 const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
 const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });

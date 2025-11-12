@@ -10,7 +10,7 @@ import {
   type WalletClient,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createViemSdk, createViemClient } from '@matterlabs/zksync-js/viem';
+import { createViemSdk, createViemClient } from '@matter-labs/zksync-js/viem';
 
 const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
 const L2_RPC = 'http://localhost:3050'; // your L2 RPC

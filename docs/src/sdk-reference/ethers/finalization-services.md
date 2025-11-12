@@ -22,7 +22,7 @@ import {
   createEthersClient,
   createEthersSdk,
   createFinalizationServices
-} from '@matterlabs/zksync-js/ethers';
+} from '@matter-labs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);

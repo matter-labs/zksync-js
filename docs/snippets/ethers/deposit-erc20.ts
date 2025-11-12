@@ -1,6 +1,6 @@
 // examples/deposit-erc20.ts
 import { JsonRpcProvider, Wallet, parseUnits, type Signer } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
 
 const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
 const L2_RPC = 'http://localhost:3050'; // your L2 RPC

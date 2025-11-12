@@ -13,14 +13,14 @@ High-level SDK built on top of the **Ethers adapter** — provides deposits, wit
 ## Import
 
 ```ts
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
 ```
 
 ## Quick Start
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);

@@ -18,10 +18,10 @@ First, install the core SDK, then add the adapter that matches your project's st
 
 ```bash
 # For viem users
-npm install @matterlabs/zksync-js viem
+npm install @matter-labs/zksync-js viem
 
 # For ethers.js users
-npm install @matterlabs/zksync-js ethers
+npm install @matter-labs/zksync-js ethers
 ```
 
 ## How to Use
@@ -33,8 +33,8 @@ The SDK extends your existing client. Configure **viem** or **ethers** as you no
 ```ts
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 
@@ -59,8 +59,8 @@ await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
 
 const l1 = new JsonRpcProvider(process.env.L1_RPC!);
 const l2 = new JsonRpcProvider(process.env.L2_RPC!);

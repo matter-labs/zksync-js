@@ -8,15 +8,15 @@ import {
   parseEther,
 } from 'ethers';
 
-import { createEthersClient, createEthersSdk, type EthersSdk } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk, type EthersSdk } from '@matter-labs/zksync-js/ethers';
 import type {
   WithdrawHandle,
   WithdrawPlan,
   WithdrawQuote,
   WithdrawalStatus,
-} from '@matterlabs/zksync-js/core';
+} from '@matter-labs/zksync-js/core';
 import type { Address, Hex } from '../../../../src/core/types/primitives';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
 
 declare global {
   interface Window {

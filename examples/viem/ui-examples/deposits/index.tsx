@@ -14,18 +14,18 @@ import {
 import { sepolia } from 'viem/chains';
 import 'viem/window';
 
-import { createViemClient, createViemSdk, type ViemSdk } from '@matterlabs/zksync-js/viem';
+import { createViemClient, createViemSdk, type ViemSdk } from '@matter-labs/zksync-js/viem';
 import type {
   DepositHandle,
   DepositPlan,
   DepositQuote,
   DepositStatus,
-} from '@matterlabs/zksync-js/core';
+} from '@matter-labs/zksync-js/core';
 import {
   ETH_ADDRESS,
   L1_SOPH_TOKEN_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
-} from '@matterlabs/zksync-js/core';
+} from '@matter-labs/zksync-js/core';
 
 const DEFAULT_L1_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 const DEFAULT_L2_RPC = 'https://zksync-os-testnet-alpha.zksync.dev/';

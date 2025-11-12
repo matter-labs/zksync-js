@@ -18,7 +18,7 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk, ETH_ADDRESS } from '@matter-labs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
@@ -54,7 +54,7 @@ import {
   privateKeyToAccount,
   parseEther,
 } from 'viem';
-import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/viem';
+import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matter-labs/zksync-js/viem';
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
 const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });

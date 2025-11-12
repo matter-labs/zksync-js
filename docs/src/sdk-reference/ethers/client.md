@@ -14,14 +14,14 @@ Carries providers/signer, resolves core contract addresses, and exposes connecte
 ## Import
 
 ```ts
-import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient } from '@matter-labs/zksync-js/ethers';
 ```
 
 ## Quick Start
 
 ```ts
 import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+import { createEthersClient } from '@matter-labs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);

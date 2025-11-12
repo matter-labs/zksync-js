@@ -21,7 +21,7 @@ When the SDK throws, it throws an instance of `ZKsyncError`.
 Use `isZKsyncError(e)` to narrow and read the **error envelope**.
 
 ```ts
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+import { isZKsyncError } from '@matter-labs/zksync-js/core';
 
 try {
   const handle = await sdk.deposits.create(params);
@@ -145,8 +145,8 @@ try {
 
 ```ts
 import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { isZKsyncError } from '@matter-labs/zksync-js/core';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
@@ -168,8 +168,8 @@ if (!res.ok) {
 
 ```ts
 import { createPublicClient, http, createWalletClient, privateKeyToAccount } from 'viem';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { isZKsyncError } from '@matter-labs/zksync-js/core';
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
 const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
