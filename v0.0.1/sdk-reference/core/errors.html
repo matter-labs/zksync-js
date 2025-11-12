@@ -1,0 +1,378 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>errors - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../.././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="error-model"><a class="header" href="#error-model">Error Model</a></h1>
+<p>Typed, structured errors with a stable envelope across <strong>viem</strong> and <strong>ethers</strong> adapters.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>All SDK operations either:</p>
+<ol>
+<li><strong>Throw</strong> a <code>ZKsyncError</code> whose <code>.envelope</code> gives you a structured, stable payload, or</li>
+<li>Return a <strong>result object</strong> from the <code>try*</code> variants:
+<code>{ ok: true, value } | { ok: false, error }</code></li>
+</ol>
+<p>This is consistent across both <strong>ethers</strong> and <strong>viem</strong> adapters.</p>
+<blockquote>
+<p>[!TIP]
+Prefer the <code>try*</code> variants when you want to avoid exceptions and branch on success/failure.</p>
+</blockquote>
+<h2 id="what-gets-thrown"><a class="header" href="#what-gets-thrown">What Gets Thrown</a></h2>
+<p>When the SDK throws, it throws an instance of <code>ZKsyncError</code>.
+Use <code>isZKsyncError(e)</code> to narrow and read the <strong>error envelope</strong>.</p>
+<pre><code class="language-ts">import { isZKsyncError } from '@matter-labs/zksync-js/core';
+
+try {
+  const handle = await sdk.deposits.create(params);
+} catch (e) {
+  if (isZKsyncError(e)) {
+    const err = e; // type-narrowed
+    const { type, resource, operation, message, context, revert } = err.envelope;
+
+    switch (type) {
+      case 'VALIDATION':
+      case 'STATE':
+        // user/action fixable (bad input, not-ready, etc.)
+        break;
+      case 'EXECUTION':
+      case 'RPC':
+        // network/tx/provider issues
+        break;
+    }
+
+    console.error(JSON.stringify(err.toJSON())); // structured log
+  } else {
+    throw e; // non-SDK error
+  }
+}
+</code></pre>
+<h2 id="envelope-shape"><a class="header" href="#envelope-shape">Envelope Shape</a></h2>
+<p><strong>Instance Type</strong></p>
+<pre><code class="language-ts">'ZKsyncError'
+</code></pre>
+<h3 id="zksyncerrorenvelope-errorenvelope"><a class="header" href="#zksyncerrorenvelope-errorenvelope"><code>ZKsyncError.envelope: ErrorEnvelope</code></a></h3>
+<pre><code class="language-ts">type ErrorEnvelope = {
+  /** Resource surface that raised the error. */
+  resource: 'deposits' | 'withdrawals' | 'withdrawal-finalization' | 'helpers' | 'zksrpc';
+
+  /** Specific operation, e.g. "withdrawals.finalize" or "deposits.create". */
+  operation: string;
+
+  /** Broad category (see table below). */
+  type: 'VALIDATION' | 'STATE' | 'EXECUTION' | 'RPC' | 'INTERNAL' | 'VERIFICATION' | 'CONTRACT';
+
+  /** Stable, human-readable message for developers. */
+  message: string;
+
+  /** Optional contextual fields (tx hash, nonce, step key, etc.). */
+  context?: Record&lt;string, unknown&gt;;
+
+  /** If the error is a contract revert, adapters include decoded info when available. */
+  revert?: {
+    selector: `0x${string}`; // 4-byte selector
+    name?: string; // Decoded Solidity error name
+    args?: unknown[]; // Decoded args
+    contract?: string; // Best-effort contract label
+    fn?: string; // Best-effort function label
+  };
+
+  /** Originating error (provider/transport/etc.), sanitized for safe logging. */
+  cause?: unknown;
+};
+</code></pre>
+<h3 id="categories-when-to-expect-them"><a class="header" href="#categories-when-to-expect-them">Categories (When to Expect Them)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Meaning (how to react)</th></tr></thead><tbody>
+<tr><td><code>VALIDATION</code></td><td>Inputs are invalid — fix parameters and retry.</td></tr>
+<tr><td><code>STATE</code></td><td>Operation not possible <strong>yet</strong> (e.g., not finalizable). Wait or change state.</td></tr>
+<tr><td><code>EXECUTION</code></td><td>A send/revert happened (tx reverted or couldn’t be confirmed). Inspect <code>revert</code>/<code>cause</code>.</td></tr>
+<tr><td><code>RPC</code></td><td>Provider/transport failure. Retry with backoff or check infra.</td></tr>
+<tr><td><code>VERIFICATION</code></td><td>Proof/verification issue (e.g., unable to find deposit log).</td></tr>
+<tr><td><code>CONTRACT</code></td><td>Contract read/encode/allowance failed. Check addresses &amp; ABI.</td></tr>
+<tr><td><code>INTERNAL</code></td><td>SDK internal issue — report with <code>operation</code> and <code>selector</code>.</td></tr>
+</tbody></table>
+</div>
+<h2 id="result-style-try-helpers"><a class="header" href="#result-style-try-helpers">Result Style (<code>try*</code>) Helpers</a></h2>
+<p>Every resource method has a <code>try*</code> sibling that never throws and returns a <code>TryResult&lt;T&gt;</code>.</p>
+<pre><code class="language-ts">const res = await sdk.withdrawals.tryCreate(params);
+if (!res.ok) {
+  // res.error is a ZKsyncError
+  console.warn(res.error.envelope.message, res.error.envelope.operation);
+} else {
+  console.log('l2TxHash', res.value.l2TxHash);
+}
+</code></pre>
+<p>This is especially useful for <strong>UI flows</strong> where you want inline validation/state messages without <code>try/catch</code>.</p>
+<h2 id="revert-details-when-transactions-fail"><a class="header" href="#revert-details-when-transactions-fail">Revert Details (When Transactions Fail)</a></h2>
+<p>If the provider exposes revert data, the adapters decode common error types and ABIs so you can branch on them:</p>
+<pre><code class="language-ts">try {
+  await sdk.withdrawals.finalize(l2TxHash);
+} catch (e) {
+  if (isZKsyncError(e) &amp;&amp; e.envelope.revert) {
+    const { selector, name, args } = e.envelope.revert;
+    // e.g., name === 'InvalidProof' or 'TransferAmountExceedsBalance'
+  }
+}
+</code></pre>
+<p><strong>Notes</strong></p>
+<ul>
+<li>The SDK always includes the <strong>4-byte selector</strong>.</li>
+<li><code>name</code> / <code>args</code> appear when decodable; coverage will expand over time.</li>
+<li>A revert implying “not ready yet” appears as a <code>STATE</code> error with a clear message.</li>
+</ul>
+<h2 id="ethers--viem-examples"><a class="header" href="#ethers--viem-examples">Ethers &amp; Viem Examples</a></h2>
+<details>
+<summary><strong>Ethers</strong></summary>
+<pre><code class="language-ts">import { JsonRpcProvider, Wallet } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { isZKsyncError } from '@matter-labs/zksync-js/core';
+
+const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
+const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
+const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+
+const client = createEthersClient({ l1, l2, signer });
+const sdk = createEthersSdk(client);
+
+const res = await sdk.deposits.tryCreate({ token, amount, to });
+if (!res.ok) {
+  console.error(res.error.envelope); // structured envelope
+}
+</code></pre>
+</details>
+<details>
+<summary><strong>Viem</strong></summary>
+<pre><code class="language-ts">import { createPublicClient, http, createWalletClient, privateKeyToAccount } from 'viem';
+import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { isZKsyncError } from '@matter-labs/zksync-js/core';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
+const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
+const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
+const l1Wallet = createWalletClient({ account, transport: http(process.env.ETH_RPC!) });
+const l2Wallet = createWalletClient({ account, transport: http(process.env.ZKSYNC_RPC!) });
+
+const client = createViemClient({ l1, l2, l1Wallet, l2Wallet });
+const sdk = createViemSdk(client);
+
+try {
+  await sdk.withdrawals.finalize(l2TxHash);
+} catch (e) {
+  if (isZKsyncError(e)) {
+    console.log(e.envelope.message, e.envelope.operation);
+  } else {
+    throw e;
+  }
+}
+</code></pre>
+</details>
+<h2 id="logging--observability"><a class="header" href="#logging--observability">Logging &amp; Observability</a></h2>
+<ul>
+<li><code>err.toJSON()</code> → returns a safe, structured object suitable for telemetry.</li>
+<li>Logging <code>err</code> directly prints a compact summary: category, operation, context, optional revert/cause.</li>
+</ul>
+<blockquote>
+<p>[!WARNING]
+Avoid parsing <code>err.message</code> for logic — use typed fields on <code>err.envelope</code> instead.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../sdk-reference/core/rpc.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../sdk-reference/ethers/client.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../sdk-reference/core/rpc.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../sdk-reference/ethers/client.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
