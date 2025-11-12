@@ -1,0 +1,401 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>rpc - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../.././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="zks_-rpc"><a class="header" href="#zks_-rpc">zks_ RPC</a></h1>
+<p>Public ZKsync <code>zks_*</code> RPC methods exposed on the adapters via <code>client.zks</code> (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with <code>l2ToL1Logs</code>).</p>
+<h2 id="standard-ethereum-rpc-eth_"><a class="header" href="#standard-ethereum-rpc-eth_">Standard Ethereum RPC (<code>eth_*</code>)</a></h2>
+<p>Use your base library for all <code>eth_*</code> methods.
+The <code>client.zks</code> surface only covers ZKsync-specific RPC (<code>zks_*</code>).
+For standard Ethereum JSON-RPC (e.g., <code>eth_call</code>, <code>eth_getLogs</code>, <code>eth_getBalance</code>), call them through your chosen library (<strong>ethers</strong> or <strong>viem</strong>).</p>
+<h2 id="zks_-interface"><a class="header" href="#zks_-interface">zks_ Interface</a></h2>
+<pre><code class="language-ts">export interface ZksRpc {
+  // Fetches the Bridgehub contract address.
+  getBridgehubAddress(): Promise&lt;Address&gt;;
+  // Fetches the Bytecode Supplier contract address.
+  getBytecodeSupplierAddress(): Promise&lt;Address&gt;;
+  // Fetches a proof for an L2→L1 log emitted in the given transaction.
+  getL2ToL1LogProof(txHash: Hex, index: number): Promise&lt;ProofNormalized&gt;;
+  // Fetches the transaction receipt, including the `l2ToL1Logs` field.
+  getReceiptWithL2ToL1(txHash: Hex): Promise&lt;ReceiptWithL2ToL1 | null&gt;;
+  // Fetches block metadata for the given block number.
+  getBlockMetadataByNumber(blockNumber: number): Promise&lt;BlockMetadata | null&gt;;
+  // Fetches the genesis configuration returned by `zks_getGenesis`.
+  getGenesis(): Promise&lt;GenesisInput&gt;;
+}
+</code></pre>
+<hr />
+<h2 id="methods"><a class="header" href="#methods">Methods</a></h2>
+<h3 id="getbridgehubaddress--promiseaddress"><a class="header" href="#getbridgehubaddress--promiseaddress"><code>getBridgehubAddress() → Promise&lt;Address&gt;</code></a></h3>
+<p>Fetch the on-chain <strong>Bridgehub</strong> contract address.</p>
+<pre><code class="language-ts">const addr = await client.zks.getBridgehubAddress();
+</code></pre>
+<hr />
+<h3 id="getbytecodesupplieraddress--promiseaddress"><a class="header" href="#getbytecodesupplieraddress--promiseaddress"><code>getBytecodeSupplierAddress() → Promise&lt;Address&gt;</code></a></h3>
+<p>Fetch the on-chain <strong>Bytecode Supplier</strong> contract address.</p>
+<pre><code class="language-ts">const addr = await client.zks.getBytecodeSupplierAddress();
+</code></pre>
+<hr />
+<h3 id="getl2tol1logprooftxhash-hex-index-number--promiseproofnormalized"><a class="header" href="#getl2tol1logprooftxhash-hex-index-number--promiseproofnormalized"><code>getL2ToL1LogProof(txHash: Hex, index: number) → Promise&lt;ProofNormalized&gt;</code></a></h3>
+<p>Return a normalized proof for the <strong>L2→L1 log</strong> at <code>index</code> in <code>txHash</code>.</p>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>txHash</code></td><td>Hex</td><td>yes</td><td>L2 transaction hash that emitted one or more L2→L1 logs.</td></tr>
+<tr><td><code>index</code></td><td>number</td><td>yes</td><td>Zero-based index of the target L2→L1 log within the tx.</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-ts">const proof = await client.zks.getL2ToL1LogProof(l2TxHash, 0);
+/*
+{
+  id: bigint,
+  batchNumber: bigint,
+  proof: Hex[]
+}
+*/
+</code></pre>
+<blockquote>
+<p>[!INFO]
+If a proof isn’t available yet, this method throws a typed <code>STATE</code> error.
+Poll according to your app’s cadence.</p>
+</blockquote>
+<hr />
+<h3 id="getreceiptwithl2tol1txhash-hex--promisereceiptwithl2tol1--null"><a class="header" href="#getreceiptwithl2tol1txhash-hex--promisereceiptwithl2tol1--null"><code>getReceiptWithL2ToL1(txHash: Hex) → Promise&lt;ReceiptWithL2ToL1 | null&gt;</code></a></h3>
+<p>Fetch the transaction receipt; the returned object <strong>always</strong> includes <code>l2ToL1Logs</code> (empty array if none).</p>
+<pre><code class="language-ts">const rcpt = await client.zks.getReceiptWithL2ToL1(l2TxHash);
+console.log("L2 to L1 logs:", rcpt?.l2ToL1Logs); // always an array
+</code></pre>
+<hr />
+<h3 id="getblockmetadatabynumberblocknumber-number"><a class="header" href="#getblockmetadatabynumberblocknumber-number"><code>getBlockMetadataByNumber(blockNumber: number)</code></a></h3>
+<p><strong>What it does</strong>
+Fetches per-block metadata used by the node (pubdata price, native price, execution version).
+Returns <code>null</code> if the block metadata is unavailable.
+Price fields are returned as <code>bigint</code>.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-ts">const meta = await client.zks.getBlockMetadataByNumber(2);
+if (meta) {
+  console.log(meta.pubdataPricePerByte, meta.nativePrice, meta.executionVersion);
+}
+</code></pre>
+<p><strong>Returns</strong></p>
+<pre><code class="language-ts">type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
+};
+</code></pre>
+<hr />
+<h3 id="getgenesis"><a class="header" href="#getgenesis"><code>getGenesis()</code></a></h3>
+<p><strong>What it does</strong>
+Retrieves the L2 genesis configuration exposed by the node, including initial contract deployments, storage patches, execution version, and the expected genesis root.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-ts">const genesis = await client.zks.getGenesis();
+
+for (const contract of genesis.initialContracts) {
+  console.log('Contract at', contract.address, 'with bytecode', contract.bytecode);
+}
+
+console.log('Execution version:', genesis.executionVersion);
+console.log('Genesis root:', genesis.genesisRoot);
+</code></pre>
+<p><strong>Returns</strong></p>
+<pre><code class="language-ts">export type GenesisInput = {
+  initialContracts: GenesisContractDeployment[];
+  additionalStorage: GenesisStorageEntry[];
+  executionVersion: number;
+  genesisRoot: Hex;
+};
+</code></pre>
+<hr />
+<h2 id="types-overview"><a class="header" href="#types-overview">Types (overview)</a></h2>
+<pre><code class="language-ts">export interface ZksRpc {
+  // Fetches the Bridgehub contract address.
+  getBridgehubAddress(): Promise&lt;Address&gt;;
+  // Fetches the Bytecode Supplier contract address.
+  getBytecodeSupplierAddress(): Promise&lt;Address&gt;;
+  // Fetches a proof for an L2→L1 log emitted in the given transaction.
+  getL2ToL1LogProof(txHash: Hex, index: number): Promise&lt;ProofNormalized&gt;;
+  // Fetches the transaction receipt, including the `l2ToL1Logs` field.
+  getReceiptWithL2ToL1(txHash: Hex): Promise&lt;ReceiptWithL2ToL1 | null&gt;;
+  // Fetches block metadata for the given block number.
+  getBlockMetadataByNumber(blockNumber: number): Promise&lt;BlockMetadata | null&gt;;
+  // Fetches the genesis configuration returned by `zks_getGenesis`.
+  getGenesis(): Promise&lt;GenesisInput&gt;;
+}
+
+type ProofNormalized = {
+  id: bigint;
+  batchNumber: bigint;
+  proof: Hex[];
+  root: Hex;
+};
+
+type ReceiptWithL2ToL1 = {
+  transactionIndex: Hex;
+  transactionHash?: Hex;
+  status?: string | number;
+  blockNumber?: string | number;
+  logs?: Array&lt;{
+    address: Address;
+    topics: Hex[];
+    data: Hex;
+    transactionHash: Hex;
+  }&gt;;
+  // ZKsync-specific field
+  l2ToL1Logs?: L2ToL1Log[];
+};
+
+type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
+};
+
+export type GenesisInput = {
+  initialContracts: GenesisContractDeployment[];
+  additionalStorage: GenesisStorageEntry[];
+  executionVersion: number;
+  genesisRoot: Hex;
+};
+</code></pre>
+<hr />
+<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
+<details>
+<summary><strong>Ethers</strong></summary>
+<pre><code class="language-ts">import { JsonRpcProvider, Wallet } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+
+const l1 = new JsonRpcProvider(process.env.L1_RPC!);
+const l2 = new JsonRpcProvider(process.env.L2_RPC!);
+const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+
+const client = createEthersClient({ l1, l2, signer });
+const sdk = createEthersSdk(client);
+
+// Public RPC surface:
+const addr = await client.zks.getBridgehubAddress();
+</code></pre>
+</details>
+<details>
+<summary><strong>Viem</strong></summary>
+<pre><code class="language-ts">import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+const l1 = createPublicClient({ transport: http(process.env.L1_RPC!) });
+const l2 = createPublicClient({ transport: http(process.env.L2_RPC!) });
+const l1Wallet = createWalletClient({ chain: l1Chain, account, transport: http(process.env.L1_RPC!) });
+const l2Wallet = createWalletClient({ chain: l2Chain, account, transport: http(process.env.L2_RPC!) });
+
+const client = createViemClient({ l1, l2, l1Wallet, l2Wallet });
+const sdk = createViemSdk(client);
+
+// Public RPC surface:
+const addr = await client.zks.getBridgehubAddress();
+</code></pre>
+</details>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../sdk-reference/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../sdk-reference/core/errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../sdk-reference/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../sdk-reference/core/errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
