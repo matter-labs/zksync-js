@@ -1,0 +1,374 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ethers - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../.././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="withdrawals-ethers"><a class="header" href="#withdrawals-ethers">Withdrawals (ethers)</a></h1>
+<p>A fast path to withdraw <strong>ETH / ERC-20</strong> from ZKsync (L2) → Ethereum (L1) using the <strong>ethers</strong> adapter.</p>
+<p>Withdrawals are a <strong>two-step process</strong>:</p>
+<ol>
+<li><strong>Initiate</strong> on L2.</li>
+<li><strong>Finalize</strong> on L1 to release funds.</li>
+</ol>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>A funded <strong>L2</strong> account to initiate the withdrawal.</li>
+<li>A funded <strong>L1</strong> account for finalization.</li>
+<li>RPC URLs: <code>L1_RPC_URL</code>, <code>L2_RPC_URL</code>.</li>
+<li>Installed: <code>@matter-labs/zksync-js</code> + <code>ethers</code>.</li>
+</ul>
+<hr />
+<h2 id="parameters-quick-reference"><a class="header" href="#parameters-quick-reference">Parameters (quick reference)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Param</th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>token</code></td><td>Yes</td><td><code>ETH_ADDRESS</code> or ERC-20 address</td></tr>
+<tr><td><code>amount</code></td><td>Yes</td><td>BigInt/wei (e.g. <code>parseEther('0.01')</code>)</td></tr>
+<tr><td><code>to</code></td><td>Yes</td><td>L1 recipient address</td></tr>
+<tr><td><code>refundRecipient</code></td><td>No</td><td>L2 address to receive fee refunds (if applicable)</td></tr>
+<tr><td><code>l2TxOverrides</code></td><td>No</td><td>L2 tx overrides (e.g. gasLimit, maxFeePerGas, maxPriorityFeePerGas)</td></tr>
+</tbody></table>
+</div>
+<h2 id="fast-path-one-shot"><a class="header" href="#fast-path-one-shot">Fast path (one-shot)</a></h2>
+<pre><code class="language-ts">// examples/withdrawals-eth.ts
+import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+
+const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
+const L2_RPC = 'http://localhost:3050'; // your L2 RPC
+const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+
+async function main() {
+  const l1 = new JsonRpcProvider(L1_RPC);
+  const l2 = new JsonRpcProvider(L2_RPC);
+  const signer = new Wallet(PRIVATE_KEY, l1);
+
+  const client = createEthersClient({ l1, l2, signer });
+  const sdk = createEthersSdk(client);
+
+  const me = (await signer.getAddress());
+
+  // Withdraw params (ETH)
+  const params = {
+    token: ETH_ADDRESS,
+    amount: parseEther('0.01'), // 0.001 ETH
+    to: me,
+    // l2GasLimit: 300_000n,
+  } as const;
+
+  // Quote (dry-run only)
+  const quote = await sdk.withdrawals.quote(params);
+  console.log('QUOTE: ', quote);
+
+  const prepare = await sdk.withdrawals.prepare(params);
+  console.log('PREPARE: ', prepare);
+
+  const created = await sdk.withdrawals.create(params);
+  console.log('CREATE:', created);
+
+  // Quick status check
+  console.log('STATUS (initial):', await sdk.withdrawals.status(created.l2TxHash));
+
+  // wait for L2 inclusion
+  const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
+  console.log(
+    'L2 included: block=',
+    l2Receipt?.blockNumber,
+    'status=',
+    l2Receipt?.status,
+    'hash=',
+    l2Receipt?.hash,
+  );
+
+  // Optional: check status again
+  console.log('STATUS (post-L2):', await sdk.withdrawals.status(created.l2TxHash));
+
+  // finalize on L1
+  // Use tryFinalize to avoid throwing in an example script
+  await sdk.withdrawals.wait(created.l2TxHash, { for: 'ready' });
+  console.log('STATUS (ready):', await sdk.withdrawals.status(created.l2TxHash));
+
+  const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
+  console.log('TRY FINALIZE: ', fin);
+
+  const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
+  if (l1Receipt) {
+    console.log('L1 finalize receipt:', l1Receipt.hash);
+  } else {
+    console.log('Finalized (no local L1 receipt available, possibly finalized by another actor).');
+  }
+}
+
+main().catch((e) =&gt; {
+  console.error(e);
+  process.exit(1);
+});
+</code></pre>
+<ul>
+<li><code>create()</code> prepares <strong>and</strong> sends the L2 withdrawal.</li>
+<li><code>wait(..., { for: 'l2' })</code> ⇒ included on L2.</li>
+<li><code>wait(..., { for: 'ready' })</code> ⇒ ready for finalization.</li>
+<li><code>finalize(l2TxHash)</code> ⇒ required to release funds on L1.</li>
+</ul>
+<h2 id="inspect--customize-quote--prepare--create"><a class="header" href="#inspect--customize-quote--prepare--create">Inspect &amp; customize (quote → prepare → create)</a></h2>
+<p><strong>1. Quote (no side-effects)</strong></p>
+<pre><code class="language-ts">const quote = await sdk.withdrawals.quote(params);
+</code></pre>
+<p><strong>2. Prepare (build txs, don’t send)</strong></p>
+<pre><code class="language-ts">const plan = await sdk.withdrawals.prepare(params);
+</code></pre>
+<p><strong>3. Create (send)</strong></p>
+<pre><code class="language-ts">const handle = await sdk.withdrawals.create(params);
+</code></pre>
+<h2 id="track-progress-status-vs-wait"><a class="header" href="#track-progress-status-vs-wait">Track progress (status vs wait)</a></h2>
+<p><strong>Non-blocking snapshot</strong></p>
+<pre><code class="language-ts">const s = await sdk.withdrawals.status(handle /* or l2TxHash */);
+// 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+</code></pre>
+<p><strong>Block until checkpoint</strong></p>
+<pre><code class="language-ts">const l2Receipt = await sdk.withdrawals.wait(handle, { for: 'l2' });
+await sdk.withdrawals.wait(handle, { for: 'ready' });
+</code></pre>
+<h2 id="finalization-required-step"><a class="header" href="#finalization-required-step">Finalization (required step)</a></h2>
+<pre><code class="language-ts">const result = await sdk.withdrawals.finalize(handle.l2TxHash);
+console.log('Finalization result:', result);
+</code></pre>
+<h2 id="error-handling-patterns"><a class="header" href="#error-handling-patterns">Error handling patterns</a></h2>
+<p><strong>Exceptions</strong></p>
+<pre><code class="language-ts">try {
+  const handle = await sdk.withdrawals.create(params);
+} catch (e) {
+  // normalized error envelope (type, operation, message, context, optional revert)
+}
+</code></pre>
+<p><strong>No-throw style</strong></p>
+<p>Use <code>try*</code> methods to avoid exceptions. They return <code>{ ok, value }</code> or <code>{ ok, error }</code>.
+Perfect for UIs or services that prefer explicit flow control.</p>
+<pre><code class="language-ts">const r = await sdk.withdrawals.tryCreate(params);
+
+if (!r.ok) {
+  console.error('Withdrawal failed:', r.error);
+} else {
+  const handle = r.value;
+  const f = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
+  if (!f.ok) {
+    console.error('Finalize failed:', f.error);
+  } else {
+    console.log('Withdrawal finalized on L1:', f.value.receipt?.transactionHash);
+  }
+}
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<ul>
+<li><strong>Never reaches READY_TO_FINALIZE:</strong> proofs may not be available yet.</li>
+<li><strong>Finalize reverts:</strong> ensure enough L1 gas; inspect revert info.</li>
+<li><strong>Finalized but no receipt:</strong> <code>wait(..., { for: 'finalized' })</code> may return <code>null</code>; retry or rely on <code>finalize()</code> result.</li>
+</ul>
+<hr />
+<h2 id="see-also"><a class="header" href="#see-also">See also</a></h2>
+<ul>
+<li><a href="../../concepts/status-vs-wait.html">Status vs Wait</a></li>
+<li><a href="../../concepts/finalization.html">Finalization</a></li>
+<li><a href="../../zks/methods.html">ZKsync RPC Helpers</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../guides/withdrawals/viem.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../sdk-reference/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../guides/withdrawals/viem.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../sdk-reference/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
