@@ -1,0 +1,93 @@
+name: ci-run-release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        description: 'Exact git tag to release (omit to use HEAD)'
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to release (leave blank for HEAD)'
+        required: false
+        type: string
+      prerelease_name:
+        description: 'Suffix for a manual pre-release (blank = full release)'
+        required: false
+        type: string
+        default: ''
+      skip_publish:
+        description: 'Skip publishing to npm'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    env:
+      COMPILE_ARTIFACTS: 'false'
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || '' }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update release-please release artifacts
+        if: ${{ inputs.tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+
+      - name: Publish release
+        if: ${{ inputs.prerelease_name != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: zksync-sdk ${{ steps.tag.outputs.value }}${{ inputs.prerelease_name && format(' {0}', inputs.prerelease_name) || '' }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ inputs.prerelease_name != '' }}
+
+  # Trigger package publishing to npm registry
+  publish:
+    name: publish-package 📦
+    runs-on: ubuntu-latest
+    if: ${{ inputs.skip_publish != 'true' }}
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPMJS_NPM_MATTERLABS_AUTOMATION_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+            bun-version: 'latest'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@matter-labs'
+      - run: bun install
+
+      - name: Publish to npm
+        run: bunx npm publish --access public --tag latest

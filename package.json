@@ -1,0 +1,177 @@
+{
+  "name": "@matter-labs/zksync-js",
+  "version": "0.0.1",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "bun-types": "^1.2.19",
+    "eslint": "^9.7.0",
+    "ncp": "^2.0.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.0.2",
+    "typedoc": "0.28.9",
+    "typedoc-plugin-markdown": "4.8.1",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.1",
+    "ethers": "^6.15.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "viem": "^2.0.0"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
+  },
+  "peerDependencies": {
+    "ethers": "^6.15.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "viem": ">=2.0.0 <3"
+  },
+  "peerDependenciesMeta": {
+    "ethers": {
+      "optional": true
+    },
+    "viem": {
+      "optional": true
+    },
+    "@typechain/ethers-v6": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./ethers": {
+      "types": "./dist/adapters/ethers/index.d.ts",
+      "import": "./dist/adapters/ethers/index.js",
+      "require": "./dist/adapters/ethers/index.cjs"
+    },
+    "./viem": {
+      "types": "./dist/adapters/viem/index.d.ts",
+      "import": "./dist/adapters/viem/index.js",
+      "require": "./dist/adapters/viem/index.cjs"
+    },
+    "./types": {
+      "types": "./dist/core/types/index.d.ts",
+      "import": "./dist/core/types/index.js",
+      "require": "./dist/core/types/index.cjs"
+    },
+    "./types/*": {
+      "types": "./dist/core/types/*.d.ts",
+      "import": "./dist/core/types/*.js",
+      "require": "./dist/core/types/*.cjs"
+    },
+    "./ethers/*": {
+      "types": "./dist/adapters/ethers/*.d.ts",
+      "import": "./dist/adapters/ethers/*.js",
+      "require": "./dist/adapters/ethers/*.cjs"
+    },
+    "./ethers/client": {
+      "types": "./dist/adapters/ethers/client.d.ts",
+      "import": "./dist/adapters/ethers/client.js",
+      "require": "./dist/adapters/ethers/client.cjs"
+    },
+    "./ethers/sdk": {
+      "types": "./dist/adapters/ethers/sdk.d.ts",
+      "import": "./dist/adapters/ethers/sdk.js",
+      "require": "./dist/adapters/ethers/sdk.cjs"
+    },
+    "./viem/*": {
+      "types": "./dist/adapters/viem/*.d.ts",
+      "import": "./dist/adapters/viem/*.js",
+      "require": "./dist/adapters/viem/*.cjs"
+    },
+    "./viem/client": {
+      "types": "./dist/adapters/viem/client.d.ts",
+      "import": "./dist/adapters/viem/client.js",
+      "require": "./dist/adapters/viem/client.cjs"
+    },
+    "./viem/sdk": {
+      "types": "./dist/adapters/viem/sdk.d.ts",
+      "import": "./dist/adapters/viem/sdk.js",
+      "require": "./dist/adapters/viem/sdk.cjs"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.cjs"
+    },
+    "./core/*": {
+      "types": "./dist/core/*.d.ts",
+      "import": "./dist/core/*.js",
+      "require": "./dist/core/*.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "description": "SDK for ZKsync OS.",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "packageManager": "bun@^1.1.0",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "verify:types": "tsc -p tsconfig.build.json --emitDeclarationOnly --listEmittedFiles",
+    "build:js": "tsup --config tsup.config.ts",
+    "build": "bun run clean && bun run build:types && bun run build:js",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "types": "typechain --target ethers-v6 --out-dir src/adapters/ethers/typechain src/core/internal/abis/ && ncp src/adapters/ethers/typechain typechain",
+    "prepublishOnly": "bun run clean && bun run build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "docs:gen": "node ./node_modules/typedoc/bin/typedoc",
+    "docs:serve": "mdbook serve docs -p 3000",
+    "docs:build": "mdbook build docs",
+    "test": "bun test",
+    "test:e2e:ethers": "bun test ./src/adapters/ethers/e2e/*.e2e.ts",
+    "test:e2e:viem": "bun test ./src/adapters/viem/e2e/*.e2e.ts",
+    "test:watch": "bun test --watch",
+    "test:cov": "bun test --coverage",
+    "test:core": "bun test src/core"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "ethers": [
+        "dist/adapters/ethers/index.d.ts"
+      ],
+      "ethers/*": [
+        "dist/adapters/ethers/*"
+      ],
+      "viem": [
+        "dist/adapters/viem/index.d.ts"
+      ],
+      "viem/*": [
+        "dist/adapters/viem/*"
+      ],
+      "types": [
+        "dist/core/types/index.d.ts"
+      ],
+      "types/*": [
+        "dist/core/types/*"
+      ],
+      "core": [
+        "dist/core/index.d.ts"
+      ],
+      "core/*": [
+        "dist/core/*"
+      ],
+      "*": [
+        "dist/*"
+      ]
+    }
+  }
+}

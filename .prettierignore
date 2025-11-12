@@ -1,0 +1,7 @@
+cache
+coverage
+node_modules
+README.md
+docs/*
+.github/*
+CHANGELOG.md

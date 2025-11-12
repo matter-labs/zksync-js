@@ -1,0 +1,167 @@
+name: ci-run-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: unit-tests 🧪
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 'latest'
+
+      - name: Install deps
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Run unit tests w/ coverage
+        run: |
+          bun test
+          test -f coverage/lcov.info || (echo "lcov not found for unit tests" && exit 1)
+          mv coverage/lcov.info lcov.unit.info
+
+      - name: Upload unit coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-unit
+          path: lcov.unit.info
+
+  e2e-tests:
+    name: e2e-tests 🔚2️⃣🔚
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 'latest'
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lcov
+
+      - name: Install Foundry (anvil)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.3.4
+
+      - name: Run ZKsync OS (L1-L2)
+        uses: dutterbutter/zksync-server-action@v0.1.0
+
+      - name: Compile test contracts
+        working-directory: tests/contracts
+        run: |
+          forge build
+
+      - name: Run ethers e2e
+        run: |
+          bun run test:e2e:ethers
+          test -f coverage/lcov.info || (echo "lcov not found for e2e ethers" && exit 1)
+          mv coverage/lcov.info lcov.e2e.ethers.info
+
+      - name: Run viem e2e
+        run: |
+          bun run test:e2e:viem
+          test -f coverage/lcov.info || (echo "lcov not found for e2e viem" && exit 1)
+          mv coverage/lcov.info lcov.e2e.viem.info
+
+      - name: Merge E2E LCOV
+        run: |
+          lcov -a lcov.e2e.ethers.info -a lcov.e2e.viem.info -o lcov.e2e.info
+
+      - name: Upload e2e coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-e2e
+          path: lcov.e2e.info
+
+  coverage-merge:
+    name: coverage-merge 📊
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: [unit-tests, e2e-tests]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: lcov-unit
+          path: ./cov
+      - uses: actions/download-artifact@v4
+        with:
+          name: lcov-e2e
+          path: ./cov
+
+      - name: Install lcov and merge
+        run: |
+          sudo apt-get update && sudo apt-get install -y lcov
+          lcov -a ./cov/lcov.unit.info -a ./cov/lcov.e2e.info -o ./cov/lcov.merged.info
+
+      - name: Report coverage on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: zgosalvez/github-actions-report-lcov@v4
+        with:
+          coverage-files: ./cov/lcov.merged.info
+          minimum-coverage: 80
+          artifact-name: coverage-html
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          update-comment: true
+          title-prefix: "ci-run-tests"
+
+      - name: Upload merged LCOV
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-merged
+          path: ./cov/lcov.merged.info
+          if-no-files-found: error
+          retention-days: 7
+
+  codecov:
+    name: codecov ☁️
+    runs-on: ubuntu-latest
+    needs: coverage-merge
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Download merged LCOV
+        uses: actions/download-artifact@v4
+        with:
+          name: lcov-merged
+          path: ./cov
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./cov/lcov.merged.info
+          flags: combined
+          disable_search: true
+          verbose: true
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+

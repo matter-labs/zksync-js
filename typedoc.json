@@ -1,0 +1,11 @@
+{
+  "entryPoints": ["packages/core/src/index.ts", "packages/ethers/src/index.ts"],
+  "entryPointStrategy": "resolve",
+  "tsconfig": "tsconfig.build.json",
+  "out": "docs/src/api",
+  "excludePrivate": true,
+  "excludeExternals": false,
+  "readme": "none",
+  "plugin": ["typedoc-plugin-markdown"],
+  "hideGenerator": true
+}
