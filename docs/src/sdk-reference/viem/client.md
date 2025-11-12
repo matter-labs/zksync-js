@@ -14,7 +14,7 @@ Provides cached core contract addresses, typed contract access, convenience wall
 ## Import
 
 ```ts
-import { createViemClient } from '@matter-labs/zksync-js/viem';
+import { createViemClient } from '@matterlabs/zksync-js/viem';
 ```
 
 ## Quick Start

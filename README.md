@@ -38,7 +38,7 @@ Install the adapter you need:
 <summary><strong>viem adapter</strong></summary>
 
 ```bash
-npm install @matter-labs/zksync-js viem
+npm install @matterlabs/zksync-js viem
 ```
 
 </details>
@@ -47,7 +47,7 @@ npm install @matter-labs/zksync-js viem
 <summary><strong>ethers adapter</strong></summary>
 
 ```bash
-npm install @matter-labs/zksync-js ethers
+npm install @matterlabs/zksync-js ethers
 ```
 
 </details>
@@ -60,8 +60,8 @@ For exhaustive examples please refer to [`./examples`](./examples/) directory.
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const l1Provider = new JsonRpcProvider('https://sepolia.infura.io/v3/...');
 const l2Provider = new JsonRpcProvider('https://zksync-testnet.rpc');
@@ -84,8 +84,8 @@ console.log('Deposit complete ✅');
 
 ```ts
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
-import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const l1 = createPublicClient({ transport: http('https://sepolia.infura.io/v3/...') });
 const l2 = createPublicClient({ transport: http('https://zksync-testnet.rpc') });

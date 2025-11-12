@@ -3,8 +3,8 @@ import { createPublicClient, createWalletClient, http, parseEther, WalletClient 
 import type { Account, Chain, Transport } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { createViemSdk, createViemClient } from '@matter-labs/zksync-js/viem';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createViemSdk, createViemClient } from '@matterlabs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
 const L2_RPC = 'http://localhost:3050'; // your L2 RPC

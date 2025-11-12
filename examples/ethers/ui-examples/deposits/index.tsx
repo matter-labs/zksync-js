@@ -7,18 +7,18 @@ import {
   type TransactionReceipt,
   parseEther,
 } from 'ethers';
-import { createEthersClient, createEthersSdk, type EthersSdk } from '@matter-labs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk, type EthersSdk } from '@matterlabs/zksync-js/ethers';
 import {
   ETH_ADDRESS,
   L1_SOPH_TOKEN_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
-} from '@matter-labs/zksync-js/core';
+} from '@matterlabs/zksync-js/core';
 import type {
   DepositHandle,
   DepositPlan,
   DepositQuote,
   DepositStatus,
-} from '@matter-labs/zksync-js/core';
+} from '@matterlabs/zksync-js/core';
 import type { Address } from '../../../../src/core/types/primitives';
 
 declare global {

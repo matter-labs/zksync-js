@@ -18,14 +18,14 @@ High-level SDK built on top of the **Viem adapter** — provides deposits, withd
 ## Import
 
 ```ts
-import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
 ```
 
 ## Quick Start
 
 ```ts
 import { createPublicClient, createWalletClient, http } from 'viem';
-import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matter-labs/zksync-js/viem';
+import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/viem';
 
 // Public clients (reads)
 const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
