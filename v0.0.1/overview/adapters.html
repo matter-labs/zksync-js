@@ -1,0 +1,279 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Adapters (viem &amp; ethers) - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href=".././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="adapters-viem--ethers"><a class="header" href="#adapters-viem--ethers">Adapters: <code>viem</code> &amp; <code>ethers</code></a></h1>
+<p>The SDK is designed to work <em>with</em> the tools you already know and love. It's not a standalone library, but rather an extension that plugs into your existing <code>viem</code> or <code>ethers.js</code> setup.</p>
+<p>Think of it like a power adapter 🔌. You have your device (<code>viem</code> or <code>ethers</code> client), and this SDK adapts it to work seamlessly with zkSync's unique features. You bring your own client, and the SDK enhances it.</p>
+<h2 id="why-an-adapter-model"><a class="header" href="#why-an-adapter-model">Why an Adapter Model?</a></h2>
+<p>This approach offers several key advantages:</p>
+<ul>
+<li>✅ <strong>Bring Your Own Stack:</strong> You don't have to replace your existing setup. The SDK integrates directly with the <code>viem</code> clients (<code>PublicClient</code>, <code>WalletClient</code>) or <code>ethers</code> providers and signers you're already using.</li>
+<li>📚 <strong>Familiar Developer Experience (DX):</strong> You continue to handle connections, accounts, and signing just as you always have.</li>
+<li>🧩 <strong>Lightweight &amp; Focused:</strong> The SDK remains small and focused on one thing: providing a robust API for ZKsync-specific actions like deposits and withdrawals.</li>
+</ul>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>First, install the core SDK, then add the adapter that matches your project's stack.</p>
+<pre><code class="language-bash"># For viem users
+npm install @matter-labs/zksync-js viem
+
+# For ethers.js users
+npm install @matter-labs/zksync-js ethers
+</code></pre>
+<h2 id="how-to-use"><a class="header" href="#how-to-use">How to Use</a></h2>
+<p>The SDK extends your existing client. Configure <strong>viem</strong> or <strong>ethers</strong> as you normally would, then pass them into the adapter’s client factory and create the SDK surface.</p>
+<h3 id="viem-public--wallet-client"><a class="header" href="#viem-public--wallet-client">viem (public + wallet client)</a></h3>
+<pre><code class="language-ts">import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+const l1 = createPublicClient({ transport: http(process.env.L1_RPC!) });
+const l2 = createPublicClient({ transport: http(process.env.L2_RPC!) });
+const l1Wallet = createWalletClient({ account, transport: http(process.env.L1_RPC!) });
+
+const client = createViemClient({ l1, l2, l1Wallet });
+const sdk = createViemSdk(client);
+
+const params = {
+  amount: parseEther('0.01'),
+  to: account.address,
+  token: ETH_ADDRESS,
+} as const;
+
+const handle = await sdk.deposits.create(params);
+await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
+</code></pre>
+<h3 id="ethers-providers--signer"><a class="header" href="#ethers-providers--signer">ethers (providers + signer)</a></h3>
+<pre><code class="language-ts">import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+
+const l1 = new JsonRpcProvider(process.env.L1_RPC!);
+const l2 = new JsonRpcProvider(process.env.L2_RPC!);
+const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+
+const client = await createEthersClient({ l1, l2, signer });
+const sdk = createEthersSdk(client);
+
+const params = {
+  amount: parseEther('0.01'),
+  to: await signer.getAddress(),
+  token: ETH_ADDRESS,
+} as const;
+
+const handle = await sdk.deposits.create(params);
+await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
+</code></pre>
+<hr />
+<h2 id="key-principles"><a class="header" href="#key-principles">Key Principles</a></h2>
+<ul>
+<li><strong>No Key Management:</strong> The SDK never asks for or stores private keys. All signing operations are delegated to the <code>viem</code> <code>WalletClient</code> or <code>ethers</code> <code>Signer</code> you provide.</li>
+<li><strong>API Parity:</strong> Both adapters expose the exact same API. The code you write to call <code>client.deposits.quote()</code> is identical whether you're using <code>viem</code> or <code>ethers</code>.</li>
+<li><strong>Easy Migration:</strong> Because the API is the same, switching your project from <code>ethers</code> to <code>viem</code> (or vice versa) is incredibly simple. You only need to change the initialization code.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../overview/mental-model.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../overview/status-vs-wait.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../overview/mental-model.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../overview/status-vs-wait.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Status vs Wait - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href=".././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="status-vs-wait"><a class="header" href="#status-vs-wait">Status vs Wait</a></h1>
+<p>Snapshot progress with <code>status(...)</code> or block until a checkpoint with <code>wait(..., { for })</code> for deposits and withdrawals.</p>
+<p>The SDK exposes two complementary ways to track progress:</p>
+<ul>
+<li><strong><code>status(...)</code></strong> — returns a <strong>non-blocking snapshot</strong> of where an operation is.</li>
+<li><strong><code>wait(..., { for })</code></strong> — <strong>blocks/polls</strong> until a specified checkpoint is reached.</li>
+</ul>
+<p>Both apply to <strong>deposits</strong> and <strong>withdrawals</strong>.
+Use <code>status(...)</code> for UI refreshes; use <code>wait(...)</code> when you need to gate logic on inclusion/finality.</p>
+<blockquote>
+<p>[!NOTE]
+You can pass <strong>either</strong> a handle returned from <code>create(...)</code> <strong>or</strong> a raw transaction hash.</p>
+</blockquote>
+<h2 id="withdrawals"><a class="header" href="#withdrawals">Withdrawals</a></h2>
+<h3 id="withdrawalsstatush--l2txhash-promisewithdrawalstatus"><a class="header" href="#withdrawalsstatush--l2txhash-promisewithdrawalstatus"><code>withdrawals.status(h | l2TxHash): Promise&lt;WithdrawalStatus&gt;</code></a></h3>
+<p><strong>Input</strong></p>
+<ul>
+<li><code>h</code>: a <code>WithdrawalWaitable</code> (e.g., from <code>create</code>) <strong>or</strong> the L2 transaction hash <code>Hex</code>.</li>
+</ul>
+<p><strong>Phases</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Phase</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>UNKNOWN</code></td><td>Handle doesn’t contain an L2 hash yet.</td></tr>
+<tr><td><code>L2_PENDING</code></td><td>L2 transaction not yet included.</td></tr>
+<tr><td><code>PENDING</code></td><td>L2 included, <strong>not</strong> yet ready to finalize on L1.</td></tr>
+<tr><td><code>READY_TO_FINALIZE</code></td><td>Finalization on L1 would succeed now.</td></tr>
+<tr><td><code>FINALIZED</code></td><td>Finalized on L1; funds released.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Notes</strong></p>
+<ul>
+<li>No L2 receipt ⇒ <code>L2_PENDING</code></li>
+<li>Finalization key derivable but not ready ⇒ <code>PENDING</code></li>
+<li>Already finalized ⇒ <code>FINALIZED</code></li>
+</ul>
+<details>
+<summary><code>withdrawals-status.ts</code></summary>
+<pre><code class="language-ts">const s = await sdk.withdrawals.status(handleOrHash);
+// s.phase ∈ 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+</code></pre>
+</details>
+<h3 id="withdrawalswaith--l2txhash--for-pollms-timeoutms-"><a class="header" href="#withdrawalswaith--l2txhash--for-pollms-timeoutms-"><code>withdrawals.wait(h | l2TxHash, { for, pollMs?, timeoutMs? })</code></a></h3>
+<p><strong>Targets</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Target</th><th>Resolves with</th><th></th></tr></thead><tbody>
+<tr><td><code>{ for: 'l2' }</code></td><td><strong>L2 receipt</strong> (`TransactionReceipt</td><td>null`)</td></tr>
+<tr><td><code>{ for: 'ready' }</code></td><td><strong><code>null</code></strong> when finalization becomes possible</td><td></td></tr>
+<tr><td><code>{ for: 'finalized' }</code></td><td><strong>L1 receipt</strong> when finalized, or <code>null</code> if finalized but receipt not found</td><td></td></tr>
+</tbody></table>
+</div>
+<p><strong>Behavior</strong></p>
+<ul>
+<li>If the handle has <strong>no L2 hash</strong>, returns <code>null</code> immediately.</li>
+<li>Default polling interval: <strong>5500 ms</strong> (override with <code>pollMs</code>).</li>
+<li><code>timeoutMs</code> → returns <code>null</code> on deadline.</li>
+</ul>
+<details>
+<summary><code>withdrawals-wait.ts</code></summary>
+<pre><code class="language-ts">// Wait for L2 inclusion → get L2 receipt (augmented with l2ToL1Logs if available)
+const l2Rcpt = await sdk.withdrawals.wait(handle, { for: 'l2', pollMs: 5000 });
+
+// Wait until it becomes finalizable (no side effects)
+await sdk.withdrawals.wait(handle, { for: 'ready' });
+
+// finalize on the L1
+await sdk.withdrawals.tryFinalize(handle.l2TxHash);
+
+// Wait for L1 finalization → L1 receipt (or null if not retrievable)
+const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', timeoutMs: 15 * 60_000 });
+</code></pre>
+</details>
+<blockquote>
+<p>[!TIP]
+Building a UI? Use <code>status(...)</code> to paint the current phase and enable/disable the <strong>Finalize</strong> button when the phase is <code>READY_TO_FINALIZE</code>.</p>
+</blockquote>
+<h2 id="deposits"><a class="header" href="#deposits">Deposits</a></h2>
+<h3 id="depositsstatush--l1txhash-promisedepositstatus"><a class="header" href="#depositsstatush--l1txhash-promisedepositstatus"><code>deposits.status(h | l1TxHash): Promise&lt;DepositStatus&gt;</code></a></h3>
+<p><strong>Input</strong></p>
+<ul>
+<li><code>h</code>: a <code>DepositWaitable</code> (from <code>create</code>) <strong>or</strong> L1 transaction hash <code>Hex</code>.</li>
+</ul>
+<p><strong>Phases</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Phase</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>UNKNOWN</code></td><td>No L1 hash present on the handle.</td></tr>
+<tr><td><code>L1_PENDING</code></td><td>L1 receipt missing.</td></tr>
+<tr><td><code>L1_INCLUDED</code></td><td>L1 included; L2 hash not yet derivable from logs.</td></tr>
+<tr><td><code>L2_PENDING</code></td><td>L2 hash known but L2 receipt missing.</td></tr>
+<tr><td><code>L2_EXECUTED</code></td><td>L2 receipt present with <code>status === 1</code>.</td></tr>
+<tr><td><code>L2_FAILED</code></td><td>L2 receipt present with <code>status !== 1</code>.</td></tr>
+</tbody></table>
+</div><details>
+<summary><code>deposits-status.ts</code></summary>
+<pre><code class="language-ts">const s = await sdk.deposits.status(handleOrL1Hash);
+// s.phase ∈ 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+</code></pre>
+</details>
+<h3 id="depositswaith--l1txhash--for-l1--l2-"><a class="header" href="#depositswaith--l1txhash--for-l1--l2-"><code>deposits.wait(h | l1TxHash, { for: 'l1' | 'l2' })</code></a></h3>
+<p><strong>Targets</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Target</th><th>Resolves with</th></tr></thead><tbody>
+<tr><td><code>{ for: 'l1' }</code></td><td><strong>L1 receipt</strong> or <code>null</code></td></tr>
+<tr><td><code>{ for: 'l2' }</code></td><td><strong>L2 receipt</strong> or <code>null</code> (waits L1 inclusion <strong>then</strong> L2 execution)</td></tr>
+</tbody></table>
+</div><details>
+<summary><code>deposits-wait.ts</code></summary>
+<pre><code class="language-ts">const l1Rcpt = await sdk.deposits.wait(handle, { for: 'l1' });
+const l2Rcpt = await sdk.deposits.wait(handle, { for: 'l2' });  // funds available on L2
+</code></pre>
+</details>
+<blockquote>
+<p>[!NOTE]
+<code>wait(..., { for: 'l2' })</code> waits for both <strong>L1 inclusion</strong> and <strong>canonical L2 execution</strong>.</p>
+</blockquote>
+<h2 id="practical-patterns"><a class="header" href="#practical-patterns">Practical Patterns</a></h2>
+<h3 id="pick-the-right-tool"><a class="header" href="#pick-the-right-tool">Pick the Right Tool</a></h3>
+<ul>
+<li><strong>Use <code>status(...)</code></strong> for <strong>poll-less UI refreshes</strong> (e.g., on page focus or controlled intervals).</li>
+<li><strong>Use <code>wait(...)</code></strong> for <strong>workflow gating</strong> (scripts, jobs, or “continue when X happens”).</li>
+</ul>
+<h3 id="timeouts--polling"><a class="header" href="#timeouts--polling">Timeouts &amp; Polling</a></h3>
+<details>
+<summary><code>polling.ts</code></summary>
+<pre><code class="language-ts">const ready = await sdk.withdrawals.wait(handle, {
+  for: 'ready',
+  pollMs: 5500, // minimum enforced internally
+  timeoutMs: 30 * 60_000, // 30 minutes → returns null on deadline
+});
+if (ready === null) {
+  // timeout or is finalizable — decide whether to retry or show a hint
+}
+</code></pre>
+</details>
+<h3 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h3>
+<ul>
+<li>Network hiccup while fetching receipts ⇒ throws <code>ZKsyncError</code> of kind <strong><code>RPC</code></strong>.</li>
+<li>Internal decode issue ⇒ throws <code>ZKsyncError</code> of kind <strong><code>INTERNAL</code></strong>.</li>
+</ul>
+<p>Prefer <strong>no-throw</strong> variants if you want explicit flow control:</p>
+<details>
+<summary><code>no-throw.ts</code></summary>
+<pre><code class="language-ts">const r = await sdk.withdrawals.tryWait(handle, { for: 'finalized' });
+if (!r.ok) {
+  console.error('Finalize wait failed:', r.error);
+} else {
+  console.log('Finalized L1 receipt:', r.value);
+}
+</code></pre>
+</details>
+<hr />
+<h2 id="tips--edge-cases"><a class="header" href="#tips--edge-cases">Tips &amp; Edge Cases</a></h2>
+<ul>
+<li><strong>Handles vs hashes:</strong> Passing a handle without the relevant hash yields <code>UNKNOWN</code> / <code>null</code>. If you already have a hash, pass it directly.</li>
+<li><strong>Finalization windows:</strong> For withdrawals, <code>READY_TO_FINALIZE</code> may take a while. Use <code>status(...)</code> for responsive UI and reserve <code>wait(..., { for: 'finalized' })</code> for blocking logic.</li>
+<li><strong>Retries:</strong> If a <code>wait</code> returns <code>null</code> because of <code>timeoutMs</code>, safely call <code>status(...)</code> to decide whether to retry or surface user guidance.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../overview/adapters.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../overview/finalization.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../overview/adapters.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../overview/finalization.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

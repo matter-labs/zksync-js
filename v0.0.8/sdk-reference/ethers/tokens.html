@@ -1,0 +1,296 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>tokens - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../.././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="tokens"><a class="header" href="#tokens">Tokens</a></h1>
+<p>Token identity, L1↔L2 mapping, bridge asset IDs, and chain token facts for ETH, base token, and ERC-20s.</p>
+<hr />
+<h2 id="at-a-glance"><a class="header" href="#at-a-glance">At a Glance</a></h2>
+<ul>
+<li><strong>Resource:</strong> <code>sdk.tokens</code></li>
+<li><strong>Capabilities:</strong> resolve tokens, map L1⇄L2 addresses, compute <code>assetId</code>, detect base token, WETH helpers, compute bridged addresses.</li>
+<li><strong>Auto-handling:</strong> ETH aliases (<code>ETH_ADDRESS</code>, <code>FORMAL_ETH_ADDRESS</code>) and L2 base-token alias are normalized for you.</li>
+<li><strong>Error style:</strong> Throwing methods (<code>resolve</code>, <code>toL1Address</code>, etc.); wrap in try/catch or use upstream result-handling.</li>
+</ul>
+<h2 id="import"><a class="header" href="#import">Import</a></h2>
+<pre><code class="language-ts">import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+
+const l1 = new JsonRpcProvider(process.env.L1_RPC!);
+const l2 = new JsonRpcProvider(process.env.L2_RPC!);
+const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+
+const client = createEthersClient({ l1, l2, signer });
+const sdk = createEthersSdk(client);
+// sdk.tokens → TokensResource
+</code></pre>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<p>Resolve a token by L1 address and fetch its L2 counterpart + bridge metadata:</p>
+<pre><code class="language-ts">const tokenAddress = '0xTokenL1...';
+const token = await sdk.tokens.resolve(tokenAddress);
+/*
+{
+  kind: 'eth' | 'base' | 'erc20',
+  l1: Address,
+  l2: Address,
+  assetId: Hex,
+  originChainId: bigint,
+  isChainEthBased: boolean,
+  baseTokenAssetId: Hex,
+  wethL1: Address,
+  wethL2: Address,
+}
+*/
+
+</code></pre>
+<p>Map addresses directly:</p>
+<pre><code class="language-ts">const tokenAddress = '0xTokenL1...';
+const l2Addr = await sdk.tokens.toL2Address(tokenAddress);
+const l1Addr = await sdk.tokens.toL1Address(l2Addr);
+</code></pre>
+<p>Compute bridge identifiers:</p>
+<pre><code class="language-ts">const tokenAddress = '0xTokenL1...';
+const assetId = await sdk.tokens.assetIdOfL1(tokenAddress);
+const backL2 = await sdk.tokens.l2TokenFromAssetId(assetId);
+</code></pre>
+<h2 id="method-reference"><a class="header" href="#method-reference">Method Reference</a></h2>
+<h3 id="resolveref-address--tokenref-opts--chain-l1--l2---promiseresolvedtoken"><a class="header" href="#resolveref-address--tokenref-opts--chain-l1--l2---promiseresolvedtoken"><code>resolve(ref: Address | TokenRef, opts?: { chain?: 'l1' | 'l2' }) → Promise&lt;ResolvedToken&gt;</code></a></h3>
+<p>Resolve a token reference into full metadata (kind, addresses, assetId, chain facts).</p>
+<blockquote>
+<p>[!NOTE]
+Pass <code>opts.chain: 'l2'</code> when providing an L2 token address; defaults to <code>'l1'</code>.</p>
+</blockquote>
+<h3 id="l1l2-mapping"><a class="header" href="#l1l2-mapping">L1↔L2 Mapping</a></h3>
+<ul>
+<li><code>toL2Address(l1Token: Address) → Promise&lt;Address&gt;</code> — returns L2 token; base token → <code>L2_BASE_TOKEN_ADDRESS</code>, ETH aliases normalized.</li>
+<li><code>toL1Address(l2Token: Address) → Promise&lt;Address&gt;</code> — returns L1 token; ETH alias normalized.</li>
+</ul>
+<h3 id="bridge-identity"><a class="header" href="#bridge-identity">Bridge Identity</a></h3>
+<ul>
+<li><code>assetIdOfL1(l1Token: Address) → Promise&lt;Hex&gt;</code></li>
+<li><code>assetIdOfL2(l2Token: Address) → Promise&lt;Hex&gt;</code></li>
+<li><code>l2TokenFromAssetId(assetId: Hex) → Promise&lt;Address&gt;</code></li>
+<li><code>l1TokenFromAssetId(assetId: Hex) → Promise&lt;Address&gt;</code></li>
+<li><code>originChainId(assetId: Hex) → Promise&lt;bigint&gt;</code></li>
+</ul>
+<h3 id="chain-token-facts"><a class="header" href="#chain-token-facts">Chain Token Facts</a></h3>
+<ul>
+<li><code>baseTokenAssetId() → Promise&lt;Hex&gt;</code> — cached.</li>
+<li><code>isChainEthBased() → Promise&lt;boolean&gt;</code> — compares base token assetId vs ETH assetId.</li>
+<li><code>wethL1() → Promise&lt;Address&gt;</code> — cached WETH on L1.</li>
+<li><code>wethL2() → Promise&lt;Address&gt;</code> — cached WETH on L2.</li>
+</ul>
+<h3 id="address-compute"><a class="header" href="#address-compute">Address Compute</a></h3>
+<ul>
+<li><code>computeL2BridgedAddress({ originChainId, l1Token }) → Promise&lt;Address&gt;</code> — deterministic CREATE2 address for a bridged token; handles ETH alias normalization.</li>
+</ul>
+<h2 id="notes--pitfalls"><a class="header" href="#notes--pitfalls">Notes &amp; Pitfalls</a></h2>
+<ul>
+<li><strong>Caching:</strong> <code>baseTokenAssetId</code>, <code>wethL1</code>, <code>wethL2</code>, and the origin chain id are memoized; repeated calls avoid extra RPC hits.</li>
+<li><strong>ETH aliases:</strong> Both <code>0xEeeee…</code> (ETH sentinel) and <code>FORMAL_ETH_ADDRESS</code> are normalized to canonical ETH.</li>
+<li><strong>Base token alias:</strong> <code>L2_BASE_TOKEN_ADDRESS</code> maps back to the L1 base token via <code>toL1Address</code>.</li>
+<li><strong>Error handling:</strong> Methods throw typed errors via the adapters’ error handlers. Wrap with <code>try/catch</code> or rely on higher-level <code>try*</code> patterns.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../sdk-reference/ethers/finalization-services.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../sdk-reference/viem/client.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../sdk-reference/ethers/finalization-services.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../sdk-reference/viem/client.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
