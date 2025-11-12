@@ -1,0 +1,605 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>interop - ZKsync SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../.././mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="interop"><a class="header" href="#interop">Interop</a></h1>
+<p>Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 tokens, or arbitrary contract calls from a source L2 to a destination L2.</p>
+<hr />
+<h2 id="at-a-glance"><a class="header" href="#at-a-glance">At a Glance</a></h2>
+<ul>
+<li><strong>Resource:</strong> <code>sdk.interop</code></li>
+<li><strong>Typical flow:</strong> <code>create → wait → finalize</code></li>
+<li><strong>Inspection flow:</strong> <code>quote → prepare → create → status → wait → finalize</code></li>
+<li><strong>Error style:</strong> Throwing methods (<code>quote</code>, <code>prepare</code>, <code>create</code>, <code>status</code>, <code>wait</code>, <code>finalize</code>, <code>getInteropRoot</code>, <code>verifyBundle</code>) + safe variants (<code>tryQuote</code>, <code>tryPrepare</code>, <code>tryCreate</code>, <code>tryWait</code>, <code>tryFinalize</code>)</li>
+<li><strong>SDK config:</strong> Requires <code>interop: { gwChain }</code> — see <a href="#import">Import</a></li>
+</ul>
+<h2 id="import"><a class="header" href="#import">Import</a></h2>
+<pre><code class="language-ts">import { JsonRpcProvider, Wallet } from 'ethers';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+
+const l1 = new JsonRpcProvider(process.env.L1_RPC!);
+const l2Src = new JsonRpcProvider(process.env.SRC_L2_RPC!);
+
+const client = createEthersClient({
+  l1,
+  l2: l2Src,
+  signer: new Wallet(process.env.PRIVATE_KEY!, l1),
+});
+
+const sdk = createEthersSdk(client, {
+  interop: { gwChain: process.env.GW_RPC! }, // required for interop
+});
+// sdk.interop → InteropResource
+</code></pre>
+<blockquote>
+<p>[!INFO]
+The <code>gwChain</code> option is <strong>required</strong> for interop. It can be a RPC URL string or a live <code>AbstractProvider</code>.
+It is used to poll the gateway chain for interop root availability during <code>wait()</code>.</p>
+</blockquote>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<p>Send <strong>0.001 ETH</strong> from source L2 to destination L2:</p>
+<pre><code class="language-ts">const handle = await sdk.interop.create(l2Dst, {
+  actions: [{ type: 'sendErc20', token: tokenSrcAddress, to: me, amount: 1_000_000n }],
+});
+
+const finalizationInfo = await sdk.interop.wait(l2Dst, handle);
+const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
+// result.dstExecTxHash — tx hash on destination chain
+</code></pre>
+<blockquote>
+<p>[!TIP]
+For UX that never throws, use the <code>try*</code> variants and branch on <code>ok</code>.</p>
+</blockquote>
+<hr />
+<h2 id="method-reference"><a class="header" href="#method-reference">Method Reference</a></h2>
+<h3 id="quotedstchain-params--promiseinteropquote"><a class="header" href="#quotedstchain-params--promiseinteropquote"><code>quote(dstChain, params) → Promise&lt;InteropQuote&gt;</code></a></h3>
+<p>Estimate the operation (route, approvals, fee). Does <strong>not</strong> send transactions.</p>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>dstChain</code></td><td><code>ChainRef</code></td><td>✅</td><td>Destination chain — URL string or <code>AbstractProvider</code>.</td></tr>
+<tr><td><code>params.actions</code></td><td><code>InteropAction[]</code></td><td>✅</td><td>Ordered list of actions to execute on the destination chain.</td></tr>
+<tr><td><code>params.execution</code></td><td><code>{ only: Address }</code></td><td>❌</td><td>Restrict who can execute the bundle on destination.</td></tr>
+<tr><td><code>params.unbundling</code></td><td><code>{ by: Address }</code></td><td>❌</td><td>Allow a specific address to unbundle actions individually.</td></tr>
+<tr><td><code>params.fee</code></td><td><code>{ useFixed: boolean }</code></td><td>❌</td><td>Use fixed ZK fee (<code>true</code>) instead of dynamic base-token fee.</td></tr>
+<tr><td><code>params.txOverrides</code></td><td><code>TxOverrides</code></td><td>❌</td><td>Gas overrides for the source L2 transaction.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns:</strong> <code>InteropQuote</code></p>
+<pre><code class="language-ts">const q = await sdk.interop.quote(l2Dst, {
+  actions: [{ type: 'sendErc20', token: tokenSrcAddress, to: me, amount: 1_000_000n }],
+});
+/*
+{
+  route: 'direct' | 'indirect',
+  approvalsNeeded: [],          // non-empty for ERC-20 actions
+  totalActionValue: bigint,     // sum of all native value across actions
+  bridgedTokenTotal: bigint,    // sum of ERC-20 amounts
+  interopFee: { token, amount }, // fee charged by the interop protocol
+  l2Fee?: bigint                // estimated L2 execution fee
+}
+*/
+</code></pre>
+<blockquote>
+<p>[!TIP]
+If <code>approvalsNeeded</code> is non-empty (ERC-20 actions), <code>create()</code> will include approval steps automatically.</p>
+</blockquote>
+<h3 id="tryquotedstchain-params--promise-ok-true-value-interopquote----ok-false-error-"><a class="header" href="#tryquotedstchain-params--promise-ok-true-value-interopquote----ok-false-error-"><code>tryQuote(dstChain, params) → Promise&lt;{ ok: true; value: InteropQuote } | { ok: false; error }&gt;</code></a></h3>
+<p>Result-style <code>quote</code>.</p>
+<h3 id="preparedstchain-params--promiseinteropplantransactionrequest"><a class="header" href="#preparedstchain-params--promiseinteropplantransactionrequest"><code>prepare(dstChain, params) → Promise&lt;InteropPlan&lt;TransactionRequest&gt;&gt;</code></a></h3>
+<p>Build the plan (ordered steps + unsigned transactions) without sending.</p>
+<p><strong>Returns:</strong> <code>InteropPlan</code></p>
+<pre><code class="language-ts">const plan = await sdk.interop.prepare(l2Dst, {
+  actions: [{ type: 'sendErc20', token: tokenSrcAddress, to: me, amount: 1_000_000n }],
+});
+/*
+{
+  route: 'direct' | 'indirect',
+  summary: InteropQuote,
+  steps: [
+    { key: 'sendBundle', kind: 'sendBundle', description: '...', tx: TransactionRequest }
+  ]
+}
+*/
+</code></pre>
+<h3 id="trypreparedstchain-params--promise-ok-true-value-interopplan----ok-false-error-"><a class="header" href="#trypreparedstchain-params--promise-ok-true-value-interopplan----ok-false-error-"><code>tryPrepare(dstChain, params) → Promise&lt;{ ok: true; value: InteropPlan } | { ok: false; error }&gt;</code></a></h3>
+<p>Result-style <code>prepare</code>.</p>
+<h3 id="createdstchain-params--promiseinterophandletransactionrequest"><a class="header" href="#createdstchain-params--promiseinterophandletransactionrequest"><code>create(dstChain, params) → Promise&lt;InteropHandle&lt;TransactionRequest&gt;&gt;</code></a></h3>
+<p>Prepares and <strong>executes</strong> all required source-chain steps.
+Waits for each step receipt before returning.</p>
+<p><strong>Returns:</strong> <code>InteropHandle</code></p>
+<pre><code class="language-ts">const handle = await sdk.interop.create(l2Dst, {
+  actions: [{ type: 'sendErc20', token: tokenSrcAddress, to: me, amount: 1_000_000n }],
+});
+/*
+{
+  kind: 'interop',
+  l2SrcTxHash: Hex,              // tx hash on source L2
+  stepHashes: Record&lt;string, Hex&gt;,
+  plan: InteropPlan
+}
+*/
+</code></pre>
+<blockquote>
+<p>[!WARNING]
+If any step reverts, <code>create()</code> throws a typed error.
+Prefer <code>tryCreate()</code> to avoid exceptions.</p>
+</blockquote>
+<h3 id="trycreatedstchain-params--promise-ok-true-value-interophandle----ok-false-error-"><a class="header" href="#trycreatedstchain-params--promise-ok-true-value-interophandle----ok-false-error-"><code>tryCreate(dstChain, params) → Promise&lt;{ ok: true; value: InteropHandle } | { ok: false; error }&gt;</code></a></h3>
+<p>Result-style <code>create</code>.</p>
+<h3 id="statusdstchain-waitable-opts--promiseinteropstatus"><a class="header" href="#statusdstchain-waitable-opts--promiseinteropstatus"><code>status(dstChain, waitable, opts?) → Promise&lt;InteropStatus&gt;</code></a></h3>
+<p>Non-blocking lifecycle inspection. Returns the current phase.
+Accepts either an <code>InteropHandle</code> or a raw source L2 tx hash.</p>
+<p><strong>Phases</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Phase</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>SENT</code></td><td>Bundle sent on source chain</td></tr>
+<tr><td><code>VERIFIED</code></td><td>Bundle verified, ready for execution on destination</td></tr>
+<tr><td><code>EXECUTED</code></td><td>All actions executed on destination</td></tr>
+<tr><td><code>UNBUNDLED</code></td><td>Actions selectively executed or cancelled</td></tr>
+<tr><td><code>FAILED</code></td><td>Execution reverted or invalid</td></tr>
+<tr><td><code>UNKNOWN</code></td><td>Status cannot be determined</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-ts">const st = await sdk.interop.status(l2Dst, handle);
+// or: sdk.interop.status(l2Dst, handle.l2SrcTxHash)
+// st.phase: 'SENT' | 'VERIFIED' | 'EXECUTED' | 'UNBUNDLED' | 'FAILED' | 'UNKNOWN'
+</code></pre>
+<h3 id="waitdstchain-waitable-opts--promiseinteropfinalizationinfo"><a class="header" href="#waitdstchain-waitable-opts--promiseinteropfinalizationinfo"><code>wait(dstChain, waitable, opts?) → Promise&lt;InteropFinalizationInfo&gt;</code></a></h3>
+<p>Block until the bundle proof is available on the destination chain.
+Returns the <code>InteropFinalizationInfo</code> needed to call <code>finalize()</code>.</p>
+<ul>
+<li><code>opts.pollMs</code> — polling interval in ms (default: 5000)</li>
+<li><code>opts.timeoutMs</code> — max wait time in ms (throws on timeout)</li>
+</ul>
+<pre><code class="language-ts">const finalizationInfo = await sdk.interop.wait(l2Dst, handle, {
+  pollMs: 5_000,
+  timeoutMs: 30 * 60_000,
+});
+// finalizationInfo.bundleHash — interop bundle hash
+// finalizationInfo.proof     — Merkle proof for execution
+</code></pre>
+<h3 id="trywaitdstchain-waitable-opts--promise-ok-true-value-interopfinalizationinfo----ok-false-error-"><a class="header" href="#trywaitdstchain-waitable-opts--promise-ok-true-value-interopfinalizationinfo----ok-false-error-"><code>tryWait(dstChain, waitable, opts?) → Promise&lt;{ ok: true; value: InteropFinalizationInfo } | { ok: false; error }&gt;</code></a></h3>
+<p>Result-style <code>wait</code>.</p>
+<h3 id="finalizedstchain-h-opts-txoverrides--promiseinteropfinalizationresult"><a class="header" href="#finalizedstchain-h-opts-txoverrides--promiseinteropfinalizationresult"><code>finalize(dstChain, h, opts?, txOverrides?) → Promise&lt;InteropFinalizationResult&gt;</code></a></h3>
+<p>Execute the bundle on the <strong>destination chain</strong>. Accepts either:</p>
+<ul>
+<li><code>InteropFinalizationInfo</code> (returned by <code>wait()</code>) — executes immediately</li>
+<li><code>InteropHandle</code> or raw tx hash — calls <code>wait()</code> internally first</li>
+</ul>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>dstChain</code></td><td><code>ChainRef</code></td><td>✅</td><td>Destination chain — URL string or <code>AbstractProvider</code>.</td></tr>
+<tr><td><code>h</code></td><td><code>InteropFinalizationInfo | InteropWaitable</code></td><td>✅</td><td>Finalization info or a waitable handle/hash.</td></tr>
+<tr><td><code>opts</code></td><td><code>LogsQueryOptions</code></td><td>❌</td><td>Options for log queries used to check bundle status.</td></tr>
+<tr><td><code>txOverrides</code></td><td><code>TxGasOverrides</code></td><td>❌</td><td>Gas overrides for the <code>executeBundle</code> transaction on destination.</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-ts">const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
+// { bundleHash: Hex, dstExecTxHash: Hex }
+
+// Alternatively, pass a waitable — finalize() calls wait() internally:
+// const result = await sdk.interop.finalize(l2Dst, handle);
+</code></pre>
+<p>To override gas on the destination <code>executeBundle</code> transaction:</p>
+<pre><code class="language-ts">await sdk.interop.finalize(l2Destination, finalizationInfo, undefined, {
+  gasLimit: 5_000_000n,
+  maxFeePerGas: 200_000_000n,
+});
+</code></pre>
+<blockquote>
+<p>[!INFO]
+<code>finalize()</code> sends a transaction on the <strong>destination L2</strong>, not on L1.
+Use <code>txOverrides</code> if the destination chain requires a manual gas limit (e.g. when the interop handler calls a receiver contract that may consume significant gas).</p>
+</blockquote>
+<h3 id="tryfinalizedstchain-h-opts-txoverrides--promise-ok-true-value-interopfinalizationresult----ok-false-error-"><a class="header" href="#tryfinalizedstchain-h-opts-txoverrides--promise-ok-true-value-interopfinalizationresult----ok-false-error-"><code>tryFinalize(dstChain, h, opts?, txOverrides?) → Promise&lt;{ ok: true; value: InteropFinalizationResult } | { ok: false; error }&gt;</code></a></h3>
+<p>Result-style <code>finalize</code>. Accepts the same <code>txOverrides</code> parameter.</p>
+<h3 id="getinteroprootdstchain-rootchainid-batchnumber--promisehex"><a class="header" href="#getinteroprootdstchain-rootchainid-batchnumber--promisehex"><code>getInteropRoot(dstChain, rootChainId, batchNumber) → Promise&lt;Hex&gt;</code></a></h3>
+<p>Read the interop root stored on the destination chain for a given source chain and batch number. Useful for low-level inspection or building custom proof-verification flows.</p>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>dstChain</code></td><td><code>ChainRef</code></td><td>Destination chain — URL string or <code>AbstractProvider</code>.</td></tr>
+<tr><td><code>rootChainId</code></td><td><code>bigint</code></td><td>Chain ID of the source (root) chain.</td></tr>
+<tr><td><code>batchNumber</code></td><td><code>bigint</code></td><td>Batch number on the source chain.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns:</strong> <code>Promise&lt;Hex&gt;</code> — the raw interop root hash, or zero bytes if not yet available.</p>
+<pre><code class="language-ts">// Fetch the interop root for a given source chain ID and batch number
+const root = await sdk.interop.getInteropRoot(
+  l2Dst,
+  /* rootChainId */ 300n,   // source chain ID
+  /* batchNumber */ 42n,    // batch number on the source chain
+);
+console.log('Interop root:', root); // 0x...
+</code></pre>
+<h3 id="verifybundledstchain-h--promiseinteropfinalizationresult"><a class="header" href="#verifybundledstchain-h--promiseinteropfinalizationresult"><code>verifyBundle(dstChain, h) → Promise&lt;InteropFinalizationResult&gt;</code></a></h3>
+<p>Submit a <code>verifyBundle</code> transaction on the destination chain. Unlike <code>finalize()</code>, this calls the handler's verify path, which records the bundle as verified without executing actions.</p>
+<p>Accepts either:</p>
+<ul>
+<li><code>InteropFinalizationInfo</code> (returned by <code>wait()</code>) — submits immediately</li>
+<li><code>InteropHandle</code> or raw tx hash — calls <code>wait()</code> internally first</li>
+</ul>
+<p><strong>Returns:</strong> <code>InteropFinalizationResult</code></p>
+<pre><code class="language-ts">// Verify the bundle on the destination chain without executing actions.
+// Accepts an InteropHandle, InteropFinalizationInfo, or raw tx hash.
+const result = await sdk.interop.verifyBundle(l2Dst, handle);
+// { bundleHash: Hex, dstExecTxHash: Hex }
+console.log('Bundle verified on destination:', result.dstExecTxHash);
+</code></pre>
+<blockquote>
+<p>[!INFO]
+<code>verifyBundle()</code> is a <strong>power-user</strong> method. Most integrations should use <code>finalize()</code> instead.
+Use this when you need to separate the verification and execution steps.</p>
+</blockquote>
+<hr />
+<h2 id="end-to-end-examples"><a class="header" href="#end-to-end-examples">End-to-End Examples</a></h2>
+<h3 id="erc-20-transfer"><a class="header" href="#erc-20-transfer">ERC-20 Transfer</a></h3>
+<pre><code class="language-ts">// Transfer an ERC-20 token from source L2 to destination L2
+const handle = await sdk.interop.create(l2Dst, {
+  actions: [
+    {
+      type: 'sendErc20',
+      token: tokenSrcAddress,
+      to: me,
+      amount: 1_000_000n, // e.g. 1 USDC (6 decimals)
+    },
+  ],
+  unbundling: { by: me }, // allow recipient to unbundle
+});
+
+const finalizationInfo = await sdk.interop.wait(l2Dst, handle, {
+  pollMs: 5_000,
+  timeoutMs: 30 * 60_000,
+});
+
+const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
+console.log('ERC-20 transferred to destination:', result.dstExecTxHash);
+</code></pre>
+<h3 id="remote-contract-call"><a class="header" href="#remote-contract-call">Remote Contract Call</a></h3>
+<pre><code class="language-ts">// Execute an arbitrary call on destination L2
+const handle = await sdk.interop.create(l2Dst, {
+  actions: [
+    {
+      type: 'call',
+      to: greeterAddress,
+      data: calldata,
+      // value: 0n, // optional native value for payable calls
+    },
+  ],
+});
+
+const finalizationInfo = await sdk.interop.wait(l2Dst, handle, {
+  pollMs: 5_000,
+  timeoutMs: 30 * 60_000,
+});
+
+const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
+console.log('Remote call executed on destination:', result.dstExecTxHash);
+</code></pre>
+<hr />
+<h2 id="types-overview"><a class="header" href="#types-overview">Types (Overview)</a></h2>
+<h3 id="interop-params"><a class="header" href="#interop-params">Interop Params</a></h3>
+<pre><code class="language-ts">type InteropRoute = 'direct' | 'indirect';
+
+type InteropAction =
+  | { type: 'sendErc20'; token: Address; to: Address; amount: bigint }
+  | { type: 'call'; to: Address; data: Hex; value?: bigint };
+
+interface InteropParams {
+  actions: InteropAction[];
+  execution?: { only: Address };
+  unbundling?: { by: Address };
+  fee?: { useFixed: boolean };
+  txOverrides?: {
+    nonce?: number;
+    gasLimit?: bigint;
+    maxFeePerGas?: bigint;
+    maxPriorityFeePerGas?: bigint;
+  };
+}
+</code></pre>
+<h3 id="interop-quote"><a class="header" href="#interop-quote">Interop Quote</a></h3>
+<pre><code class="language-ts">interface InteropFee {
+  token: Address;
+  amount: bigint;
+}
+
+interface ApprovalNeed {
+  token: Address;
+  spender: Address;
+  amount: bigint;
+}
+
+interface InteropQuote {
+  route: InteropRoute;
+  approvalsNeeded: readonly ApprovalNeed[];
+  totalActionValue: bigint;
+  bridgedTokenTotal: bigint;
+  interopFee: InteropFee;
+  l2Fee?: bigint;
+}
+</code></pre>
+<h3 id="interop-plan"><a class="header" href="#interop-plan">Interop Plan</a></h3>
+<pre><code class="language-ts">interface PlanStep&lt;Tx&gt; {
+  key: string;
+  kind: string;
+  description: string;
+  tx: Tx;
+}
+
+interface InteropPlan&lt;Tx&gt; {
+  route: InteropRoute;
+  summary: InteropQuote;
+  steps: Array&lt;PlanStep&lt;Tx&gt;&gt;;
+}
+</code></pre>
+<h3 id="interop-handle"><a class="header" href="#interop-handle">Interop Handle</a></h3>
+<pre><code class="language-ts">interface InteropHandle&lt;Tx&gt; {
+  kind: 'interop';
+  l2SrcTxHash: Hex;
+  l1MsgHash?: Hex;
+  bundleHash?: Hex;
+  dstExecTxHash?: Hex;
+  stepHashes: Record&lt;string, Hex&gt;;
+  plan: InteropPlan&lt;Tx&gt;;
+}
+</code></pre>
+<h3 id="interop-status"><a class="header" href="#interop-status">Interop Status</a></h3>
+<pre><code class="language-ts">type InteropPhase =
+  | 'SENT'       // bundle sent on source chain
+  | 'VERIFIED'   // verified, ready for execution on destination
+  | 'EXECUTED'   // all actions executed on destination
+  | 'UNBUNDLED'  // actions selectively executed or cancelled
+  | 'FAILED'     // execution reverted or invalid
+  | 'UNKNOWN';   // status cannot be determined
+
+interface InteropStatus {
+  phase: InteropPhase;
+  l2SrcTxHash?: Hex;
+  l1MsgHash?: Hex;
+  bundleHash?: Hex;
+  dstExecTxHash?: Hex;
+}
+</code></pre>
+<h3 id="interop-finalization"><a class="header" href="#interop-finalization">Interop Finalization</a></h3>
+<pre><code class="language-ts">interface InteropMessageProof {
+  chainId: bigint;
+  l1BatchNumber: bigint;
+  l2MessageIndex: bigint;
+  message: {
+    txNumberInBatch: number;
+    sender: Address;
+    data: Hex;
+  };
+  proof: Hex[];
+}
+
+interface InteropFinalizationInfo {
+  l2SrcTxHash: Hex;
+  bundleHash: Hex;
+  dstChainId: bigint;
+  proof: InteropMessageProof;
+  encodedData: Hex;
+}
+
+interface InteropFinalizationResult {
+  bundleHash: Hex;
+  dstExecTxHash: Hex;
+}
+</code></pre>
+<blockquote>
+<p>[!TIP]
+Prefer the <code>try*</code> variants to avoid exceptions and work with structured result objects.</p>
+</blockquote>
+<hr />
+<h2 id="notes--pitfalls"><a class="header" href="#notes--pitfalls">Notes &amp; Pitfalls</a></h2>
+<ul>
+<li><strong><code>gwChain</code> is required:</strong> Forgetting it causes a <code>STATE</code> error on the first interop call.</li>
+<li><strong><code>dstChain</code> first:</strong> All interop methods take the destination chain as the <strong>first</strong> argument — unlike deposits/withdrawals.</li>
+<li><strong>Finalization is on destination:</strong> <code>finalize()</code> sends a transaction on the <strong>destination L2</strong>, not on L1. Use <code>txOverrides</code> to set a custom gas limit when the receiver contract consumes significant gas.</li>
+<li><strong><code>wait()</code> can take minutes:</strong> It polls until the L2→L1 proof is generated and the interop root is available on destination. Use <code>timeoutMs</code> to bound long waits.</li>
+<li><strong>ERC-20 approvals:</strong> If <code>approvalsNeeded</code> is non-empty, <code>create()</code> automatically sends approval transactions first.</li>
+<li><strong>ERC-20 tokens must be migrated to Gateway:</strong> The SDK does <strong>not</strong> migrate tokens automatically. If the ERC-20 token has not been migrated to the Gateway chain, <code>create()</code> will throw an error. Migrate the token first before using it in an interop transfer.</li>
+<li><strong>Multiple actions:</strong> Actions are atomic — all succeed or the bundle fails. Use <code>unbundling</code> to allow partial execution.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../sdk-reference/ethers/withdrawals.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../sdk-reference/ethers/finalization-services.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../sdk-reference/ethers/withdrawals.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../sdk-reference/ethers/finalization-services.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
