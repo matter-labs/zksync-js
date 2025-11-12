@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "examples/*",
+    "eslint.config.mjs",
+    "docs/**",
+    "**/__tests__/**",
+    "src/adapters/__tests__/**",
+    "**/*.test.ts",
+    "typechain/factories/**",
+    "typechain/contracts/**"
+  ]
+}

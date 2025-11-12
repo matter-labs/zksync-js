@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "bun-types"],
+    // Bundler mode
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": false,
+    // types
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false
+  },
+  "files": [],
+  "exclude": [
+    "node_modules",
+    "build",
+    "examples/*",
+    "docs/**",
+    "**/__tests__/**",
+    "typechain/**/**",
+    "**/*.e2e.ts",
+    "src/**/e2e/**"
+  ]
+}

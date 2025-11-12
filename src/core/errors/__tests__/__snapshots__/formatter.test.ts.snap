@@ -1,0 +1,29 @@
+// Bun Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`errors/formatter.formatEnvelopePretty formats a rich envelope with context, step, revert, and cause 1`] = `
+"✖ ZKsyncError [RPC]
+  Message   : Failed to fetch L2→L1 log proof.
+
+  Operation : zksrpc.getL2ToL1LogProof
+  Resource  : zksrpc
+  Step      : fetch-proof
+
+  Context   : txHash=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  •  nonce=7
+  Revert    : selector=0x08c379a0
+              name=Error
+              contract=L2MessageVerification
+              fn=verify(bytes32)
+              args=["0x1111111111111111111111111111111111111111111111111111111111111111"]
+  Cause     : name=TimeoutError  code=ETIMEDOUT
+              message=5000ms exceeded while waiting for response
+              data=0xdeadbeefcafebabedeadbeef"
+`;
+
+exports[`errors/formatter.formatEnvelopePretty handles minimal envelope without optional fields 1`] = `
+"✖ ZKsyncError [STATE]
+  Message   : Proof not yet available. Please try again later.
+
+  Operation : zksrpc.getL2ToL1LogProof
+  Resource  : zksrpc
+"
+`;
