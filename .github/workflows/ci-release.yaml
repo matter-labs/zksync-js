@@ -62,7 +62,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.value }}
-          name: zksync-sdk ${{ steps.tag.outputs.value }}${{ inputs.prerelease_name && format(' {0}', inputs.prerelease_name) || '' }}
+          name: zksync-js ${{ steps.tag.outputs.value }}${{ inputs.prerelease_name && format(' {0}', inputs.prerelease_name) || '' }}
           target_commitish: ${{ github.sha }}
           prerelease: ${{ inputs.prerelease_name != '' }}
 
@@ -86,7 +86,7 @@ jobs:
         with:
           node-version: 22.x
           registry-url: 'https://registry.npmjs.org'
-          scope: '@matter-labs'
+          scope: '@matterlabs'
       - run: bun install
 
       - name: Publish to npm
