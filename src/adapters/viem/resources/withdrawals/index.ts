@@ -354,7 +354,7 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
         }
 
         // check finalization would succeed right now
-        const readiness = await svc.simulateFinalizeReadiness(pack.params, pack.nullifier);
+        const readiness = await svc.simulateFinalizeReadiness(pack.params);
         if (readiness.kind === 'FINALIZED') return { phase: 'FINALIZED', l2TxHash, key };
         if (readiness.kind === 'READY') return { phase: 'READY_TO_FINALIZE', l2TxHash, key };
 
@@ -480,7 +480,7 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
           }
         })();
 
-        const { params, nullifier } = pack;
+        const { params } = pack;
         const key = {
           chainIdL2: params.chainId,
           l2BatchNumber: params.l2BatchNumber,
@@ -497,7 +497,7 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
           // ignore; continue to readiness simulation
         }
 
-        const readiness = await svc.simulateFinalizeReadiness(params, nullifier);
+        const readiness = await svc.simulateFinalizeReadiness(params);
         if (readiness.kind === 'FINALIZED') {
           const statusNow = await status(l2TxHash);
           return { status: statusNow };
@@ -513,7 +513,7 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
 
         // READY → send finalize tx on L1
         try {
-          const tx = await svc.finalizeDeposit(params, nullifier);
+          const tx = await svc.finalizeDeposit(params);
           finalizeCache.set(l2TxHash, tx.hash);
           const rcpt = await tx.wait();
           const statusNow = await status(l2TxHash);
@@ -523,7 +523,7 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
           if (statusNow.phase === 'FINALIZED') return { status: statusNow };
 
           try {
-            const again = await svc.simulateFinalizeReadiness(params, nullifier);
+            const again = await svc.simulateFinalizeReadiness(params);
             if (again.kind === 'NOT_READY') {
               throw createError('STATE', {
                 resource: 'withdrawals',

@@ -92,6 +92,13 @@ export type FinalizeReadiness =
       detail?: string;
     };
 
+// Finalization gas & fee estimate
+export interface FinalizationEstimate {
+  gasLimit: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}
+
 // Parsed L1 receipt and logs
 export type ParsedLog = {
   address: string;
