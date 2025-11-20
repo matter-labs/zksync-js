@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag || '' }}
@@ -45,21 +45,38 @@ jobs:
       - name: Determine tag
         id: tag
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          TAG_INPUT="${{ inputs.tag }}"
+          
+          # Check if the tag input is provided
+          if [ -n "$TAG_INPUT" ]; then
+            # Sanitize the input - request by security team
+            # Replace any character that is NOT 
+            # alphanumeric, a hyphen, an underscore, or a period with nothing.
+            # This prevents unexpected shell chars (like ;, $, |, etc.) 
+            # from being executed.
+            SANITIZED_TAG=$(echo "$TAG_INPUT" | tr -cd '[:alnum:]._-')
+            
+            # Use the sanitized tag
+            echo "value=$SANITIZED_TAG" >> "$GITHUB_OUTPUT"
+            
+            if [ "$TAG_INPUT" != "$SANITIZED_TAG" ]; then
+              echo "Warning: Input tag was sanitized from '$TAG_INPUT' to '$SANITIZED_TAG'"
+            fi
+            
           else
+            # Fallback to commit short SHA if no tag is provided
             echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update release-please release artifacts
         if: ${{ inputs.tag != '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2
         with:
           tag_name: ${{ inputs.tag }}
 
       - name: Publish release
         if: ${{ inputs.prerelease_name != '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2
         with:
           tag_name: ${{ steps.tag.outputs.value }}
           name: zksync-js ${{ steps.tag.outputs.value }}${{ inputs.prerelease_name && format(' {0}', inputs.prerelease_name) || '' }}
@@ -75,14 +92,14 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.NPMJS_NPM_MATTERLABS_AUTOMATION_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
         with:
             bun-version: 'latest'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
         with:
           node-version: 22.x
           registry-url: 'https://registry.npmjs.org'
