@@ -270,5 +270,6 @@ export const OP_WITHDRAWALS = {
     isFinalized: 'withdrawals.finalize.isWithdrawalFinalized',
     send: 'withdrawals.finalize.finalizeDeposit:send',
     wait: 'withdrawals.finalize.finalizeDeposit:wait',
+    estimate: 'withdrawals.finalize.estimateFinalizationFees',
   },
 } as const;

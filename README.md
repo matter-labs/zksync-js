@@ -4,8 +4,9 @@
 
 _TypeScript SDK for deposits, withdrawals, and RPC access across the Elastic Network_
 
+**Note**: This repository is a successor to the original ZKsync SDK, which can be found at **[dutterbutter/zksync-sdk](https://github.com/dutterbutter/zksync-sdk)**.
+
 [![CI Status](https://github.com/matter-labs/zksync-js/actions/workflows/ci-check.yaml/badge.svg)](https://github.com/matter-labs/zksync-js/actions/workflows/ci-check.yaml)
-<!-- [![codecov](https://codecov.io/gh/dutterbutter/zksync-sdk/graph/badge.svg?token=1EG8LOZJE8)](https://codecov.io/gh/dutterbutter/zksync-sdk) -->
 [![Release](https://img.shields.io/github/v/release/matter-labs/zksync-js?label=version)](https://github.com/matter-labs/zksync-js/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![X: @zksync](https://img.shields.io/badge/follow-@zksync-1DA1F2?logo=x)](https://x.com/zksync)
