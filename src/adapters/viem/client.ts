@@ -28,7 +28,7 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
-} from '../../core/internal/abi-registry';
+} from '../../core/abi';
 
 export interface ResolvedAddresses {
   bridgehub: Address;

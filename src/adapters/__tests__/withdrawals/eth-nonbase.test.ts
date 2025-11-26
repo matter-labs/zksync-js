@@ -3,7 +3,7 @@ import { describe, it, expect } from 'bun:test';
 import { routeEthNonBase as routeEthers } from '../../ethers/resources/withdrawals/routes/eth-nonbase.ts';
 import { routeEthNonBase as routeViem } from '../../viem/resources/withdrawals/routes/eth-nonbase.ts';
 import { makeWithdrawalContext, describeForAdapters } from '../adapter-harness.ts';
-import { IBaseTokenABI } from '../../../core/internal/abi-registry.ts';
+import { IBaseTokenABI } from '../../../core/abi.ts';
 import { L2_BASE_TOKEN_ADDRESS } from '../../../core/constants.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeBaseTokenWithdraw } from '../decode-helpers.ts';

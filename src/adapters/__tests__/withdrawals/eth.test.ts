@@ -7,7 +7,7 @@ import {
   makeWithdrawalContext,
   describeForAdapters,
 } from '../adapter-harness.ts';
-import { IBaseTokenABI } from '../../../core/internal/abi-registry.ts';
+import { IBaseTokenABI } from '../../../core/abi.ts';
 import { L2_BASE_TOKEN_ADDRESS } from '../../../core/constants.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeBaseTokenWithdraw } from '../decode-helpers.ts';

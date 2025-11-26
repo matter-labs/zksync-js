@@ -3,7 +3,7 @@
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { buildDirectRequestStruct, buildViemFeeOverrides } from '../../utils';
-import { IBridgehubABI } from '../../../../../core/internal/abi-registry.ts';
+import { IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 

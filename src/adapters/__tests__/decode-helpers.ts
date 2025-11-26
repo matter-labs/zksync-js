@@ -5,7 +5,7 @@ import {
   IL2AssetRouterABI,
   IBaseTokenABI,
   IERC20ABI,
-} from '../../core/internal/abi-registry.ts';
+} from '../../core/abi.ts';
 
 const Bridgehub = new Interface(IBridgehubABI as any);
 const L2AssetRouter = new Interface(IL2AssetRouterABI as any);

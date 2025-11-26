@@ -3,7 +3,7 @@
 import type { DepositRouteStrategy } from './types';
 import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { IBridgehubABI, IERC20ABI } from '../../../../../core/internal/abi-registry.ts';
+import { IBridgehubABI, IERC20ABI } from '../../../../../core/abi.ts';
 import { encodeSecondBridgeEthArgs } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';

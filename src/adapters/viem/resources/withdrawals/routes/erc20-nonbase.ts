@@ -6,7 +6,7 @@ import {
   IERC20ABI,
   L2NativeTokenVaultABI,
   IL2AssetRouterABI,
-} from '../../../../../core/internal/abi-registry.ts';
+} from '../../../../../core/abi.ts';
 
 import { type Abi, encodeAbiParameters } from 'viem';
 import { createErrorHandlers } from '../../../errors/error-ops.ts';

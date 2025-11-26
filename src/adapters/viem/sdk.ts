@@ -25,7 +25,7 @@ import type {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
-} from '../../core/internal/abi-registry';
+} from '../../core/abi';
 
 // Helpers to express the contracts() return type
 type ViemContracts = {

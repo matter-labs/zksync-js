@@ -8,7 +8,7 @@ import {
   L1NativeTokenVaultABI,
   MailboxABI,
   IERC20ABI,
-} from '../../../core/internal/abi-registry';
+} from '../../../core/abi';
 
 import { REVERT_TO_READINESS } from '../../../core/errors/withdrawal-revert-map';
 import type { FinalizeReadiness } from '../../../core/types/flows/withdrawals';

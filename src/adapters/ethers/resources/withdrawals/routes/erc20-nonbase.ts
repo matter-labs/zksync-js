@@ -7,7 +7,7 @@ import {
   IL2AssetRouterABI,
   L2NativeTokenVaultABI,
   IERC20ABI,
-} from '../../../../../core/internal/abi-registry';
+} from '../../../../../core/abi';
 
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../../core/types';

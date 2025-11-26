@@ -2,7 +2,7 @@
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
 import { encodeSecondBridgeErc20Args, buildViemFeeOverrides } from '../../utils';
-import { IERC20ABI, IBridgehubABI } from '../../../../../core/internal/abi-registry.ts';
+import { IERC20ABI, IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';

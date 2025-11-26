@@ -9,7 +9,7 @@ import {
   setL2TokenRegistration,
   describeForAdapters,
 } from '../adapter-harness.ts';
-import { L2NativeTokenVaultABI, IL2AssetRouterABI } from '../../../core/internal/abi-registry.ts';
+import { L2NativeTokenVaultABI, IL2AssetRouterABI } from '../../../core/abi.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeAssetRouterWithdraw } from '../decode-helpers.ts';
 
