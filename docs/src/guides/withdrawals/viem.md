@@ -12,7 +12,7 @@ Withdrawals are a **two-step process**:
 - A funded **L2** account to initiate the withdrawal.
 - A funded **L1** account for finalization.
 - RPC URLs: `L1_RPC_URL`, `L2_RPC_URL`.
-- Installed: `@matter-labs/zksync-js` + `viem`.
+- Installed: `@matterlabs/zksync-js` + `viem`.
 
 ---
 

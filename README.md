@@ -10,14 +10,14 @@ _TypeScript SDK for deposits, withdrawals, and RPC access across the Elastic Net
 [![Release](https://img.shields.io/github/v/release/matter-labs/zksync-js?label=version)](https://github.com/matter-labs/zksync-js/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![X: @zksync](https://img.shields.io/badge/follow-@zksync-1DA1F2?logo=x)](https://x.com/zksync)
-[![User Book](https://img.shields.io/badge/docs-user%20book-brightgreen)](https://matter-labs.github.io/zksync-js/)
+[![User Book](https://img.shields.io/badge/docs-user%20book-brightgreen)](https://matter-labs.github.io/zksync-js/latest/)
 
 </div>
 
 <p align="center">
   <b>
-    <a href="https://matter-labs.github.io/zksync-js/latest/quickstart/">Quickstart</a> ·
-    <a href="https://matter-labs.github.io/zksync-js/">User Book</a> ·
+    <a href="https://matter-labs.github.io/zksync-js/latest/quickstart/index.html">Quickstart</a> ·
+    <a href="https://matter-labs.github.io/zksync-js/latest/">User Book</a> ·
     <a href="./.github/CONTRIBUTING.md">Contributing</a>
   </b>
 </p>
@@ -39,7 +39,7 @@ Install the adapter you need:
 <summary><strong>viem adapter</strong></summary>
 
 ```bash
-npm install @matter-labs/zksync-js viem
+npm install @matterlabs/zksync-js viem
 ```
 
 </details>
@@ -48,7 +48,7 @@ npm install @matter-labs/zksync-js viem
 <summary><strong>ethers adapter</strong></summary>
 
 ```bash
-npm install @matter-labs/zksync-js ethers
+npm install @matterlabs/zksync-js ethers
 ```
 
 </details>
@@ -61,8 +61,8 @@ For exhaustive examples please refer to [`./examples`](./examples/) directory.
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const l1Provider = new JsonRpcProvider('https://sepolia.infura.io/v3/...');
 const l2Provider = new JsonRpcProvider('https://zksync-testnet.rpc');
@@ -85,8 +85,8 @@ console.log('Deposit complete ✅');
 
 ```ts
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
-import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const l1 = createPublicClient({ transport: http('https://sepolia.infura.io/v3/...') });
 const l2 = createPublicClient({ transport: http('https://zksync-testnet.rpc') });
@@ -111,9 +111,9 @@ console.log('Deposit complete ✅');
 
 ## 📚 Documentation
 
-- [User Book](https://matter-labs.github.io/zksync-sdk/) – guides, concepts, API docs
-- [How-to Guides](https://matter-labs.github.io/zksync-sdk/guides/) – deposits, withdrawals, RPC helpers
-- [Concepts](https://matter-labs.github.io/zksync-sdk/concepts/) – mental model, status vs wait, finalization
+- [User Book](https://matter-labs.github.io/zksync-js/latest/) – guides, concepts, API docs
+- [How-to Guides](https://matter-labs.github.io/zksync-js/latest/guides/index.html) – deposits, withdrawals, RPC helpers
+- [Mental Model](https://matter-labs.github.io/zksync-js/latest/overview/mental-model.html) – mental model, status vs wait, finalization
 
 ## 🤝 Contributing
 

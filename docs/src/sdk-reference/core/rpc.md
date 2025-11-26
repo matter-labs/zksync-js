@@ -133,7 +133,7 @@ type GenesisInput = {
 
 ```ts
 import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient } from '@matter-labs/zksync-js/ethers';
+import { createEthersClient } from '@matterlabs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
@@ -152,7 +152,7 @@ const bridgehub = await client.zks.getBridgehubAddress();
 
 ```ts
 import { createPublicClient, http } from 'viem';
-import { createViemClient } from '@matter-labs/zksync-js/viem';
+import { createViemClient } from '@matterlabs/zksync-js/viem';
 
 const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
 const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });

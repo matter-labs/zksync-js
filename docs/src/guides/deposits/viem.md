@@ -6,7 +6,7 @@ A fast path to deposit **ETH / ERC-20** from L1 → ZKsync (L2) using the **viem
 
 - A funded **L1** account (gas + amount).
 - RPC URLs: `L1_RPC_URL`, `L2_RPC_URL`.
-- Installed: `@matter-labs/zksync-js` + `viem`.
+- Installed: `@matterlabs/zksync-js` + `viem`.
 
 ---
 
