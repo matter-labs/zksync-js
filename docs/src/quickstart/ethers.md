@@ -14,7 +14,7 @@ You'll set up your environment, write a short script to make a deposit, and run 
 First, install the necessary packages.
 
 ```bash
-bun install @matter-labs/zksync-js ethers dotenv
+bun install @matterlabs/zksync-js ethers dotenv
 ```
 
 Next, create a `.env` file in your project's root directory to store your private key and RPC endpoints. **Never commit this file to Git.**
@@ -39,8 +39,8 @@ Save this code as `deposit-ethers.ts`:
 ```ts
 import 'dotenv/config'; // Load environment variables from .env
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient } from '@matter-labs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matter-labs/zksync-js/core';
+import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const L1_RPC_URL = process.env.L1_RPC_URL;

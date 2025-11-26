@@ -15,7 +15,7 @@ L2 → L1 withdrawals for ETH and ERC-20 tokens with quote, prepare, create, sta
 
 ```ts
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matter-labs/zksync-js/ethers';
+import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
 
 const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
 const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);

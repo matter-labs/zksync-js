@@ -25,7 +25,7 @@ import {
   type WalletClient,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matter-labs/zksync-js/viem';
+import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
 
 const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
 const l1 = createPublicClient({ transport: http(L1_RPC) });
