@@ -19,7 +19,7 @@ import { JsonRpcProvider, Wallet, parseUnits } from 'ethers';
 import { createEthersClient } from '../../../src/adapters/ethers/client';
 import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
-import { IERC20ABI } from '../../../src/core/internal/abi-registry';
+import { IERC20ABI } from '../../../src/core/abi';
 
 const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
 const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';

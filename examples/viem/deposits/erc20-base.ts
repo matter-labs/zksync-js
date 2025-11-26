@@ -31,7 +31,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient } from '../../../src/adapters/viem/client';
 import { createViemSdk } from '../../../src/adapters/viem/sdk';
 import type { Address } from '../../../src/core/types/primitives';
-import { IERC20ABI } from '../../../src/core/internal/abi-registry';
+import { IERC20ABI } from '../../../src/core/abi';
 import { L1_SOPH_TOKEN_ADDRESS } from '../../../src/core/constants';
 
 // ---- configure your RPCs & key ----

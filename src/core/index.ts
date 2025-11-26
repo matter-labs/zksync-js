@@ -9,6 +9,8 @@ export {
   L1_SOPH_TOKEN_ADDRESS,
 } from './constants';
 
+export * as abi from './abi';
+
 export * as errors from './errors/factory';
 export { formatEnvelopePretty } from './errors/formatter';
 
