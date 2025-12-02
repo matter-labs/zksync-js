@@ -2,11 +2,7 @@
 
 import type { WithdrawRouteStrategy, ViemPlanWriteRequest } from './types.ts';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base.ts';
-import {
-  IERC20ABI,
-  L2NativeTokenVaultABI,
-  IL2AssetRouterABI,
-} from '../../../../../core/internal/abi-registry.ts';
+import { IERC20ABI, L2NativeTokenVaultABI, IL2AssetRouterABI } from '../../../../../core/abi.ts';
 
 import { type Abi, encodeAbiParameters } from 'viem';
 import { createErrorHandlers } from '../../../errors/error-ops.ts';

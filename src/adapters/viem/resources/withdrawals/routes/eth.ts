@@ -4,7 +4,7 @@ import type { WithdrawRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 
 import { L2_BASE_TOKEN_ADDRESS } from '../../../../../core/constants';
-import { IBaseTokenABI } from '../../../../../core/internal/abi-registry.ts';
+import { IBaseTokenABI } from '../../../../../core/abi.ts';
 
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../../core/types';

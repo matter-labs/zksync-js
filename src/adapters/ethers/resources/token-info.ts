@@ -2,7 +2,7 @@
 
 import { Contract, type Provider } from 'ethers';
 import type { Address } from '../../../core/types/primitives';
-import { L2NativeTokenVaultABI } from '../../../core/internal/abi-registry';
+import { L2NativeTokenVaultABI } from '../../../core/abi';
 import { encodeNativeTokenVaultAssetId } from '../resources/utils'; // ethers version
 import {
   ETH_ADDRESS as ETH_ADDRESS_IN_CONTRACTS,

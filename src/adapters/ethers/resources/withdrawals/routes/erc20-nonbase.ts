@@ -3,11 +3,7 @@
 import { AbiCoder, Contract, type TransactionRequest } from 'ethers';
 import type { WithdrawRouteStrategy } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
-import {
-  IL2AssetRouterABI,
-  L2NativeTokenVaultABI,
-  IERC20ABI,
-} from '../../../../../core/internal/abi-registry';
+import { IL2AssetRouterABI, L2NativeTokenVaultABI, IERC20ABI } from '../../../../../core/abi';
 
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../../core/types';

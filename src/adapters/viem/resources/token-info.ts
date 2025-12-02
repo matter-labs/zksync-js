@@ -4,7 +4,7 @@ import type { Abi, PublicClient } from 'viem';
 export type L2Reader = { readContract: PublicClient['readContract'] };
 
 import type { Address } from '../../../core/types/primitives';
-import { L2NativeTokenVaultABI } from '../../../core/internal/abi-registry';
+import { L2NativeTokenVaultABI } from '../../../core/abi';
 import { encodeNativeTokenVaultAssetId } from '../resources/utils';
 import {
   ETH_ADDRESS as ETH_ADDRESS_IN_CONTRACTS,

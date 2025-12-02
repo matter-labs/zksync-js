@@ -9,7 +9,7 @@ import {
   L1NativeTokenVaultABI,
   MailboxABI,
   IERC20ABI,
-} from '../../../core/internal/abi-registry';
+} from '../../../core/abi';
 
 // TODO: refactor as lots of duplication here
 export interface DecodedRevert {

@@ -1,11 +1,6 @@
 import { Interface, AbiCoder } from 'ethers';
 
-import {
-  IBridgehubABI,
-  IL2AssetRouterABI,
-  IBaseTokenABI,
-  IERC20ABI,
-} from '../../core/internal/abi-registry.ts';
+import { IBridgehubABI, IL2AssetRouterABI, IBaseTokenABI, IERC20ABI } from '../../core/abi.ts';
 
 const Bridgehub = new Interface(IBridgehubABI as any);
 const L2AssetRouter = new Interface(IL2AssetRouterABI as any);

@@ -4,7 +4,7 @@ import type { DepositRouteStrategy } from './types';
 import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { buildDirectRequestStruct } from '../../utils';
-import { IBridgehubABI } from '../../../../../core/internal/abi-registry.ts';
+import { IBridgehubABI } from '../../../../../core/abi.ts';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';

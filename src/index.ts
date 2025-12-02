@@ -2,6 +2,8 @@
 
 export * as constants from './core/constants';
 
+export * as abi from './core/abi';
+
 export * as errors from './core/errors/factory';
 export { formatEnvelopePretty } from './core/errors/formatter';
 

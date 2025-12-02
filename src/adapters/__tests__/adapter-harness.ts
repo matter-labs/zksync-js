@@ -13,7 +13,7 @@ import {
   IL1NullifierABI,
   IERC20ABI,
   L2NativeTokenVaultABI,
-} from '../../core/internal/abi-registry.ts';
+} from '../../core/abi.ts';
 import type { Address } from '../../core/types/primitives';
 
 const IBridgehub = new Interface(IBridgehubABI as any);

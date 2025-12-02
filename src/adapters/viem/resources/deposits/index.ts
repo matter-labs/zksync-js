@@ -17,7 +17,7 @@ import type {
   TransactionReceipt,
   WriteContractParameters,
 } from 'viem';
-import { IERC20ABI } from '../../../../core/internal/abi-registry.ts';
+import { IERC20ABI } from '../../../../core/abi.ts';
 
 import { commonCtx } from './context';
 import { routeEthDirect } from './routes/eth';

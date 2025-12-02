@@ -20,7 +20,7 @@ import { JsonRpcProvider, Wallet, parseUnits, Contract } from 'ethers';
 import { createEthersClient } from '../../../src/adapters/ethers/client';
 import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
-import { IERC20ABI } from '../../../src/core/internal/abi-registry';
+import { IERC20ABI } from '../../../src/core/abi';
 
 const L1_RPC = 'http://localhost:8545';
 const L2_RPC = 'http://localhost:3050';
