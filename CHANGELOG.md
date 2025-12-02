@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.2](https://github.com/matter-labs/zksync-js/compare/v0.0.1...v0.0.2) (2025-12-02)
+
+
+### Features
+
+* export abis for public use ([#12](https://github.com/matter-labs/zksync-js/issues/12)) ([95ef129](https://github.com/matter-labs/zksync-js/commit/95ef1295512482efab523f81b4c4d66536b136d0))
+
+
+### Bug Fixes
+
+* update docs ([#10](https://github.com/matter-labs/zksync-js/issues/10)) ([651d2c8](https://github.com/matter-labs/zksync-js/commit/651d2c8bce924401ffb80cbe619df880b5bbcb80))
+
 ## 0.0.1 (2025-11-26)
 
 
