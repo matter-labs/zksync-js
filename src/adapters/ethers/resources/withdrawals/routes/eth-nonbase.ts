@@ -36,7 +36,7 @@ export function routeEthNonBase(): WithdrawRouteStrategy {
       const iface = new Interface(IBaseTokenABI);
       const data = await wrapAs(
         'INTERNAL',
-        OP_WITHDRAWALS.eth.encodeWithdraw, // reuse label for base-token system call
+        OP_WITHDRAWALS.eth.encodeWithdraw,
         () => Promise.resolve(iface.encodeFunctionData('withdraw', [toL1])),
         { ctx: { where: 'L2BaseToken.withdraw', to: toL1 } },
       );
@@ -50,25 +50,8 @@ export function routeEthNonBase(): WithdrawRouteStrategy {
         maxPriorityFeePerGas,
       };
 
-      // TODO: consider a more robust buffer strategy
-      // best-effort gas estimate
       if (overrideGasLimit != null) {
         tx.gasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_WITHDRAWALS.eth.estGas,
-            () => ctx.client.l2.estimateGas(tx),
-            {
-              ctx: { where: 'l2.estimateGas', to: L2_BASE_TOKEN_ADDRESS },
-              message: 'Failed to estimate gas for L2 base-token withdraw.',
-            },
-          );
-          tx.gasLimit = (BigInt(est) * 115n) / 100n;
-        } catch {
-          // ignore
-        }
       }
 
       steps.push({

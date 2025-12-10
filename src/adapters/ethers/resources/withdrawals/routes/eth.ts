@@ -44,24 +44,8 @@ export function routeEthBase(): WithdrawRouteStrategy {
         maxPriorityFeePerGas,
       };
 
-      // TODO: improve gas estimations
       if (overrideGasLimit != null) {
         tx.gasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_WITHDRAWALS.eth.estGas,
-            () => ctx.client.l2.estimateGas(tx),
-            {
-              ctx: { where: 'l2.estimateGas', to: L2_BASE_TOKEN_ADDRESS },
-              message: 'Failed to estimate gas for L2 ETH withdraw.',
-            },
-          );
-          tx.gasLimit = (BigInt(est) * 115n) / 100n;
-        } catch {
-          // ignore
-        }
       }
 
       steps.push({

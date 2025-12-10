@@ -24,6 +24,7 @@ import { createFinalizationServices, type FinalizationServices } from './service
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
+import { populateWithdrawalGas } from './gas';
 
 // --------------------
 // Withdrawal Route map
@@ -108,28 +109,19 @@ export function createWithdrawalsResource(client: EthersClient): WithdrawalsReso
 
     await ROUTES[ctx.route].preflight?.(p, ctx);
     const { steps, approvals } = await ROUTES[ctx.route].build(p, ctx);
-    const resolveGasLimit = (): bigint | undefined => {
-      if (ctx.fee.gasLimit != null) return ctx.fee.gasLimit;
-      for (let i = steps.length - 1; i >= 0; i--) {
-        const candidate = steps[i].tx.gasLimit;
-        if (candidate == null) continue;
-        if (typeof candidate === 'bigint') return candidate;
-        try {
-          return BigInt(candidate.toString());
-        } catch {
-          // ignore and continue
-        }
-      }
-      return undefined;
-    };
-    const gasLimit = resolveGasLimit();
+
+    const { totalGasLimit, suggestedL2GasLimit } = await populateWithdrawalGas(
+      steps,
+      ctx,
+      p.l2TxOverrides,
+    );
 
     const summary: WithdrawQuote = {
       route: ctx.route,
       approvalsNeeded: approvals,
-      suggestedL2GasLimit: ctx.l2GasLimit,
+      suggestedL2GasLimit,
       fees: {
-        gasLimit,
+        gasLimit: totalGasLimit,
         maxFeePerGas: ctx.fee.maxFeePerGas,
         maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
       },
@@ -193,10 +185,12 @@ export function createWithdrawalsResource(client: EthersClient): WithdrawalsReso
         const from = await managed.getAddress();
         let next = await client.l2.getTransactionCount(from, 'pending');
 
-        for (const step of plan.steps) {
+        for (let i = 0; i < plan.steps.length; i++) {
+          const step = plan.steps[i];
+          const isLastStep = i === plan.steps.length - 1;
           step.tx.nonce = next++;
 
-          if (p.l2TxOverrides) {
+          if (p.l2TxOverrides && isLastStep) {
             const overrides = p.l2TxOverrides;
             if (overrides.gasLimit != null) step.tx.gasLimit = overrides.gasLimit;
             if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;

@@ -8,6 +8,9 @@ import type { CommonCtx, ResolvedEip1559Fees } from '../../../../core/types/flow
 import { isEthBasedChain } from '../token-info';
 import { getL2FeeOverrides } from '../utils';
 
+// TODO: consider if we need this / improve
+const GAS_BUFFER_PCT_DEFAULT = 15;
+
 // Common context for building withdrawal (L2 -> L1) transactions
 export interface BuildCtx extends CommonCtx {
   client: EthersClient;
@@ -55,7 +58,6 @@ export async function commonCtx(
 
   // TODO: improve gas estimations
   const l2GasLimit = p.l2GasLimit ?? 300_000n;
-  const gasBufferPct = 15;
 
   return {
     client,
@@ -70,7 +72,7 @@ export async function commonCtx(
     l2BaseTokenSystem,
     baseIsEth,
     l2GasLimit,
-    gasBufferPct,
+    gasBufferPct: GAS_BUFFER_PCT_DEFAULT,
     fee,
   } satisfies BuildCtx & { route: WithdrawRoute };
 }
