@@ -9,12 +9,11 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
+import { depositGasServices } from '../services/deposit-gas.service';
+import { computeBaseCost } from '../services/deposit-fee.service';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
-
-// TODO: all gas buffers need to be moved to a dedicated resource
-const MIN_L2_GAS_FOR_ERC20 = 2_500_000n;
 
 export function routeErc20NonBase(): DepositRouteStrategy {
   return {
@@ -32,7 +31,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
           : txFeeOverrides;
       let resolvedL1GasLimit: bigint = overrideGasLimit ?? ctx.l2GasLimit;
 
-      // Resolve target base token once
+      // Resolve target base token
       const baseToken = (await wrapAs(
         'CONTRACT',
         OP_DEPOSITS.nonbase.baseToken ?? 'deposits.erc20-nonbase:baseToken',
@@ -55,31 +54,44 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         { ctx: { depositToken: p.token, baseToken } },
       );
 
-      // TODO: refactor to improve gas estimate / fees
-      const l2GasLimitUsed =
-        ctx.l2GasLimit && ctx.l2GasLimit > 0n
-          ? ctx.l2GasLimit < MIN_L2_GAS_FOR_ERC20
-            ? MIN_L2_GAS_FOR_ERC20
-            : ctx.l2GasLimit
-          : MIN_L2_GAS_FOR_ERC20;
-
-      const rawBaseCost = (await wrapAs(
-        'RPC',
-        OP_DEPOSITS.nonbase.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            l2GasLimitUsed,
-            ctx.gasPerPubdata,
-          ),
+      const secondBridgeCalldata = await wrapAs(
+        'INTERNAL',
+        OP_DEPOSITS.nonbase.encodeCalldata,
+        () => Promise.resolve(encodeSecondBridgeErc20Args(p.token, p.amount, p.to ?? ctx.sender)),
         {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost from Bridgehub.',
+          ctx: { where: 'encodeSecondBridgeErc20Args' },
+          message: 'Failed to encode bridging calldata.',
         },
-      )) as bigint;
+      );
 
-      const baseCost = BigInt(rawBaseCost);
+      // L2 gas estimation for two-bridges route
+      const l2TxForModeling: TransactionRequest = {
+        to: assetRouter,
+        from: ctx.sender,
+        data: secondBridgeCalldata,
+        value: 0n,
+      };
+
+      const gasL2 = await depositGasServices.estimateL2Gas(
+        ctx,
+        'erc20-nonbase',
+        l2TxForModeling,
+        p.l2GasLimit ?? undefined,
+      );
+      if (gasL2 && !p.l2GasLimit) {
+        ctx.l2GasLimit = gasL2.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l2: gasL2.params };
+      }
+
+      const baseCost = await computeBaseCost({
+        bridgehub: bh,
+        op: OP_DEPOSITS.nonbase.baseCost,
+        wrapAs,
+        chainIdL2: ctx.chainIdL2,
+        gasPriceForBaseCost,
+        l2GasLimit: ctx.l2GasLimit,
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
       const mintValue = baseCost + ctx.operatorTip;
 
       // Approvals (branch by who pays fees)
@@ -142,21 +154,11 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         }
       }
 
-      const secondBridgeCalldata = await wrapAs(
-        'INTERNAL',
-        OP_DEPOSITS.nonbase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeErc20Args(p.token, p.amount, p.to ?? ctx.sender)),
-        {
-          ctx: { where: 'encodeSecondBridgeErc20Args' },
-          message: 'Failed to encode bridging calldata.',
-        },
-      );
-
       const outer = {
         chainId: ctx.chainIdL2,
         mintValue, // fees (in ETH if base=ETH, else pulled as base ERC-20)
         l2Value: 0n,
-        l2GasLimit: l2GasLimitUsed,
+        l2GasLimit: ctx.l2GasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
         secondBridgeAddress: assetRouter,
@@ -175,27 +177,19 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         ...txOverrides,
       };
 
+      const gasL1 = await depositGasServices.estimateL1Gas(
+        ctx,
+        bridgeTx,
+        p.l1TxOverrides?.gasLimit ?? overrideGasLimit ?? undefined,
+      );
+      if (gasL1 && !p.l1TxOverrides?.gasLimit && overrideGasLimit == null) {
+        bridgeTx.gasLimit = gasL1.params.gasLimit;
+        resolvedL1GasLimit = gasL1.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l1: gasL1.params };
+      }
       if (overrideGasLimit != null) {
         bridgeTx.gasLimit = overrideGasLimit;
         resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.nonbase.estGas,
-            () => ctx.client.l1.estimateGas(bridgeTx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub, baseIsEth },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          // TODO: refactor to improve gas estimate / fees
-          const buffered = (BigInt(est) * 125n) / 100n;
-          bridgeTx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore;
-        }
       }
       steps.push({
         key: 'bridgehub:two-bridges:nonbase',

@@ -7,15 +7,17 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
+import { computeBaseCost } from '../services/deposit-fee.service';
+import { depositGasServices } from '../services/deposit-gas.service';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
 
-// TODO: all gas buffers need to be moved to a dedicated resource
-// this is getting messy
-const BASE_COST_BUFFER_BPS = 100n; // 1%
-const BPS = 10_000n;
-const withBuffer = (x: bigint) => (x * (BPS + BASE_COST_BUFFER_BPS)) / BPS;
+// // TODO: all gas buffers need to be moved to a dedicated resource
+// // this is getting messy
+// const BASE_COST_BUFFER_BPS = 100n; // 1%
+// const BPS = 10_000n;
+// const withBuffer = (x: bigint) => (x * (BPS + BASE_COST_BUFFER_BPS)) / BPS;
 
 //  ERC20 deposit where the deposit token IS the target chain's base token (base ≠ ETH).
 export function routeErc20Base(): DepositRouteStrategy {
@@ -79,28 +81,40 @@ export function routeErc20Base(): DepositRouteStrategy {
         },
       )) as `0x${string}`;
 
+      const l2Contract = p.to ?? ctx.sender;
+      const l2TxForModeling: TransactionRequest = {
+        to: l2Contract,
+        from: ctx.sender,
+        data: '0x',
+        value: p.amount,
+      };
+
+      const l2Gas = await depositGasServices.estimateL2Gas(
+        ctx,
+        'erc20-base',
+        l2TxForModeling,
+        p.l2GasLimit ?? undefined,
+      );
+      if (l2Gas && !p.l2GasLimit) {
+        ctx.l2GasLimit = l2Gas.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l2: l2Gas.params };
+      }
+
       // Base cost
-      const rawBaseCost = (await wrapAs(
-        'RPC',
-        OP_DEPOSITS.base.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            ctx.l2GasLimit,
-            ctx.gasPerPubdata,
-          ),
-        {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost from Bridgehub.',
-        },
-      )) as bigint;
-      const baseCost = BigInt(rawBaseCost);
+      const baseCost = await computeBaseCost({
+        bridgehub: bh,
+        op: OP_DEPOSITS.base.baseCost,
+        wrapAs,
+        chainIdL2: ctx.chainIdL2,
+        gasPriceForBaseCost,
+        l2GasLimit: ctx.l2GasLimit,
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
 
       // Direct path: mintValue must cover fee + the L2 msg.value (amount) → plus a small buffer
       const l2Value = p.amount;
       const rawMintValue = baseCost + ctx.operatorTip + l2Value;
-      const mintValue = withBuffer(rawMintValue);
+      const mintValue = rawMintValue;
 
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
@@ -139,7 +153,7 @@ export function routeErc20Base(): DepositRouteStrategy {
         l2GasLimit: ctx.l2GasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
-        l2Contract: p.to ?? ctx.sender,
+        l2Contract,
         l2Value,
       });
 
@@ -157,26 +171,19 @@ export function routeErc20Base(): DepositRouteStrategy {
         ...txOverrides,
       };
 
+      const gasL1 = await depositGasServices.estimateL1Gas(
+        ctx,
+        tx,
+        p.l1TxOverrides?.gasLimit ?? overrideGasLimit ?? undefined,
+      );
+      if (gasL1 && !p.l1TxOverrides?.gasLimit && overrideGasLimit == null) {
+        tx.gasLimit = gasL1.params.gasLimit;
+        resolvedL1GasLimit = gasL1.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l1: gasL1.params };
+      }
       if (overrideGasLimit != null) {
         tx.gasLimit = overrideGasLimit;
         resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.base.estGas,
-            () => ctx.client.l1.estimateGas(tx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          const buffered = (BigInt(est) * 115n) / 100n;
-          tx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore;
-        }
       }
       steps.push({
         key: 'bridgehub:direct:erc20-base',

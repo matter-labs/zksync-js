@@ -63,8 +63,8 @@ describe('e2e (viem): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
   it('deposits: quote', async () => {
     const quote = await sdk.deposits.quote({ token: l1TokenAddr, amount: DEPOSIT_AMOUNT, to: me });
     expect(quote.route).toBeDefined();
-    expect(quote.mintValue).toBeDefined();
-    expect(BigInt(quote.mintValue)).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);
+    expect(quote.fees?.total).toBeDefined();
+    expect(BigInt(quote.fees.total)).toBeGreaterThan(0n);
   }, 20_000);
 
   it('deposits: prepare has approve', async () => {

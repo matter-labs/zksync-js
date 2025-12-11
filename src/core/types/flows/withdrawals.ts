@@ -1,7 +1,8 @@
 // src/types/flows/withdrawals.ts
 
 import type { Address, Hex } from '../primitives';
-import type { ApprovalNeed, Plan, Handle, Eip1559GasOverrides, ResolvedEip1559Fees } from './base';
+import type { ApprovalNeed, Plan, Handle, Eip1559GasOverrides } from './base';
+import type { FeeBreakdown } from '../fees';
 
 /** Input */
 export interface WithdrawParams {
@@ -19,8 +20,11 @@ export type WithdrawRoute = 'eth-base' | 'erc20-nonbase' | 'eth-nonbase';
 export interface WithdrawQuote {
   route: WithdrawRoute;
   approvalsNeeded: readonly ApprovalNeed[];
-  suggestedL2GasLimit: bigint;
-  fees: ResolvedEip1559Fees;
+  l2: { gasLimit: bigint };
+  /** @deprecated kept for backward compatibility */
+  suggestedL2GasLimit?: bigint;
+  fees: FeeBreakdown; // L2 execution fee
+  finalizeFee?: FeeBreakdown; // optional L1 finalize fee
 }
 
 /** Plan (Tx generic) */

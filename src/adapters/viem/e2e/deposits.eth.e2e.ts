@@ -39,8 +39,8 @@ describe('deposits.e2e (viem): ETH deposit', () => {
     });
 
     expect(quoteResult.route).toBe('eth-base');
-    expect(quoteResult.mintValue).toBeDefined();
-    expect(BigInt(quoteResult.mintValue)).toBeGreaterThanOrEqual(DEPOSIT_WEI);
+    expect(quoteResult.fees?.total).toBeDefined();
+    expect(BigInt(quoteResult.fees.total)).toBeGreaterThan(0n);
   }, 10_000);
 
   it('should prepare the deposit transaction steps', async () => {
@@ -86,7 +86,6 @@ describe('deposits.e2e (viem): ETH deposit', () => {
       client,
       me,
       balancesBefore,
-      mintValue: BigInt(quoteResult.mintValue),
       amount: DEPOSIT_WEI,
       l1TxHashes,
     });

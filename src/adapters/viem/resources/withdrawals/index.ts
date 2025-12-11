@@ -33,6 +33,7 @@ import { routeEthNonBase } from './routes/eth-nonbase';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
+import { ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../../../../core/constants';
 
 // --------------------
 // Withdrawal Route map
@@ -127,17 +128,31 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
       }
       return undefined;
     };
-    const gasLimit = resolveGasLimit();
+    const gasLimit = resolveGasLimit() ?? ctx.l2GasLimit;
+
+    const gasParams = {
+      gasLimit,
+      maxFeePerGas: ctx.fee.maxFeePerGas,
+      maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+      maxGasCost: gasLimit * ctx.fee.maxFeePerGas,
+    };
+
+    const feeToken = ctx.baseIsEth ? ETH_ADDRESS : L2_BASE_TOKEN_ADDRESS;
+    const fees: WithdrawQuote['fees'] = {
+      token: feeToken,
+      total: gasParams.maxGasCost,
+      components: {
+        l2Execution: gasParams.maxGasCost,
+      },
+      gas: { l2: gasParams },
+    };
 
     const summary: WithdrawQuote = {
       route: ctx.route,
       approvalsNeeded: approvals,
+      l2: { gasLimit },
       suggestedL2GasLimit: ctx.l2GasLimit,
-      fees: {
-        gasLimit,
-        maxFeePerGas: ctx.fee.maxFeePerGas,
-        maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
-      },
+      fees,
     };
     return { route: ctx.route, summary, steps };
   }

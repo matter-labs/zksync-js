@@ -16,10 +16,7 @@ function isNativeToken(to?: string | null): boolean {
   return to.toLowerCase() === L2_BASE_TOKEN_ADDRESS.toLowerCase();
 }
 
-function prepareTxForSimulation(
-  tx: TransactionRequest,
-  ctx: BuildCtx
-): TransactionRequest {
+function prepareTxForSimulation(tx: TransactionRequest, ctx: BuildCtx): TransactionRequest {
   const simulationTx = { ...tx, from: tx.from ?? ctx.sender };
 
   if (isNativeToken(simulationTx.to as string)) {
@@ -37,7 +34,7 @@ function applyOverridesToLastStep(
   if (!gasLimit && !maxFeePerGas && !maxPriorityFeePerGas) return;
 
   const last = steps[steps.length - 1];
-  
+
   if (gasLimit != null) last.tx.gasLimit = gasLimit;
   if (maxFeePerGas != null) last.tx.maxFeePerGas = maxFeePerGas;
   if (maxPriorityFeePerGas != null) last.tx.maxPriorityFeePerGas = maxPriorityFeePerGas;
@@ -53,20 +50,20 @@ export async function populateWithdrawalGas(
   const estimatedSteps = await Promise.all(
     steps.map(async (step) => {
       if (step.tx.gasLimit != null) {
-        return { 
-          key: step.key, 
-          limit: BigInt(step.tx.gasLimit) 
+        return {
+          key: step.key,
+          limit: BigInt(step.tx.gasLimit),
         };
       }
 
       try {
         const txForSim = prepareTxForSimulation(step.tx, ctx);
         const est = await ctx.client.l2.estimateGas(txForSim);
-        
+
         const buffered = (BigInt(est) * BigInt(100 + ctx.gasBufferPct)) / 100n;
-        
+
         step.tx.gasLimit = buffered;
-        
+
         return { key: step.key, limit: buffered };
       } catch (e) {
         throw toZKsyncError(
@@ -80,7 +77,7 @@ export async function populateWithdrawalGas(
           e,
         );
       }
-    })
+    }),
   );
 
   const gasByStep: Record<string, bigint> = {};

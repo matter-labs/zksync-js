@@ -59,11 +59,9 @@ describe('types/flows/deposits — basic shapes', () => {
   });
 
   it('DepositRoute is a strict union', () => {
-    const r1: DepositRoute = 'eth';
-    // const r2: DepositRoute = 'erc20-base';
+    const r1: DepositRoute = 'eth-base';
     const r3: DepositRoute = 'erc20-nonbase';
     expectType<DepositRoute>(r1);
-    // expectType<DepositRoute>(r2);
     expectType<DepositRoute>(r3);
 
     // @ts-expect-error not part of union
@@ -132,7 +130,7 @@ describe('types/flows/deposits — Plan / Handle / Waitable', () => {
     type Tx = { hash: string };
     const handle: DepositHandle<Tx> = {
       kind: 'deposit',
-      route: 'eth',
+      route: 'eth-base',
       plan: {} as unknown as DepositPlan<Tx>,
       stepHashes: {} as Record<string, Hex>,
       l1TxHash: ('0x' + '11'.repeat(32)) as Hex,

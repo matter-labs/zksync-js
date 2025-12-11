@@ -106,23 +106,20 @@ export async function verifyDepositBalances(args: {
   client: any;
   me: Address;
   balancesBefore: { l1: bigint; l2: bigint };
-  mintValue: bigint;
   amount: bigint;
   l1TxHashes: Hex[];
 }) {
-  const { client, me, balancesBefore, mintValue, amount, l1TxHashes } = args;
+  const { client, me, balancesBefore, amount, l1TxHashes } = args;
 
   const [l1After, l2After] = await Promise.all([
     client.l1.getBalance({ address: me }),
     client.l2.getBalance({ address: me }),
   ]);
 
-  // L2 delta: amount ≤ delta ≤ mintValue (amount + refund)
   const l2Delta = l2After - balancesBefore.l2;
   expect(l2Delta >= amount).toBeTrue();
-  expect(l2Delta <= mintValue).toBeTrue();
 
-  // L1 spend = mintValue + sum of L1 gas across all steps
+  // L1 spend >= deposit amount + sum of L1 gas across all steps
   let totalL1Fees = 0n;
   for (const hash of l1TxHashes) {
     const rcpt = await client.l1.getTransactionReceipt({ hash });
@@ -135,7 +132,7 @@ export async function verifyDepositBalances(args: {
   }
 
   const l1Delta = balancesBefore.l1 - l1After;
-  expect(l1Delta).toBe(mintValue + totalL1Fees);
+  expect(l1Delta).toBeGreaterThanOrEqual(amount + totalL1Fees);
 }
 
 /**

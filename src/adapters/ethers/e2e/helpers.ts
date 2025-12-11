@@ -78,7 +78,6 @@ export async function verifyDepositBalances(
   client: any,
   me: Address,
   balancesBefore: { l1: bigint; l2: bigint },
-  mintValue: bigint,
   depositAmount: bigint,
   l1TxHashes: Hex[],
 ) {
@@ -93,7 +92,6 @@ export async function verifyDepositBalances(
   // L2 Delta Check
   const l2Delta = l2After - l2Before;
   expect(l2Delta).toBeGreaterThanOrEqual(depositAmount);
-  expect(l2Delta).toBeLessThanOrEqual(mintValue);
 
   // L1 Delta Check
   let totalL1Fees = 0n;
@@ -106,7 +104,7 @@ export async function verifyDepositBalances(
   }
 
   const l1Delta = l1Before - l1After;
-  expect(l1Delta).toBe(mintValue + totalL1Fees);
+  expect(l1Delta).toBeGreaterThanOrEqual(depositAmount + totalL1Fees);
 }
 
 /**

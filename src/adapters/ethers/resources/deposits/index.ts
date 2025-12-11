@@ -25,6 +25,8 @@ import type { DepositRouteStrategy } from './routes/types.ts';
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory.ts';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops.ts';
+import { ETH_ADDRESS } from '../../../../core/constants.ts';
+import { isETH } from '../../../../core/utils/addr.ts';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -128,6 +130,48 @@ export function createDepositsResource(client: EthersClient): DepositsResource {
     };
     const gasLimit = resolveGasLimit();
 
+    const l1GasCost = gasLimit ? gasLimit * ctx.fee.maxFeePerGas : 0n;
+    const gasParams =
+      gasLimit != null
+        ? {
+            gasLimit,
+            maxFeePerGas: ctx.fee.maxFeePerGas,
+            maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+            maxGasCost: l1GasCost,
+          }
+        : undefined;
+
+    const feeToken =
+      (quoteExtras as { baseToken?: Address })?.baseToken ??
+      (isETH(p.token) ? p.token : ETH_ADDRESS);
+
+    const transfer = { token: p.token, amount: p.amount };
+
+    const l2BaseCost = (baseCost ?? 0n) + (ctx.operatorTip ?? 0n);
+    let feeTotal = l2BaseCost;
+    const l1Execution = ctx.gasResolved?.l1?.maxGasCost;
+    if (
+      l1Execution &&
+      (feeToken.toLowerCase() === ETH_ADDRESS.toLowerCase() ||
+        feeToken.toLowerCase() === transfer.token.toLowerCase())
+    ) {
+      feeTotal += l1Execution;
+    }
+
+    const fees = {
+      token: feeToken,
+      total: feeTotal,
+      components: {
+        l1Execution,
+        l2BaseCost,
+        mintValue,
+      },
+      gas: {
+        l1: ctx.gasResolved?.l1,
+        l2: ctx.gasResolved?.l2,
+      },
+    };
+
     return {
       route: ctx.route,
       summary: {
@@ -135,12 +179,10 @@ export function createDepositsResource(client: EthersClient): DepositsResource {
         approvalsNeeded: approvals,
         baseCost,
         mintValue,
-        gasPerPubdata: ctx.gasPerPubdata,
-        fees: {
-          gasLimit,
-          maxFeePerGas: ctx.fee.maxFeePerGas,
-          maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+        amounts: {
+          transfer,
         },
+        fees,
       },
       steps,
     };

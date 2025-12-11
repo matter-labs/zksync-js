@@ -5,6 +5,7 @@ import { getFeeOverrides, type ResolvedFeeOverrides } from '../utils';
 import { pickDepositRoute } from '../../../../core/resources/deposits/route';
 import type { DepositParams, DepositRoute } from '../../../../core/types/flows/deposits';
 import type { CommonCtx } from '../../../../core/types/flows/base';
+import type {GasParams} from '../../../../core/types/fees';
 
 // Common context for building deposit (L1-L2) transactions
 export interface BuildCtx extends CommonCtx {
@@ -17,6 +18,10 @@ export interface BuildCtx extends CommonCtx {
   gasPerPubdata: bigint;
   operatorTip: bigint;
   refundRecipient: Address;
+  gasResolved: {
+    l1?: GasParams
+    l2?: GasParams
+  };
 }
 
 // Prepare a common context for deposit operations
@@ -26,7 +31,7 @@ export async function commonCtx(p: DepositParams, client: EthersClient) {
   const sender = (await client.signer.getAddress()) as Address;
   const fee = await getFeeOverrides(client, p.l1TxOverrides);
 
-  // TODO: gas default values should be refactored
+  // default gas values
   const l2GasLimit = p.l2GasLimit ?? 300_000n;
   const gasPerPubdata = p.gasPerPubdata ?? 800n;
   const operatorTip = p.operatorTip ?? 0n;
@@ -46,5 +51,6 @@ export async function commonCtx(p: DepositParams, client: EthersClient) {
     gasPerPubdata,
     operatorTip,
     refundRecipient,
+    gasResolved: {} as BuildCtx['gasResolved'],
   } satisfies BuildCtx & { route: DepositRoute };
 }

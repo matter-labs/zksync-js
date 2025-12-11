@@ -30,6 +30,8 @@ import { extractL2TxHashFromL1Logs, waitForL2ExecutionFromL1Tx } from './service
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
+import { ETH_ADDRESS } from '../../../../core/constants';
+import { isETH } from '../../../../core/utils/addr';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -130,6 +132,45 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
     };
     const gasLimit = resolveGasLimit();
 
+    const l1GasCost = gasLimit ? gasLimit * ctx.fee.maxFeePerGas : 0n;
+    const gasParams =
+      gasLimit != null
+        ? {
+            gasLimit,
+            maxFeePerGas: ctx.fee.maxFeePerGas,
+            maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+            maxGasCost: l1GasCost,
+          }
+        : undefined;
+
+    const feeToken =
+      (quoteExtras as { baseToken?: Address })?.baseToken ??
+      (isETH(p.token) ? p.token : ETH_ADDRESS);
+
+    const transfer = { token: p.token, amount: p.amount };
+    const l2BaseCost = (baseCost ?? 0n) + (ctx.operatorTip ?? 0n);
+    let feeTotal = l2BaseCost;
+    const l1Execution = gasParams ? gasParams.maxGasCost : undefined;
+    if (
+      gasParams &&
+      (feeToken.toLowerCase() === ETH_ADDRESS.toLowerCase() ||
+        feeToken.toLowerCase() === transfer.token.toLowerCase())
+    ) {
+      feeTotal += gasParams.maxGasCost;
+    }
+
+    const fees = {
+      token: feeToken,
+      total: feeTotal,
+      components: {
+        l1Execution,
+        l2BaseCost,
+      },
+      gas: {
+        l1: gasParams,
+      },
+    };
+
     return {
       route: ctx.route,
       summary: {
@@ -137,12 +178,10 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
         approvalsNeeded: approvals,
         baseCost,
         mintValue,
-        gasPerPubdata: ctx.gasPerPubdata,
-        fees: {
-          gasLimit,
-          maxFeePerGas: ctx.fee.maxFeePerGas,
-          maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+        amounts: {
+          transfer,
         },
+        fees,
       },
       steps,
     };

@@ -1,6 +1,7 @@
 // src/types/flows/deposits.ts
 import type { Address, Hex } from '../primitives';
-import type { ApprovalNeed, Plan, Handle, Eip1559GasOverrides, ResolvedEip1559Fees } from './base';
+import type { ApprovalNeed, Plan, Handle, Eip1559GasOverrides } from './base';
+import type { FeeBreakdown } from '../fees';
 
 /** Input */
 export interface DepositParams {
@@ -21,10 +22,20 @@ export type DepositRoute = 'eth-base' | 'eth-nonbase' | 'erc20-base' | 'erc20-no
 export interface DepositQuote {
   route: DepositRoute;
   approvalsNeeded: readonly ApprovalNeed[];
-  baseCost: bigint;
-  mintValue: bigint;
-  gasPerPubdata: bigint;
-  fees: ResolvedEip1559Fees;
+  amounts: {
+    transfer: { token: Address; amount: bigint };
+  };
+  fees: FeeBreakdown;
+  /** 
+  * @deprecated Use `fees.components?.l2BaseCost` instead.
+  * Will be removed in a future release.
+  */
+  baseCost?: bigint;
+  /**
+  * @deprecated Use `fees.components?.mintValue` instead.
+  * Will be removed in a future release.
+  */
+  mintValue?: bigint;
 }
 
 /** Plan (Tx generic) */

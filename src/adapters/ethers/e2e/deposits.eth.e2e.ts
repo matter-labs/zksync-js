@@ -35,8 +35,10 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
     });
 
     expect(quoteResult.route).toBe('eth-base');
-    expect(quoteResult.mintValue).toBeDefined();
-    expect(BigInt(quoteResult.mintValue)).toBeGreaterThanOrEqual(DEPOSIT_WEI);
+    expect(quoteResult.fees?.total).toBeDefined();
+    expect(BigInt(quoteResult.fees.total)).toBeGreaterThan(0n);
+    expect(BigInt(quoteResult.l2.gasLimit)).toBeGreaterThanOrEqual(150_000n);
+    expect(BigInt(quoteResult.l2.gasLimit)).toBeLessThanOrEqual(500_000n);
   }, 10_000);
 
   it('should prepare the deposit transaction steps', async () => {
@@ -85,13 +87,6 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
       ? Object.values(depositHandle.stepHashes)
       : [depositHandle.l1TxHash];
 
-    await verifyDepositBalances(
-      client,
-      me,
-      balancesBefore,
-      BigInt(quoteResult.mintValue),
-      DEPOSIT_WEI,
-      l1TxHashes as Hex[],
-    );
+    await verifyDepositBalances(client, me, balancesBefore, DEPOSIT_WEI, l1TxHashes as Hex[]);
   }, 30_000);
 });

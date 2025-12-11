@@ -34,6 +34,28 @@ export const L2_BASE_TOKEN_ADDRESS: Address = '0x0000000000000000000000000000000
 /** L1 token address (SOPH). */
 export const L1_SOPH_TOKEN_ADDRESS: Address = '0xa9544a49d4aEa4c8E074431c89C79fA9592049d8';
 
+// ---------------------------------------------------------------------------
+// zkSync fee model helpers (L2)
+// ---------------------------------------------------------------------------
+
+export const BUFFER = 20n; // 20%
+// Base tx slot overhead for L2 execution
+export const TX_OVERHEAD_GAS = 10_000n;
+// Per-byte bootloader memory overhead for stored tx data
+export const TX_MEMORY_OVERHEAD_GAS = 10n;
+// Approximate pubdata footprint (bytes) for a direct ETH deposit (state + logs)
+export const PUBDATA_BYTES_FOR_ETH_DEPOSIT = 155n;
+// Approximate pubdata footprint (bytes) for ERC20 deposits
+export const PUBDATA_BYTES_FOR_ERC20_BASE_DEPOSIT = 155n;
+export const PUBDATA_BYTES_FOR_ERC20_NONBASE_DEPOSIT = 200n;
+
+// Guardrails for ETH deposit L2 gas estimation
+export const MIN_L2_GAS_ETH = 150_000n;
+export const MAX_L2_GAS_ETH = 500_000n;
+// Guardrails for ERC20 deposit L2 gas estimation
+export const MIN_L2_GAS_ERC20 = 150_000n;
+export const MAX_L2_GAS_ERC20 = 600_000n;
+
 // -----------------------------------------------------------------------------
 // Event topics
 // -----------------------------------------------------------------------------

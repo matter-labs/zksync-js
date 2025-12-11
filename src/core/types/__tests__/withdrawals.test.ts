@@ -51,8 +51,8 @@ describe('types/flows/withdrawals — basic shapes', () => {
   });
 
   it('WithdrawRoute is a strict union', () => {
-    const r1: WithdrawRoute = 'eth';
-    const r2: WithdrawRoute = 'erc20';
+    const r1: WithdrawRoute = 'eth-base';
+    const r2: WithdrawRoute = 'erc20-nonbase';
     expectType<WithdrawRoute>(r1);
     expectType<WithdrawRoute>(r2);
 
@@ -64,13 +64,13 @@ describe('types/flows/withdrawals — basic shapes', () => {
   it('WithdrawQuote shape and approvalsNeeded read-only', () => {
     const approvals: readonly ApprovalNeed[] = [] as const;
     const quote: WithdrawQuote = {
-      route: 'erc20',
+      route: 'erc20-nonbase',
       approvalsNeeded: approvals,
+      l2: { gasLimit: 250_000n as bigint },
       suggestedL2GasLimit: 250_000n as bigint,
       fees: {
-        gasLimit: 250_000n as bigint,
-        maxFeePerGas: 40n as bigint,
-        maxPriorityFeePerGas: 5n as bigint,
+        token: '0x1111111111111111111111111111111111111111' as Address,
+        total: 123n as bigint,
       },
     };
     expectType<WithdrawQuote>(quote);

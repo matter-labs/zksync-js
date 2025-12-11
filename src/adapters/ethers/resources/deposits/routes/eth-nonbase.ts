@@ -9,6 +9,9 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
+import { depositGasServices } from '../services/deposit-gas.service';
+import { computeBaseCost } from '../services/deposit-fee.service';
+import type { DepositParams } from '../../../../../core/types/flows/deposits';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
@@ -101,23 +104,48 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
       )) as `0x${string}`;
 
-      // Compute baseCost / mintValue (fees funded in base token)
-      const rawBaseCost = (await wrapAs(
-        'RPC',
-        OP_DEPOSITS.ethNonBase.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            ctx.l2GasLimit,
-            ctx.gasPerPubdata,
-          ),
+      // Build Two-Bridges calldata (needed for L2 gas modeling)
+      const secondBridgeCalldata = await wrapAs(
+        'INTERNAL',
+        OP_DEPOSITS.ethNonBase.encodeCalldata,
+        () => Promise.resolve(encodeSecondBridgeEthArgs(p.amount, p.to ?? ctx.sender)),
         {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost.',
+          ctx: {
+            where: 'encodeSecondBridgeEthArgs',
+            amount: p.amount.toString(),
+            to: p.to ?? ctx.sender,
+          },
         },
-      )) as bigint;
-      const baseCost = BigInt(rawBaseCost);
+      );
+
+      // L2 gas estimation (modeled execution + overhead); respect user override if provided
+      const l2TxForModeling: TransactionRequest = {
+        to: ctx.l1AssetRouter,
+        from: ctx.sender,
+        data: secondBridgeCalldata,
+        value: p.amount,
+      };
+      const gasL2 = await depositGasServices.estimateL2Gas(
+        ctx,
+        'erc20-nonbase',
+        l2TxForModeling,
+        p.l2GasLimit ?? undefined,
+      );
+      if (gasL2 && !p.l2GasLimit) {
+        ctx.l2GasLimit = gasL2.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l2: gasL2.params };
+      }
+
+      // Compute baseCost / mintValue (fees funded in base token)
+      const baseCost = await computeBaseCost({
+        bridgehub: bh,
+        op: OP_DEPOSITS.ethNonBase.baseCost,
+        wrapAs,
+        chainIdL2: ctx.chainIdL2,
+        gasPriceForBaseCost,
+        l2GasLimit: ctx.l2GasLimit,
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
       const mintValueRaw = baseCost + ctx.operatorTip;
       // TODO: consider making buffer optional / configurable
       const mintValue = withBuffer(mintValueRaw);
@@ -153,20 +181,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         }
       }
 
-      // Build Two-Bridges call
-      const secondBridgeCalldata = await wrapAs(
-        'INTERNAL',
-        OP_DEPOSITS.ethNonBase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeEthArgs(p.amount, p.to ?? ctx.sender)),
-        {
-          ctx: {
-            where: 'encodeSecondBridgeEthArgs',
-            amount: p.amount.toString(),
-            to: p.to ?? ctx.sender,
-          },
-        },
-      );
-
       const outer = {
         chainId: ctx.chainIdL2,
         mintValue,
@@ -194,26 +208,19 @@ export function routeEthNonBase(): DepositRouteStrategy {
         ...txOverrides,
       };
 
+      const gasL1 = await depositGasServices.estimateL1Gas(
+        ctx,
+        bridgeTx,
+        p.l1TxOverrides?.gasLimit ?? overrideGasLimit ?? undefined,
+      );
+      if (gasL1 && !p.l1TxOverrides?.gasLimit && overrideGasLimit == null) {
+        bridgeTx.gasLimit = gasL1.params.gasLimit;
+        resolvedL1GasLimit = gasL1.params.gasLimit;
+        ctx.gasResolved = { ...(ctx.gasResolved ?? {}), l1: gasL1.params };
+      }
       if (overrideGasLimit != null) {
         bridgeTx.gasLimit = overrideGasLimit;
         resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.ethNonBase.estGas,
-            () => ctx.client.l1.estimateGas(bridgeTx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          const buffered = (BigInt(est) * 115n) / 100n;
-          bridgeTx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore;
-        }
       }
       steps.push({
         key: 'bridgehub:two-bridges:eth-nonbase',

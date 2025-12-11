@@ -49,7 +49,8 @@ describe('withdrawals.e2e (ethers): ETH withdrawal', () => {
       to: me,
     });
     expect(q.route).toBe('eth-base');
-    expect(q.suggestedL2GasLimit).toBeDefined();
+    expect(q.l2.gasLimit).toBeDefined();
+    expect(BigInt(q.fees.total)).toBeGreaterThan(0n);
   }, 10_000);
 
   it('should prepare the withdrawal plan', async () => {

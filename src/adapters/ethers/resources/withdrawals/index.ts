@@ -25,6 +25,7 @@ import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 import { populateWithdrawalGas } from './gas';
+import { ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../../../../core/constants';
 
 // --------------------
 // Withdrawal Route map
@@ -116,15 +117,29 @@ export function createWithdrawalsResource(client: EthersClient): WithdrawalsReso
       p.l2TxOverrides,
     );
 
+    const gasParams = {
+      gasLimit: totalGasLimit,
+      maxFeePerGas: ctx.fee.maxFeePerGas,
+      maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+      maxGasCost: totalGasLimit * ctx.fee.maxFeePerGas,
+    };
+
+    const feeToken = ctx.baseIsEth ? ETH_ADDRESS : L2_BASE_TOKEN_ADDRESS;
+    const fees: WithdrawQuote['fees'] = {
+      token: feeToken,
+      total: gasParams.maxGasCost,
+      components: {
+        l2Execution: gasParams.maxGasCost,
+      },
+      gas: { l2: gasParams },
+    };
+
     const summary: WithdrawQuote = {
       route: ctx.route,
       approvalsNeeded: approvals,
+      l2: { gasLimit: suggestedL2GasLimit },
       suggestedL2GasLimit,
-      fees: {
-        gasLimit: totalGasLimit,
-        maxFeePerGas: ctx.fee.maxFeePerGas,
-        maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
-      },
+      fees,
     };
 
     return { route: ctx.route, summary, steps };

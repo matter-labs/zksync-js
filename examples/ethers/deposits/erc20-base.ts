@@ -12,15 +12,16 @@
  * e.g. SOPH on L1 when depositing into a SOPH-based L2.
  */
 
-import { JsonRpcProvider, Wallet, parseUnits } from 'ethers';
+import { JsonRpcProvider, Wallet, parseUnits, Contract } from 'ethers';
 import { createEthersClient } from '../../../src/adapters/ethers/client';
 import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { L1_SOPH_TOKEN_ADDRESS } from '../../../src/core/constants';
 
-const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
-const L2_RPC = 'http://localhost:3050'; // your L2 RPC
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'https://zksync-os-testnet-sophon.zksync.dev';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
+const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in the .env file');
@@ -39,8 +40,16 @@ async function main() {
   const TOKEN = L1_SOPH_TOKEN_ADDRESS;
   const me = (await signer.getAddress()) as Address;
 
+  const l1Token = new Contract(TOKEN, ERC20_ABI, l1);
+  // const l2Token = new Contract(TOKEN, ERC20_ABI, l2);
+
+  // --- Balances BEFORE ---
+  const l1ETHBalanceBefore = await l1.getBalance(me);
+  const l1SOPHBalanceBefore = (await l1Token.balanceOf(me)) as bigint;
+  const l2SOPHBalanceBefore = (await l2.getBalance(me)) as bigint;
+
   // If your base token is 18 decimals; adjust if not.
-  const amount = parseUnits('25', 18);
+  const amount = parseUnits('1', 18);
 
   // Quote
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });
@@ -65,6 +74,16 @@ async function main() {
   // Wait for L2 execution
   const l2Receipt = await sdk.deposits.wait(created, { for: 'l2' });
   console.log('L2 included:', l2Receipt?.blockNumber, l2Receipt?.status, l2Receipt?.hash);
+
+  const l1ETHBalanceAfter = await l1.getBalance(me);
+  const l1SOPHBalanceAfter = (await l1Token.balanceOf(me)) as bigint;
+  const l2SOPHBalanceAfter = (await l2.getBalance(me)) as bigint;
+
+  console.log('AFTER:', {
+    l1ETHBalanceAfter: l1ETHBalanceAfter.toString(),
+    l1SOPHBalanceAfter: l1SOPHBalanceAfter.toString(),
+    l2SOPHBalanceAfter: l2SOPHBalanceAfter.toString(),
+  });
 }
 
 main().catch((e) => {
