@@ -2,19 +2,12 @@
 
 import type { Address, Hex } from '../primitives';
 
-// Common EIP-1559-style override structure for transactions
-export interface Eip1559GasOverrides {
-  gasLimit?: bigint;
-  maxFeePerGas?: bigint;
-  maxPriorityFeePerGas?: bigint;
-}
-
-// Resolved fee data returned by quote/plan steps
-export interface ResolvedEip1559Fees {
-  gasLimit?: bigint;
-  maxFeePerGas: bigint;
-  maxPriorityFeePerGas: bigint;
-}
+// // Resolved fee data returned by quote/plan steps
+// export interface ResolvedEip1559Fees {
+//   gasLimit?: bigint;
+//   maxFeePerGas: bigint;
+//   maxPriorityFeePerGas: bigint;
+// }
 
 /** Generic approval requirement */
 export interface ApprovalNeed {
