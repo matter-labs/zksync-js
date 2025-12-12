@@ -24,9 +24,9 @@ import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { ETH_ADDRESS } from '../../../src/core/constants';
 
-const L1_RPC = 'http://localhost:8545';
-const L2_RPC = 'http://localhost:3050';
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in the environment');
@@ -44,7 +44,6 @@ async function main() {
     token: ETH_ADDRESS, // ETH token on this chain
     amount: parseEther('.0001'),
     to: me,
-    // l2GasLimit?: 300_000n, fee overrides, etc...
     // l2TxOverrides: {
     //   gasLimit: 400_000n,
     //   maxFeePerGas: parseEther('0.00000002'),
@@ -52,32 +51,40 @@ async function main() {
     // },
   } as const;
 
-  const quote = await sdk.withdrawals.quote(params);
-  console.log('QUOTE:', quote);
+  // const quote = await sdk.withdrawals.quote(params);
+  // console.log('QUOTE:', quote);
 
-  const prepared = await sdk.withdrawals.prepare(params);
-  console.log('PREPARE:', prepared);
+  // const prepared = await sdk.withdrawals.prepare(params);
+  // console.log('PREPARE:', prepared);
 
-  const created = await sdk.withdrawals.create(params);
-  console.log('CREATE:', created);
+  // const created = await sdk.withdrawals.create(params);
+  // console.log('CREATE:', created);
 
-  console.log('STATUS (initial):', await sdk.withdrawals.status(created));
+  // console.log('STATUS (initial):', await sdk.withdrawals.status(created));
 
-  // Wait for L2 inclusion
-  const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
-  console.log('L2 included:', l2Receipt?.hash);
+  // // Wait for L2 inclusion
+  // const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
+  // console.log('L2 included:', l2Receipt?.hash);
 
   // Wait until ready to finalize
-  await sdk.withdrawals.wait(created, { for: 'ready' });
-  console.log('STATUS (ready):', await sdk.withdrawals.status(created));
+  console.log(
+    'STATUS (ready):',
+    await sdk.withdrawals.status(
+      '0x1f3af8de648667d67314c4f8a7084c1242490dbf518715a3dfd9b407bd20baa0',
+    ),
+  );
+
+  await sdk.withdrawals.wait('0x1f3af8de648667d67314c4f8a7084c1242490dbf518715a3dfd9b407bd20baa0', {
+    for: 'ready',
+  });
 
   // Try to finalize (no-op if already finalized by someone else)
-  const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
-  console.log('TRY FINALIZE:', fin);
+  // const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
+  // console.log('TRY FINALIZE:', fin);
 
-  // Wait for finalization
-  const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
-  console.log('Finalized. L1 receipt:', l1Receipt?.hash);
+  // // Wait for finalization
+  // const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
+  // console.log('Finalized. L1 receipt:', l1Receipt?.hash);
 }
 
 main().catch((e) => {

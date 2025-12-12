@@ -3,30 +3,45 @@
 import type { Address } from './primitives';
 
 // Minimal public gas parameters shared across adapters
-export type GasParams = {
+export type L1DepositFeeParams = {
   gasLimit: bigint;
   maxFeePerGas: bigint;
   maxPriorityFeePerGas?: bigint;
-  maxGasCost: bigint; // gasLimit * maxFeePerGas
-  gasPerPubdata?: bigint;
+  maxTotal: bigint;
+};
+
+export type L2DepositFeeParams = {
+  gasLimit: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas?: bigint;
+  total: bigint;
+  baseCost: bigint;
+  gasPerPubdata: bigint;
+  operatorTip?: bigint;
+};
+
+export type L2WithdrawalFeeParams = {
+  gasLimit: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas?: bigint;
+  total: bigint;
 };
 
 // Minimal public fee breakdown shared across adapters
-export type FeeBreakdown = {
+export type DepositFeeBreakdown = {
   token: Address; // fee token address
-  total: bigint; // total fee amount
-  components?: {
-    l1Execution?: bigint;
-    l2Execution?: bigint;
-    l2BaseCost?: bigint;
-    mintValue?: bigint;
-    operatorTip?: bigint;
-    refund?: bigint;
-  };
-  gas?: {
-    l1?: GasParams;
-    l2?: GasParams;
-  };
+  maxTotal: bigint; // max amount that can be charged
+  mintValue?: bigint;
+  l1?: L1DepositFeeParams;
+  l2?: L2DepositFeeParams;
+};
+
+// Minimal public fee breakdown shared across adapters
+export type WithdrawalFeeBreakdown = {
+  token: Address; // fee token address
+  maxTotal: bigint; // max amount that can be charged
+  mintValue?: bigint;
+  l2?: L2WithdrawalFeeParams;
 };
 
 // transaction gas overrides

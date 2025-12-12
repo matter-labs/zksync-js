@@ -53,7 +53,7 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(info.refundRecipient).toBe(ADAPTER_TEST_ADDRESSES.signer.toLowerCase());
 
     if (kind === 'ethers') {
-      expect(info.gasLimit).toBe((200_000n * 115n) / 100n);
+      expect(info.gasLimit).toBe((200_000n * 120n) / 100n);
     }
   });
 

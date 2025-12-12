@@ -2,13 +2,6 @@
 
 import type { Address, Hex } from '../primitives';
 
-// // Resolved fee data returned by quote/plan steps
-// export interface ResolvedEip1559Fees {
-//   gasLimit?: bigint;
-//   maxFeePerGas: bigint;
-//   maxPriorityFeePerGas: bigint;
-// }
-
 /** Generic approval requirement */
 export interface ApprovalNeed {
   token: Address;

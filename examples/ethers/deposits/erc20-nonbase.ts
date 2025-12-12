@@ -35,7 +35,7 @@ async function main() {
   // Example: sepolia test token (TEST)
   // https://sepolia.etherscan.io/token/0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873
   const TOKEN = (process.env.DEPOSIT_TOKEN ??
-    '0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873') as Address;
+    '0xaBbA4455E88fD911d28Be4c3be380943A957B19b') as Address;
 
   // // RPC + signer
   const l1 = new JsonRpcProvider(L1_RPC);
@@ -50,7 +50,7 @@ async function main() {
   // // Read token decimals from L1
   const erc20 = new (await import('ethers')).Contract(TOKEN, IERC20ABI, l1);
   const decimals = Number(await erc20.decimals());
-  const amount = parseUnits('250', decimals); // deposit 250 tokens
+  const amount = parseUnits('2', decimals); // deposit 250 tokens
 
   // // QUOTE → no sends
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });

@@ -1,26 +1,29 @@
 // src/types/flows/withdrawals.ts
 
+import type { WithdrawalFeeBreakdown, TxOverrides } from '../fees';
 import type { Address, Hex } from '../primitives';
-import type { ApprovalNeed, Plan, Handle, Eip1559GasOverrides, ResolvedEip1559Fees } from './base';
+import type { ApprovalNeed, Plan, Handle } from './base';
 
 /** Input */
 export interface WithdrawParams {
   token: Address;
   amount: bigint;
   to?: Address;
-  l2GasLimit?: bigint;
-  l2TxOverrides?: Eip1559GasOverrides;
+  refundRecipient?: Address;
+  l2TxOverrides?: TxOverrides;
 }
 
 /** Routes */
-export type WithdrawRoute = 'eth-base' | 'erc20-nonbase' | 'eth-nonbase';
+export type WithdrawRoute = 'base' | 'erc20-nonbase';
 
 /** Quote */
 export interface WithdrawQuote {
   route: WithdrawRoute;
   approvalsNeeded: readonly ApprovalNeed[];
-  suggestedL2GasLimit: bigint;
-  fees: ResolvedEip1559Fees;
+  amounts: {
+    transfer: { token: Address; amount: bigint };
+  };
+  fees: WithdrawalFeeBreakdown;
 }
 
 /** Plan (Tx generic) */

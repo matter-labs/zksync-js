@@ -7,15 +7,12 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
+import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
-
-// TODO: all gas buffers need to be moved to a dedicated resource
-// this is getting messy
-const BASE_COST_BUFFER_BPS = 100n; // 1%
-const BPS = 10_000n;
-const withBuffer = (x: bigint) => (x * (BPS + BASE_COST_BUFFER_BPS)) / BPS;
 
 //  ERC20 deposit where the deposit token IS the target chain's base token (base ≠ ETH).
 export function routeErc20Base(): DepositRouteStrategy {
@@ -34,17 +31,7 @@ export function routeErc20Base(): DepositRouteStrategy {
       );
 
       // Check provided token matches target chain base token
-      const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
-      const baseToken = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.base.baseToken,
-        () => bh.baseToken(ctx.chainIdL2),
-        {
-          ctx: { where: 'bridgehub.baseToken', chainIdL2: ctx.chainIdL2 },
-          message: 'Failed to read base token.',
-        },
-      )) as `0x${string}`;
-
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.base.assertMatchesBase,
@@ -60,54 +47,37 @@ export function routeErc20Base(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
-      const { gasPriceForBaseCost, gasLimit: overrideGasLimit, ...txFeeOverrides } = ctx.fee;
-      const txOverrides =
-        overrideGasLimit != null
-          ? { ...txFeeOverrides, gasLimit: overrideGasLimit }
-          : txFeeOverrides;
-      let resolvedL1GasLimit: bigint = overrideGasLimit ?? ctx.l2GasLimit;
-
+      const l1Signer = ctx.client.getL1Signer();
       // Read base token
-      const baseToken = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.base.baseToken,
-        () => bh.baseToken(ctx.chainIdL2),
-        {
-          ctx: { where: 'bridgehub.baseToken', chainIdL2: ctx.chainIdL2 },
-          message: 'Failed to read base token.',
-        },
-      )) as `0x${string}`;
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+
+      const l2TxModel: TransactionRequest = {
+        to: p.to ?? ctx.sender,
+        from: ctx.sender,
+        data: '0x',
+        value: 0n,
+      };
+      const l2GasParams = await quoteL2Gas({
+        ctx,
+        route: 'erc20-base',
+        l2TxForModeling: l2TxModel,
+        overrideGasLimit: ctx.l2GasLimit,
+      });
+
+      // TODO: proper error handling
+      if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
       // Base cost
-      const rawBaseCost = (await wrapAs(
-        'RPC',
-        OP_DEPOSITS.base.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            ctx.l2GasLimit,
-            ctx.gasPerPubdata,
-          ),
-        {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost from Bridgehub.',
-        },
-      )) as bigint;
-      const baseCost = BigInt(rawBaseCost);
+      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const mintValue = baseCost + ctx.operatorTip + p.amount;
 
-      // Direct path: mintValue must cover fee + the L2 msg.value (amount) → plus a small buffer
-      const l2Value = p.amount;
-      const rawMintValue = baseCost + ctx.operatorTip + l2Value;
-      const mintValue = withBuffer(rawMintValue);
-
+      // --- Step 4: Approvals ---
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
 
       // Check allowance for base token -> L1AssetRouter
       {
-        const erc20 = new Contract(baseToken, IERC20ABI, ctx.client.getL1Signer());
+        const erc20 = new Contract(baseToken, IERC20ABI, l1Signer);
         const allowance = (await wrapAs(
           'RPC',
           OP_DEPOSITS.base.allowance,
@@ -120,75 +90,84 @@ export function routeErc20Base(): DepositRouteStrategy {
 
         if (allowance < mintValue) {
           approvals.push({ token: baseToken, spender: ctx.l1AssetRouter, amount: mintValue });
-          const data = erc20.interface.encodeFunctionData('approve', [
-            ctx.l1AssetRouter,
-            mintValue,
-          ]);
           steps.push({
             key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
             kind: 'approve',
             description: 'Approve base token for mintValue',
-            tx: { to: baseToken, data, from: ctx.sender, ...txOverrides },
+            tx: {
+              to: baseToken,
+              data: erc20.interface.encodeFunctionData('approve', [ctx.l1AssetRouter, mintValue]),
+              from: ctx.sender,
+              ...ctx.gasOverrides, // Apply user overrides to approval too
+            },
           });
         }
       }
 
-      const req = buildDirectRequestStruct({
+      const requestStruct = buildDirectRequestStruct({
         chainId: ctx.chainIdL2,
         mintValue,
-        l2GasLimit: ctx.l2GasLimit,
+        l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
         l2Contract: p.to ?? ctx.sender,
-        l2Value,
+        l2Value: p.amount,
       });
 
       const data = new Contract(
         ctx.bridgehub,
         IBridgehubABI,
         ctx.client.l1,
-      ).interface.encodeFunctionData('requestL2TransactionDirect', [req]);
+      ).interface.encodeFunctionData('requestL2TransactionDirect', [requestStruct]);
 
-      const tx: TransactionRequest = {
+      // --- Step 6: Estimate L1 Gas ---
+      const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data,
         value: 0n, // base token is ERC-20 ⇒ msg.value MUST be 0
         from: ctx.sender,
-        ...txOverrides,
+        ...ctx.gasOverrides,
       };
-
-      if (overrideGasLimit != null) {
-        tx.gasLimit = overrideGasLimit;
-        resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.base.estGas,
-            () => ctx.client.l1.estimateGas(tx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          const buffered = (BigInt(est) * 115n) / 100n;
-          tx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore;
-        }
+      const l1GasParams = await quoteL1Gas({
+        ctx,
+        tx: l1TxCandidate,
+        overrides: ctx.gasOverrides,
+        fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
+      });
+      if (l1GasParams) {
+        l1TxCandidate.gasLimit = l1GasParams.gasLimit;
       }
+
       steps.push({
         key: 'bridgehub:direct:erc20-base',
         kind: 'bridgehub:direct',
         description: 'Bridge base ERC-20 via Bridgehub.requestL2TransactionDirect',
-        tx,
+        tx: l1TxCandidate,
       });
+
+      // --- Step 7: Finalize Output ---
+      const fees = buildFeeBreakdown({
+        feeToken: baseToken,
+        l1Gas: l1GasParams,
+        l2Gas: l2GasParams,
+        l2BaseCost: baseCost,
+        operatorTip: ctx.operatorTip,
+        mintValue,
+      });
+      // const fees = depositGasServices.buildFeeBreakdown({
+      //   l1Gas: l1GasParams,
+      //   l2Gas: l2GasParams,
+      //   baseCost,
+      //   mintValue,
+      //   amountToTransfer: p.amount,
+      //   operatorTip: ctx.operatorTip,
+      //   feeToken: baseToken, // Fees are paid in the Base Token
+      // });
 
       return {
         steps,
         approvals,
-        quoteExtras: { baseCost, mintValue, l1GasLimit: resolvedL1GasLimit },
+        fees,
       };
     },
   };

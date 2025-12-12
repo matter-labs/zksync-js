@@ -47,11 +47,10 @@ export const ROUTES: Record<DepositRoute, DepositRouteStrategy> = {
 
 // --------------------
 // Public interface
+// TODO: should we have a separate quote() method that doesn't require a wallet
 // --------------------
 export interface DepositsResource {
   // Get a quote for a deposit operation
-  // TODO: should we have a separate quote() method that doesn't require a wallet
-  // TODO: needs better gas response
   quote(p: DepositParams): Promise<DepositQuote>;
 
   // Try to get a quote for a deposit operation
@@ -108,39 +107,20 @@ export function createDepositsResource(client: EthersClient): DepositsResource {
     const route = ctx.route;
     await ROUTES[route].preflight?.(p, ctx);
 
-    const { steps, approvals, quoteExtras } = await ROUTES[route].build(p, ctx);
-    const { baseCost, mintValue } = quoteExtras;
-    const fallbackGasLimit = (quoteExtras as { l1GasLimit?: bigint }).l1GasLimit;
-    const resolveGasLimit = (): bigint => {
-      if (ctx.fee.gasLimit != null) return ctx.fee.gasLimit;
-      for (let i = steps.length - 1; i >= 0; i--) {
-        const candidate = steps[i].tx.gasLimit;
-        if (candidate == null) continue;
-        if (typeof candidate === 'bigint') return candidate;
-        try {
-          return BigInt(candidate.toString());
-        } catch {
-          // ignore and continue searching
-        }
-      }
-      if (fallbackGasLimit != null) return fallbackGasLimit;
-      return ctx.l2GasLimit;
-    };
-    const gasLimit = resolveGasLimit();
+    const { steps, approvals, fees } = await ROUTES[route].build(p, ctx);
 
     return {
       route: ctx.route,
       summary: {
         route: ctx.route,
         approvalsNeeded: approvals,
-        baseCost,
-        mintValue,
-        gasPerPubdata: ctx.gasPerPubdata,
-        fees: {
-          gasLimit,
-          maxFeePerGas: ctx.fee.maxFeePerGas,
-          maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+        amounts: {
+          transfer: { token: p.token, amount: p.amount },
         },
+        fees: fees,
+        // Legacy fields (maintained for backward compatibility)
+        baseCost: fees.l2?.baseCost,
+        mintValue: fees.mintValue,
       },
       steps,
     };

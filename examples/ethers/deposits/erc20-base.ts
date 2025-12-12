@@ -18,9 +18,9 @@ import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { L1_SOPH_TOKEN_ADDRESS } from '../../../src/core/constants';
 
-const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
-const L2_RPC = 'http://localhost:3050'; // your L2 RPC
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in the .env file');
@@ -40,7 +40,7 @@ async function main() {
   const me = (await signer.getAddress()) as Address;
 
   // If your base token is 18 decimals; adjust if not.
-  const amount = parseUnits('25', 18);
+  const amount = parseUnits('1', 18);
 
   // Quote
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });

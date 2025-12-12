@@ -37,7 +37,8 @@ export type Resource =
   | 'withdrawals'
   | 'withdrawal-finalization'
   | 'helpers'
-  | 'zksrpc';
+  | 'zksrpc'
+  | 'client';
 
 /** Envelope we throw only for SDK-domain errors. */
 export interface ErrorEnvelope {

@@ -1,7 +1,7 @@
 // src/types/flows/deposits.ts
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
-import type { FeeBreakdown, TxOverrides } from '../fees';
+import type { DepositFeeBreakdown, TxOverrides } from '../fees';
 
 /** Input */
 export interface DepositParams {
@@ -25,16 +25,16 @@ export interface DepositQuote {
   amounts: {
     transfer: { token: Address; amount: bigint };
   };
-  fees: FeeBreakdown;
-  /** 
-  * @deprecated Use `fees.components?.l2BaseCost` instead.
-  * Will be removed in a future release.
-  */
+  fees: DepositFeeBreakdown;
+  /**
+   * @deprecated Use `fees.components?.l2BaseCost` instead.
+   * Will be removed in a future release.
+   */
   baseCost?: bigint;
   /**
-  * @deprecated Use `fees.components?.mintValue` instead.
-  * Will be removed in a future release.
-  */
+   * @deprecated Use `fees.components?.mintValue` instead.
+   * Will be removed in a future release.
+   */
   mintValue?: bigint;
 }
 

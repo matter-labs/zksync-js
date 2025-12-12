@@ -57,7 +57,7 @@ export const TOPIC_CANONICAL_SUCCESS: Hex =
   '0xe4def01b981193a97a9e81230d7b9f31812ceaf23f864a828a82c687911cb2df';
 
 // -----------------------------------------------------------------------------
-// L1->L2 ZKsync Fee Model 
+// L1->L2 ZKsync Fee Model
 // Derived from: https://github.com/matter-labs/era-contracts/blob/main/docs/l2_system_contracts/zksync_fee_model.md
 // TODO: Consider adding zksyn-contracts dep and importing these values directly.
 // -----------------------------------------------------------------------------
@@ -71,7 +71,9 @@ export const TX_MEMORY_OVERHEAD_GAS = 10n;
 // Approximate pubdata footprint (bytes) for a direct ETH deposit (state + logs)
 export const DEFAULT_PUBDATA_BYTES = 155n;
 // Approximate ABI-encoded size (bytes) of a deposit tx
-export const DEFAULT_ABI_BYTES = 400n
+export const DEFAULT_ABI_BYTES = 400n;
+// Approximate safe L1 gas limit for bridge deposits
+export const SAFE_L1_BRIDGE_GAS = 600_000n;
 
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.

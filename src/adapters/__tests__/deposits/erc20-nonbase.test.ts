@@ -70,7 +70,7 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       expect(bridgeArgs.token).toBe(ERC20_TOKEN.toLowerCase());
       expect(bridgeArgs.amount).toBe(amount);
       expect(bridgeArgs.receiver).toBe(RECEIVER.toLowerCase());
-      expect(tx.gasLimit).toBe((100_000n * 125n) / 100n);
+      expect(tx.gasLimit).toBe((100_000n * 120n) / 100n);
       expect(res.quoteExtras.baseToken.toLowerCase()).toBe(FORMAL_ETH_ADDRESS.toLowerCase());
       expect(res.quoteExtras.baseIsEth).toBe(true);
     } else {

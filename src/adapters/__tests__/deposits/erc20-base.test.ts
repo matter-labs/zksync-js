@@ -57,7 +57,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     expect(info.l2Contract).toBe(ADAPTER_TEST_ADDRESSES.signer.toLowerCase());
 
     if (kind === 'ethers') {
-      expect(info.gasLimit).toBe((100_000n * 115n) / 100n);
+      expect(info.gasLimit).toBe((100_000n * 120n) / 100n);
     }
   });
 
