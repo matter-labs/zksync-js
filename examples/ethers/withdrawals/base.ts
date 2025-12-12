@@ -64,12 +64,7 @@ async function main() {
 
   // Wait until ready to finalize
   await sdk.withdrawals.wait(created, { for: 'ready' });
-  console.log(
-    'STATUS (ready):',
-    await sdk.withdrawals.status(
-      '0x351c78b096fcc9a8bc4cccc54bba86ad4d98a95c6dd6ab90b359c948f0c84ccc',
-    ),
-  );
+  console.log('STATUS (ready):', await sdk.withdrawals.status(created));
 
   // Try to finalize (no-op if already finalized by someone else)
   const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
