@@ -116,33 +116,19 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
     const route = ctx.route;
     await ROUTES[route].preflight?.(p, ctx);
 
-    const { steps, approvals, quoteExtras } = await ROUTES[route].build(p, ctx);
-    const { baseCost, mintValue } = quoteExtras;
-    const fallbackGasLimit = (quoteExtras as { l1GasLimit?: bigint }).l1GasLimit;
-    const resolveGasLimit = (): bigint => {
-      if (ctx.fee.gasLimit != null) return ctx.fee.gasLimit;
-      for (let i = steps.length - 1; i >= 0; i--) {
-        const candidate = steps[i].tx.gas;
-        if (candidate != null) return candidate;
-      }
-      if (fallbackGasLimit != null) return fallbackGasLimit;
-      return ctx.l2GasLimit;
-    };
-    const gasLimit = resolveGasLimit();
-
+    const { steps, approvals, fees } = await ROUTES[route].build(p, ctx);
     return {
       route: ctx.route,
       summary: {
         route: ctx.route,
         approvalsNeeded: approvals,
-        baseCost,
-        mintValue,
-        gasPerPubdata: ctx.gasPerPubdata,
-        fees: {
-          gasLimit,
-          maxFeePerGas: ctx.fee.maxFeePerGas,
-          maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+        amounts: {
+          transfer: { token: p.token, amount: p.amount },
         },
+        fees: fees,
+        // Legacy fields (maintained for backward compatibility)
+        baseCost: fees.l2?.baseCost,
+        mintValue: fees.mintValue,
       },
       steps,
     };

@@ -106,17 +106,6 @@ export function createWithdrawalsResource(client: EthersClient): WithdrawalsReso
     await ROUTES[ctx.route].preflight?.(p, ctx);
     const { steps, approvals, fees } = await ROUTES[ctx.route].build(p, ctx);
 
-    // const summary: WithdrawQuote = {
-    //   route: ctx.route,
-    //   approvalsNeeded: approvals,
-    //   suggestedL2GasLimit: ctx.l2GasLimit,
-    //   fees: {
-    //     gasLimit,
-    //     maxFeePerGas: ctx.fee.maxFeePerGas,
-    //     maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
-    //   },
-    // };
-
     return {
       route: ctx.route,
       summary: {
@@ -129,8 +118,6 @@ export function createWithdrawalsResource(client: EthersClient): WithdrawalsReso
       },
       steps,
     };
-
-    //return { route: ctx.route, summary, steps };
   }
   const finalizeCache = new Map<Hex, string>();
 

@@ -12,6 +12,7 @@ import {
 import { L2NativeTokenVaultABI, IL2AssetRouterABI } from '../../../core/abi.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeAssetRouterWithdraw } from '../decode-helpers.ts';
+import { L2_ASSET_ROUTER_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../core/constants.ts';
 
 type AdapterKind = 'ethers' | 'viem';
 
@@ -24,14 +25,14 @@ const TOKEN = '0x6666666666666666666666666666666666666666' as const;
 const RECEIVER = '0x7777777777777777777777777777777777777777' as const;
 const ASSET_ID = ('0x' + 'aa'.repeat(32)) as `0x${string}`;
 
-const L2_NATIVE_VAULT = ADAPTER_TEST_ADDRESSES.l1NativeTokenVault;
+const L2_NATIVE_VAULT = L2_NATIVE_TOKEN_VAULT_ADDRESS;
 
 describeForAdapters('adapters/withdrawals/routeErc20NonBase', (kind, factory) => {
   it('builds withdraw plan without approvals when allowance sufficient', async () => {
     const harness = factory();
     const ctx = makeWithdrawalContext(harness, {
       l2NativeTokenVault: L2_NATIVE_VAULT,
-      l2AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+      l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
     });
     const amount = 5_000n;
 
@@ -90,7 +91,7 @@ describeForAdapters('adapters/withdrawals/routeErc20NonBase', (kind, factory) =>
     const harness = factory();
     const ctx = makeWithdrawalContext(harness, {
       l2NativeTokenVault: L2_NATIVE_VAULT,
-      l2AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+      l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
     });
     const amount = 999n;
 
@@ -125,7 +126,7 @@ describeForAdapters('adapters/withdrawals/routeErc20NonBase', (kind, factory) =>
     const harness = factory();
     const ctx = makeWithdrawalContext(harness, {
       l2NativeTokenVault: L2_NATIVE_VAULT,
-      l2AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+      l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
     });
 
     setL2TokenRegistration(harness, ctx.l2NativeTokenVault, TOKEN, ASSET_ID);

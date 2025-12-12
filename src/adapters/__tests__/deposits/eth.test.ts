@@ -35,8 +35,8 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(res.steps.length).toBe(1);
 
     const expectedMint = baseCost + ctx.operatorTip + amount;
-    expect(res.quoteExtras.baseCost).toBe(baseCost);
-    expect(res.quoteExtras.mintValue).toBe(expectedMint);
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(res.fees?.mintValue).toBe(expectedMint);
 
     const step = res.steps[0];
     expect(step.key).toBe('bridgehub:direct');
@@ -75,11 +75,11 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(info.l2Contract).toBe(target.toLowerCase());
     expect(info.l2Value).toBe(amount);
     const expectedMint = baseCost + ctx.operatorTip + amount;
-    expect(res.quoteExtras.mintValue).toBe(expectedMint);
+    expect(res.fees?.mintValue).toBe(expectedMint);
   });
 
   if (kind === 'ethers') {
-    it('ignores estimateGas failures and emits a tx without gasLimit', async () => {
+    it('ignores estimateGas failures and leaves gasLimit unset', async () => {
       const harness = factory();
       const ctx = makeDepositContext(harness);
       const amount = 777n;
@@ -105,6 +105,6 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
       caught = err;
     }
     expect(isZKsyncError(caught)).toBe(true);
-    expect(String(caught)).toMatch(/Could not fetch L2 base cost from Bridgehub/);
+    expect(String(caught)).toMatch(/l2BaseCost/);
   });
 });

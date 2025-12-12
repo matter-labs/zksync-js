@@ -35,7 +35,7 @@ async function main() {
   // Example: sepolia test token (TEST)
   // https://sepolia.etherscan.io/token/0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873
   const TOKEN = (process.env.DEPOSIT_TOKEN ??
-    '0xaBbA4455E88fD911d28Be4c3be380943A957B19b') as Address;
+    '0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873') as Address;
 
   // // RPC + signer
   const l1 = new JsonRpcProvider(L1_RPC);

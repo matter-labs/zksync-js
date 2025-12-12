@@ -46,6 +46,8 @@ export function encodeNTVAssetId(chainId: bigint, address: string) {
   return ethers.keccak256(hex);
 }
 
+export const encodeNTVTransferData = encodeNativeTokenVaultTransferData;
+
 // Scales the provided gas limit by the L1 fee estimation coefficient
 export function scaleGasLimit(gasLimit: bigint): bigint {
   return (

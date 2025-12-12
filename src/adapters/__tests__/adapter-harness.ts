@@ -15,6 +15,11 @@ import {
   L2NativeTokenVaultABI,
 } from '../../core/abi.ts';
 import type { Address } from '../../core/types/primitives';
+import {
+  L2_ASSET_ROUTER_ADDRESS,
+  L2_NATIVE_TOKEN_VAULT_ADDRESS,
+  L2_BASE_TOKEN_ADDRESS,
+} from '../../core/constants';
 
 const IBridgehub = new Interface(IBridgehubABI as any);
 const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
@@ -57,11 +62,11 @@ class CallRegistry {
 }
 
 export const ADAPTER_TEST_ADDRESSES = {
-  bridgehub: '0xB000000000000000000000000000000000000000' as Address,
-  l1AssetRouter: '0xA000000000000000000000000000000000000000' as Address,
-  l1Nullifier: '0xC000000000000000000000000000000000000000' as Address,
-  l1NativeTokenVault: '0xD000000000000000000000000000000000000000' as Address,
-  baseTokenFor324: '0xBee0000000000000000000000000000000000000' as Address,
+  bridgehub: '0xb000000000000000000000000000000000000000' as Address,
+  l1AssetRouter: '0xa000000000000000000000000000000000000000' as Address,
+  l1Nullifier: '0xc000000000000000000000000000000000000000' as Address,
+  l1NativeTokenVault: '0xd000000000000000000000000000000000000000' as Address,
+  baseTokenFor324: '0xbee0000000000000000000000000000000000000' as Address,
   signer: '0x1111111111111111111111111111111111111111' as Address,
 } as const;
 
@@ -77,12 +82,24 @@ type EthersHarness = {
   l1: {
     call: (tx: { to?: string; data?: string }) => Promise<string>;
     estimateGas: (tx: unknown) => Promise<bigint>;
-    getFeeData: () => Promise<{ gasPrice: bigint }>;
+    getFeeData: () => Promise<{
+      gasPrice: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }>;
+    getGasPrice: () => Promise<bigint>;
   };
   l2: {
     send: (method: string, params: unknown[]) => Promise<unknown>;
     estimateGas: (tx: unknown) => Promise<bigint>;
     getNetwork: () => Promise<{ chainId: bigint }>;
+    getFeeData: () => Promise<{
+      gasPrice: bigint;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    }>;
+    getGasPrice: () => Promise<bigint>;
+    getCode: (address: string) => Promise<string>;
   };
   signer: Signer;
   registry: CallRegistry;
@@ -104,6 +121,7 @@ type ViemHarness = {
   setSimulateError(error: Error | undefined, target?: 'l1' | 'l2'): void;
   lastSimulateArgs(target?: 'l1' | 'l2'): unknown;
   queueSimulateResponses(responses: SimulateResponder[], target?: 'l1' | 'l2'): void;
+  setEstimateGas(value: bigint | Error | undefined, target?: 'l1' | 'l2'): void;
 };
 
 export type AdapterHarness = EthersHarness | ViemHarness;
@@ -131,7 +149,10 @@ function makeEthersL1(state: EthersL1State) {
       return 100_000n;
     },
     async getFeeData() {
-      return { gasPrice: 10n };
+      return { gasPrice: 5n, maxFeePerGas: 5n, maxPriorityFeePerGas: 1n };
+    },
+    async getGasPrice() {
+      return 5n;
     },
   };
 }
@@ -166,6 +187,15 @@ function makeEthersL2(state: EthersL2State) {
     async getNetwork() {
       return { chainId: 324n };
     },
+    async getFeeData() {
+      return { gasPrice: 1n, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n };
+    },
+    async getGasPrice() {
+      return 1n;
+    },
+    async getCode(_address: string) {
+      return '0x01';
+    },
   };
 }
 
@@ -193,6 +223,10 @@ type ViemClientState = {
   simulateQueue?: SimulateResponder[];
   simulateError?: Error;
   lastArgs?: unknown;
+  estimateGasValue?: bigint | Error;
+  gasPrice?: bigint;
+  fees?: { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
+  code?: string;
 };
 
 function makeViemClient(state: ViemClientState): PublicClient {
@@ -238,6 +272,20 @@ function makeViemClient(state: ViemClientState): PublicClient {
         account?: unknown;
         args?: unknown[];
       };
+      const mapped = state.registry.getValue(address, functionName, fnArgs ?? []);
+      if (mapped !== undefined) {
+        return {
+          result: mapped as any,
+          request: {
+            address,
+            abi,
+            functionName,
+            args: fnArgs,
+            value,
+            account,
+          },
+        };
+      }
       return {
         result: '0x',
         request: {
@@ -249,6 +297,29 @@ function makeViemClient(state: ViemClientState): PublicClient {
           account,
         },
       };
+    },
+    async estimateGas(args: unknown) {
+      state.lastArgs = args;
+      const val = state.estimateGasValue;
+      if (val instanceof Error) throw val;
+      if (typeof val === 'bigint') return val;
+      return 100_000n;
+    },
+    async estimateFeesPerGas() {
+      return {
+        maxFeePerGas: state.fees?.maxFeePerGas ?? 5n,
+        maxPriorityFeePerGas: state.fees?.maxPriorityFeePerGas ?? 1n,
+        gasPrice: state.gasPrice ?? state.fees?.maxFeePerGas ?? 5n,
+      } as any;
+    },
+    async getGasPrice() {
+      return state.gasPrice ?? 5n;
+    },
+    async getCode({ address }: { address: Address }) {
+      const key = lower(address);
+      if (state.code) return state.code;
+      // Default to deployed bytecode sentinel
+      return key ? '0x01' : '0x';
     },
   } as unknown as PublicClient;
 }
@@ -371,6 +442,10 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
       const state = target === 'l1' ? l1State : l2State;
       state.simulateQueue = [...(state.simulateQueue ?? []), ...responses];
     },
+    setEstimateGas(value, target = 'l1') {
+      const state = target === 'l1' ? l1State : l2State;
+      state.estimateGasValue = value;
+    },
   };
 }
 
@@ -454,9 +529,9 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
     l1AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
     l1Nullifier: ADAPTER_TEST_ADDRESSES.l1Nullifier,
-    l2AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
-    l2NativeTokenVault: ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
-    l2BaseTokenSystem: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+    l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
+    l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    l2BaseTokenSystem: L2_BASE_TOKEN_ADDRESS,
     baseIsEth: true,
     l2GasLimit: 300_000n,
     gasBufferPct: 15,

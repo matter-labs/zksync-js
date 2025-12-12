@@ -70,7 +70,7 @@ async function main() {
     functionName: 'decimals',
   })) as number;
 
-  const amount = parseUnits('250', decimals); // deposit 250 tokens
+  const amount = parseUnits('2', decimals); // deposit 250 tokens
 
   // // QUOTE → no sends
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });

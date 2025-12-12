@@ -31,9 +31,9 @@ import { createViemSdk } from '../../../src/adapters/viem/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { IERC20ABI } from '../../../src/core/abi';
 
-const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
-const L2_RPC = 'http://localhost:3050'; // your L2 RPC
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 // Replace with a real **L1 ERC-20** you hold
 const L1_ERC20 = '0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873' as Address;
@@ -71,7 +71,7 @@ async function main() {
 
   const params = {
     token: l2Token,
-    amount: parseUnits('25', decimals),
+    amount: parseUnits('2', decimals),
     to: me,
   } as const;
 

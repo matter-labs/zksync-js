@@ -13,6 +13,7 @@ export interface BuildCtx extends CommonCtx {
   client: EthersClient;
 
   // L1 + L2 well-knowns
+  bridgehub: Address;
   l1AssetRouter: Address;
   l1Nullifier: Address;
   l2AssetRouter: Address;

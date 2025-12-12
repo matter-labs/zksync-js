@@ -67,7 +67,7 @@ async function main() {
   // --- Deposit params ---
   const me = account.address as Address;
   const params = {
-    amount: parseEther('0.01'),
+    amount: parseEther('0.001'),
     token: ETH_ADDRESS, // ETH sentinel
     to: me,
     // optional:

@@ -35,9 +35,9 @@ import { IERC20ABI } from '../../../src/core/abi';
 import { L1_SOPH_TOKEN_ADDRESS } from '../../../src/core/constants';
 
 // ---- configure your RPCs & key ----
-const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
-const L2_RPC = 'http://localhost:3050'; // your L2 RPC
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 // IMPORTANT: This must be the base token contract on L1 for your target L2 (NOT ETH).
 // Replace with your L1 base-token address (ERC-20)
@@ -71,7 +71,7 @@ async function main() {
   })) as number;
 
   const me = account.address as Address;
-  const depositAmount = parseUnits('250', decimals); // deposit 250 units of base token
+  const depositAmount = parseUnits('2', decimals); // deposit 2 units of base token
 
   // --- Quote (dry run) ---
   const quote = await sdk.deposits.quote({

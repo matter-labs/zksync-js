@@ -9,7 +9,6 @@ import {
 } from '../adapter-harness.ts';
 import { IBaseTokenABI } from '../../../core/abi.ts';
 import { L2_BASE_TOKEN_ADDRESS } from '../../../core/constants.ts';
-import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeBaseTokenWithdraw } from '../decode-helpers.ts';
 
 type AdapterKind = 'ethers' | 'viem';
@@ -57,7 +56,7 @@ describeForAdapters('adapters/withdrawals/routeEthBase', (kind, factory) => {
       expect((tx.from as string).toLowerCase()).toBe(ctx.sender.toLowerCase());
       expect(BigInt(tx.value ?? 0n)).toBe(amount);
       expect(decodeBaseTokenWithdraw(tx.data)).toBe(ctx.sender.toLowerCase());
-      expect(tx.gasLimit).toBe((200_000n * 115n) / 100n);
+      expect(tx.gasLimit).toBe((200_000n * 120n) / 100n);
     } else {
       const tx = step.tx as any;
       expect((tx.address as string).toLowerCase()).toBe(L2_BASE_TOKEN_ADDRESS.toLowerCase());
@@ -112,19 +111,15 @@ describeForAdapters('adapters/withdrawals/routeEthBase', (kind, factory) => {
       expect((res.steps[0].tx as any).gasLimit).toBeUndefined();
     });
   } else {
-    it('wraps simulation failures as ZKsyncError', async () => {
+    it('tolerates estimateGas failures by omitting gas params', async () => {
       const harness = factory();
       const ctx = makeWithdrawalContext(harness);
-      harness.setSimulateError(new Error('fail'), 'l2');
+      harness.setEstimateGas(new Error('fail'), 'l2');
 
-      let caught: unknown;
-      try {
-        await ROUTES.viem.build({ amount: 1n } as any, ctx as any);
-      } catch (err) {
-        caught = err;
-      }
-      expect(isZKsyncError(caught)).toBe(true);
-      expect(String(caught)).toMatch(/Failed to simulate L2 ETH withdraw/);
+      const res = await ROUTES.viem.build({ amount: 1n } as any, ctx as any);
+      const tx = res.steps[0].tx as any;
+      expect(tx.gas).toBeUndefined();
+      expect(tx.maxFeePerGas).toBeUndefined();
     });
   }
 });

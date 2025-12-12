@@ -29,7 +29,6 @@ import type {
 } from './routes/types';
 import { routeEthBase } from './routes/eth';
 import { routeErc20NonBase } from './routes/erc20-nonbase';
-import { routeEthNonBase } from './routes/eth-nonbase';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
@@ -38,8 +37,7 @@ import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 // Withdrawal Route map
 // --------------------
 export const ROUTES: Record<WithdrawRoute, WithdrawRouteStrategy> = {
-  'eth-base': routeEthBase(), // BaseTokenSystem.withdraw, chain base = ETH
-  'eth-nonbase': routeEthNonBase(), // BaseTokenSystem.withdraw, chain base ≠ ETH
+  base: routeEthBase(), // BaseTokenSystem.withdraw, chain base = ETH
   'erc20-nonbase': routeErc20NonBase(), // AssetRouter.withdraw for non-base ERC-20s
 };
 
@@ -118,28 +116,20 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
     const ctx = await commonCtx(p, client);
 
     await ROUTES[ctx.route].preflight?.(p, ctx);
-    const { steps, approvals } = await ROUTES[ctx.route].build(p, ctx);
-    const resolveGasLimit = (): bigint | undefined => {
-      if (ctx.fee.gasLimit != null) return ctx.fee.gasLimit;
-      for (let i = steps.length - 1; i >= 0; i--) {
-        const candidate = steps[i].tx.gas;
-        if (candidate != null) return candidate;
-      }
-      return undefined;
-    };
-    const gasLimit = resolveGasLimit();
+    const { steps, approvals, fees } = await ROUTES[ctx.route].build(p, ctx);
 
-    const summary: WithdrawQuote = {
+    return {
       route: ctx.route,
-      approvalsNeeded: approvals,
-      suggestedL2GasLimit: ctx.l2GasLimit,
-      fees: {
-        gasLimit,
-        maxFeePerGas: ctx.fee.maxFeePerGas,
-        maxPriorityFeePerGas: ctx.fee.maxPriorityFeePerGas,
+      summary: {
+        route: ctx.route,
+        approvalsNeeded: approvals,
+        amounts: {
+          transfer: { token: p.token, amount: p.amount },
+        },
+        fees,
       },
+      steps,
     };
-    return { route: ctx.route, summary, steps };
   }
 
   const finalizeCache = new Map<Hex, string>();
