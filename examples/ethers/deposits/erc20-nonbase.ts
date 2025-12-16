@@ -50,7 +50,7 @@ async function main() {
   // // Read token decimals from L1
   const erc20 = new (await import('ethers')).Contract(TOKEN, IERC20ABI, l1);
   const decimals = Number(await erc20.decimals());
-  const amount = parseUnits('2', decimals); // deposit 250 tokens
+  const amount = parseUnits('2', decimals); // deposit 2 tokens
 
   // // QUOTE → no sends
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });

@@ -10,8 +10,9 @@ import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
-import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
@@ -20,7 +21,6 @@ const { wrapAs } = createErrorHandlers('deposits');
 export function routeEthNonBase(): DepositRouteStrategy {
   return {
     async preflight(p, ctx) {
-      // Assert the asset is ETH.
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthAsset,
@@ -31,8 +31,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { token: p.token } },
       );
-
-      // Resolve base token & assert it's not ETH on target chain.
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
@@ -44,8 +42,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { baseToken, chainIdL2: ctx.chainIdL2 } },
       );
-
-      // Cheap preflight: ensure user has enough ETH for the deposit amount (msg.value).
+      // Check sufficient ETH balance to cover deposit amount
       const ethBal = await wrapAs(
         'RPC',
         OP_DEPOSITS.ethNonBase.ethBalance,
@@ -55,7 +52,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
           message: 'Failed to read L1 ETH balance.',
         },
       );
-
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthBalance,
@@ -72,9 +68,9 @@ export function routeEthNonBase(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
-      // --- Step 2: Estimate L2 Gas ---
+
+      // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
@@ -89,16 +85,15 @@ export function routeEthNonBase(): DepositRouteStrategy {
       });
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
-      // --- Step 3: Calculate Base Cost & Mint Value ---
+      // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
       const mintValue = baseCost + ctx.operatorTip;
 
-      // --- Step 4: Approvals (Base Token) ---
+      // --- Approvals ---
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
 
       const erc20Base = new Contract(baseToken, IERC20ABI, l1Signer);
-      // Ensure base-token allowance to L1AssetRouter for `mintValue`
       const allowance = (await wrapAs(
         'RPC',
         OP_DEPOSITS.ethNonBase.allowanceBase,
@@ -124,8 +119,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         });
       }
 
-      // --- Step 5: Construct L1 Transaction (Two Bridges) ---
-      // Build Two-Bridges call
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.ethNonBase.encodeCalldata,
@@ -186,7 +179,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         tx: l1TxCandidate,
       });
 
-      // --- Step 7: Finalize Output ---
       const fees = buildFeeBreakdown({
         feeToken: baseToken,
         l1Gas: l1GasParams,

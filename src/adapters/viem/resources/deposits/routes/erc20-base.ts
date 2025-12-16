@@ -14,7 +14,8 @@ import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
 import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
-import { quoteL2BaseCost, buildFeeBreakdown } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 const { wrapAs } = createErrorHandlers('deposits');
 
@@ -47,17 +48,15 @@ export function routeErc20Base(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      // 1) Base token (must match p.token)
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
 
-      // 2) L2 gas quote (modeled)
+      // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
         data: '0x',
         value: 0n,
       };
-
       const l2Gas = await quoteL2Gas({
         ctx,
         route: 'erc20-base',
@@ -67,11 +66,11 @@ export function routeErc20Base(): DepositRouteStrategy {
 
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
-      // 3) Base cost + mintValue
+      // L2TransactionBase cost
       const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
       const mintValue = l2BaseCost + ctx.operatorTip + p.amount;
 
-      // 4) Approvals (base token allowance to L1AssetRouter for mintValue)
+      // -- Approvals --
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<ViemPlanWriteRequest>[] = [];
 
@@ -120,7 +119,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         });
       }
 
-      // 5) Build request struct (uses *quoted* L2 gas limit)
       const req = buildDirectRequestStruct({
         chainId: ctx.chainIdL2,
         mintValue,
@@ -131,7 +129,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         l2Value: p.amount,
       });
 
-      // 6) Build bridge call write request (simulate only if no approval needed)
       let bridgeTx: ViemPlanWriteRequest;
       let calldata: `0x${string}`;
 
@@ -178,7 +175,7 @@ export function routeErc20Base(): DepositRouteStrategy {
         bridgeTx = { ...sim.request };
       }
 
-      // 7) Quote L1 gas for the bridge tx
+      // --- Estimate L1 Gas ---
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data: calldata,
@@ -186,7 +183,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         from: ctx.sender,
         ...ctx.gasOverrides,
       };
-
       const l1Gas = await quoteL1Gas({
         ctx,
         tx: l1TxCandidate,
@@ -210,7 +206,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         tx: bridgeTx,
       });
 
-      // 8) Fees
       const fees = buildFeeBreakdown({
         feeToken: baseToken,
         l1Gas,

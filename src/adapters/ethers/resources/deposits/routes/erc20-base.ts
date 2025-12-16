@@ -9,7 +9,8 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
-import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
@@ -18,7 +19,6 @@ const { wrapAs } = createErrorHandlers('deposits');
 export function routeErc20Base(): DepositRouteStrategy {
   return {
     async preflight(p, ctx) {
-      // Basic validation: depositing ETH here would be wrong.
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.base.assertErc20Asset,
@@ -48,9 +48,9 @@ export function routeErc20Base(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      // Read base token
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
 
+      // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
@@ -67,11 +67,11 @@ export function routeErc20Base(): DepositRouteStrategy {
       // TODO: proper error handling
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
-      // Base cost
+      // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
       const mintValue = baseCost + ctx.operatorTip + p.amount;
 
-      // --- Step 4: Approvals ---
+      // --- Approvals ---
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
 
@@ -98,7 +98,7 @@ export function routeErc20Base(): DepositRouteStrategy {
               to: baseToken,
               data: erc20.interface.encodeFunctionData('approve', [ctx.l1AssetRouter, mintValue]),
               from: ctx.sender,
-              ...ctx.gasOverrides, // Apply user overrides to approval too
+              ...ctx.gasOverrides,
             },
           });
         }
@@ -120,7 +120,7 @@ export function routeErc20Base(): DepositRouteStrategy {
         ctx.client.l1,
       ).interface.encodeFunctionData('requestL2TransactionDirect', [requestStruct]);
 
-      // --- Step 6: Estimate L1 Gas ---
+      // --- Estimate L1 Gas ---
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data,
@@ -145,7 +145,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         tx: l1TxCandidate,
       });
 
-      // --- Step 7: Finalize Output ---
       const fees = buildFeeBreakdown({
         feeToken: baseToken,
         l1Gas: l1GasParams,
@@ -154,15 +153,6 @@ export function routeErc20Base(): DepositRouteStrategy {
         operatorTip: ctx.operatorTip,
         mintValue,
       });
-      // const fees = depositGasServices.buildFeeBreakdown({
-      //   l1Gas: l1GasParams,
-      //   l2Gas: l2GasParams,
-      //   baseCost,
-      //   mintValue,
-      //   amountToTransfer: p.amount,
-      //   operatorTip: ctx.operatorTip,
-      //   feeToken: baseToken, // Fees are paid in the Base Token
-      // });
 
       return {
         steps,

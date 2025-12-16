@@ -190,9 +190,9 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
               const feePart =
                 step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
                   ? {
-                    maxFeePerGas: step.tx.maxFeePerGas,
-                    maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                  }
+                      maxFeePerGas: step.tx.maxFeePerGas,
+                      maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+                    }
                   : {};
               const params: EstimateContractGasParameters = {
                 address: step.tx.address,
@@ -213,9 +213,9 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
           const fee1559 =
             step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
               ? {
-                maxFeePerGas: step.tx.maxFeePerGas,
-                maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-              }
+                  maxFeePerGas: step.tx.maxFeePerGas,
+                  maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+                }
               : {};
 
           const baseReq = {

@@ -1,3 +1,5 @@
+// src/core/resources/deposits/route.ts
+
 import type { Address } from '../../types/primitives';
 import type { DepositRoute } from '../../types/flows/deposits';
 import { isETH, normalizeAddrEq } from '../../utils/addr';
@@ -6,7 +8,6 @@ export interface BaseTokenLookup {
   baseToken(chainId: bigint): Promise<Address>;
 }
 
-// TODO: add 'erc20-base' route when supported
 // Route picker for deposits:
 // ETH: ETH as base token
 // ERC-20-base: ERC-20 as base token

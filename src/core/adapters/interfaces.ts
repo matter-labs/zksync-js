@@ -1,30 +1,25 @@
 import type { Address } from '../types/primitives';
 
 export interface CoreTransactionRequest {
-    to: Address;
-    from?: Address;
-    data?: string;
-    value?: bigint;
-    gasLimit?: bigint;
-    maxFeePerGas?: bigint;
-    maxPriorityFeePerGas?: bigint;
+  to: Address;
+  from?: Address;
+  data?: string;
+  value?: bigint;
+  gasLimit?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
 }
 
 export interface GasEstimator {
-    estimateGas(tx: CoreTransactionRequest): Promise<bigint>;
+  estimateGas(tx: CoreTransactionRequest): Promise<bigint>;
 
-    estimateFeesPerGas(): Promise<{
-        maxFeePerGas?: bigint;
-        maxPriorityFeePerGas?: bigint;
-        gasPrice?: bigint;
-    }>;
+  estimateFeesPerGas(): Promise<{
+    maxFeePerGas?: bigint;
+    maxPriorityFeePerGas?: bigint;
+    gasPrice?: bigint;
+  }>;
 
-    getGasPrice(): Promise<bigint>;
+  getGasPrice(): Promise<bigint>;
 
-    call(tx: {
-        to: Address;
-        data?: string;
-        value?: bigint;
-        from?: Address;
-    }): Promise<string>;
+  call(tx: { to: Address; data?: string; value?: bigint; from?: Address }): Promise<string>;
 }

@@ -9,8 +9,9 @@ import { IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
-import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
@@ -37,7 +38,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         throw new Error('Failed to estimate L2 gas for deposit.');
       }
 
-      // base cost
+      // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
 
       const l2Contract = p.to ?? ctx.sender;

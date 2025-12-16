@@ -5,10 +5,9 @@ import type { WithdrawalFeeBreakdown, L2WithdrawalFeeParams } from '../../../../
 import type { GasQuote } from './gas';
 
 export type BuildWithdrawFeeBreakdownInput = {
-  /** Token used to pay the L2 transaction fee */
+  // Token used to pay the L2 transaction fee
   feeToken: Address;
-
-  /** L2 withdrawal transaction gas quote */
+  // L2 withdrawal transaction gas quote
   l2Gas?: GasQuote;
 };
 
@@ -17,7 +16,6 @@ export type BuildWithdrawFeeBreakdownInput = {
  *
  * Withdrawals represent a single L2 transaction:
  * - fees.l2 = cost of the withdraw tx on L2
- * - fees.l1 is intentionally omitted
  */
 export function buildFeeBreakdown(p: BuildWithdrawFeeBreakdownInput): WithdrawalFeeBreakdown {
   const l2Total = p.l2Gas?.maxCost ?? 0n;

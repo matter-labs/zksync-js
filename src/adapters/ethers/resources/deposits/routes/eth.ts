@@ -7,8 +7,9 @@ import { buildDirectRequestStruct } from '../../utils';
 import { IBridgehubABI } from '../../../../../core/abi.ts';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
-import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // ETH deposit route via Bridgehub.requestL2TransactionDirect
 // ETH is base token
@@ -17,12 +18,7 @@ export function routeEthDirect(): DepositRouteStrategy {
     async build(p, ctx) {
       const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
 
-      // ---------------------------------------------------------
-      // Step 1: Estimate L2 Gas
-      // ---------------------------------------------------------
-      // We need L2 gas first because it determines the Base Cost.
-      // We pass `ctx.l2GasLimit` which commonCtx loaded from user params.
-
+      // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
@@ -40,13 +36,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         throw new Error('Failed to estimate L2 gas for deposit.');
       }
 
-      // ---------------------------------------------------------
-      // Step 2: Calculate Base Cost & Mint Value
-      // ---------------------------------------------------------
-      // Now that we have the L2 limit, we calculate how much ETH
-      // must be sent to the bridge (Base Cost).
-
-      // base cost
+      // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
       const mintValue = baseCost + ctx.operatorTip + p.amount;
 
@@ -62,7 +52,7 @@ export function routeEthDirect(): DepositRouteStrategy {
 
       const data = bh.interface.encodeFunctionData('requestL2TransactionDirect', [req]);
 
-      // Tx for estimating L1 gas
+      // TX for estimating L1 gas
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data,

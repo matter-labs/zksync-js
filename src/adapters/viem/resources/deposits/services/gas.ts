@@ -4,10 +4,12 @@ import type { TransactionRequest } from 'viem';
 import type { BuildCtx } from '../context';
 import type { DepositRoute } from '../../../../../core/types/flows/deposits';
 import type { TxOverrides } from '../../../../../core/types/fees';
-import type { Address } from '../../../../../core/types/primitives';
-import type { CoreTransactionRequest } from '../../../../../core/adapters/interfaces';
-import { quoteL1Gas as coreQuoteL1Gas, quoteL2Gas as coreQuoteL2Gas, type GasQuote } from '../../../../../core/resources/deposits/gas';
-import { viemToGasEstimator } from '../../../../viem/estimator';
+import {
+  quoteL1Gas as coreQuoteL1Gas,
+  quoteL2Gas as coreQuoteL2Gas,
+  type GasQuote,
+} from '../../../../../core/resources/deposits/gas';
+import { viemToGasEstimator, toCoreTx } from '../../../../viem/estimator';
 
 export type { GasQuote };
 
@@ -29,28 +31,6 @@ export type QuoteL2GasInput = {
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
 
-function toCoreTx(tx: TransactionRequest): CoreTransactionRequest {
-  const raw = tx as any;
-  let from: Address | undefined;
-  if (typeof raw.account === 'string') {
-    from = raw.account as Address;
-  } else if (raw.account && typeof raw.account === 'object' && 'address' in raw.account) {
-    from = raw.account.address as Address;
-  } else if (raw.from) {
-    from = raw.from as Address;
-  }
-
-  return {
-    to: tx.to as Address,
-    from,
-    data: tx.data as string,
-    value: tx.value,
-    gasLimit: tx.gas,
-    maxFeePerGas: tx.maxFeePerGas,
-    maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-  };
-}
-
 /**
  * Quote L1 gas for a deposit transaction.
  */
@@ -62,7 +42,7 @@ export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | und
     estimator,
     tx: toCoreTx(tx),
     overrides,
-    fallbackGasLimit
+    fallbackGasLimit,
   });
 }
 
@@ -78,8 +58,8 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     route,
     tx: l2TxForModeling ? toCoreTx(l2TxForModeling) : undefined,
     gasPerPubdata: ctx.gasPerPubdata,
-    l2GasLimit: ctx.l2GasLimit, // viem implementation uses ctx.l2GasLimit here
-    overrideGasLimit
+    l2GasLimit: ctx.l2GasLimit, // TODO: investigate if this should be passed here; weird viem quirk
+    overrideGasLimit,
   });
 }
 
@@ -94,6 +74,7 @@ export async function determineErc20L2Gas(input: {
 }): Promise<GasQuote | undefined> {
   const { ctx, l1Token } = input;
 
+  // Arbitrarily chosen safe gas limit for ERC20 deposits
   const DEFAULT_SAFE_L2_GAS_LIMIT = 3_000_000n;
 
   if (ctx.l2GasLimit != null) {
@@ -113,24 +94,7 @@ export async function determineErc20L2Gas(input: {
       args: [l1Token as `0x${string}`],
     });
     const code = await ctx.client.l2.getCode({ address: l2TokenAddress });
-    // viem uses getBytecode, ethers used getCode? no getBytecode returns undefined if no code? 
-    // Wait, check original file content for determineErc20L2Gas.
-    // Viem adapter line 257: `const code = await ctx.client.l2.getCode({ address: l2TokenAddress });`
-    // getCode is deprecated for getBytecode in newer viem but sticking to what was there.
-
-    // Actually, I should use `getBytecode` if that's what viem uses now, but if the original code used `getCode`, I should check compatibility.
-    // Original code: `const code = await ctx.client.l2.getCode({ address: l2TokenAddress });`
-    // `isDeployed = code !== '0x';` (Wait, viem getCode returns undefined if empty? or '0x'?)
-
-    // I will stick to exact logic from original viem adapter to be safe.
-
-    /* Original:
-    const code = await ctx.client.l2.getCode({ address: l2TokenAddress });
     const isDeployed = code !== '0x';
-    */
-
-    const isDeployed = (code as any) !== undefined && code !== '0x'; // generic check
-
     if (!isDeployed) {
       return quoteL2Gas({
         ctx,
@@ -139,11 +103,9 @@ export async function determineErc20L2Gas(input: {
       });
     }
 
-    const rawModelTx = input.modelTx as any;
-
     const modelTx: TransactionRequest = {
       to: input.modelTx?.to ?? ctx.sender,
-      from: input.modelTx?.from ?? (typeof rawModelTx?.account === 'string' ? rawModelTx.account : (rawModelTx?.account as any)?.address) ?? ctx.sender,
+      from: input.modelTx?.from ?? ctx.sender,
       data: input.modelTx?.data ?? '0x',
       value: input.modelTx?.value ?? 0n,
     };
@@ -164,6 +126,7 @@ export async function determineErc20L2Gas(input: {
 
     return gas;
   } catch (err) {
+    // TODO: add proper logging
     console.warn('Failed to determine ERC20 L2 gas; defaulting to safe gas limit.', err);
 
     return quoteL2Gas({

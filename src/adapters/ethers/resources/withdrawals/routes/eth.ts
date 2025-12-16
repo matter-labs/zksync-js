@@ -29,6 +29,7 @@ export function routeEthBase(): WithdrawRouteStrategy {
         },
       );
 
+      // L2 transaction for gas estimation
       const tx: TransactionRequest = {
         to: L2_BASE_TOKEN_ADDRESS,
         data,
@@ -37,7 +38,6 @@ export function routeEthBase(): WithdrawRouteStrategy {
       };
 
       const gas = await quoteL2Gas({ ctx, tx });
-
       if (gas) {
         tx.gasLimit = gas.gasLimit;
         tx.maxFeePerGas = gas.maxFeePerGas;

@@ -71,7 +71,7 @@ async function main() {
   })) as number;
 
   const me = account.address as Address;
-  const depositAmount = parseUnits('2', decimals); // deposit 2 units of base token
+  const depositAmount = parseUnits('1', decimals); // deposit 1 units of base token
 
   // --- Quote (dry run) ---
   const quote = await sdk.deposits.quote({

@@ -19,11 +19,10 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
   return {
     // TODO: add preflight validations here
     async build(p, ctx) {
-      const toL1 = p.to ?? ctx.sender;
+      const steps: Array<PlanStep<ViemPlanWriteRequest>> = [];
+      const approvals: ApprovalNeed[] = [];
 
-      // ---------------------------------------------------------------------
-      // 1) L2 allowance (deposit token -> NativeTokenVault)
-      // ---------------------------------------------------------------------
+      // L2 allowance
       const current = (await wrapAs(
         'CONTRACT',
         OP_WITHDRAWALS.erc20.allowance,
@@ -46,31 +45,10 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         },
       )) as bigint;
 
-      const needsApprove = current < p.amount;
-
-      const steps: Array<PlanStep<ViemPlanWriteRequest>> = [];
-      const approvals: ApprovalNeed[] = [];
-
-      const gasOverrides =
-        ctx.gasOverrides != null
-          ? {
-              gas: ctx.gasOverrides.gasLimit,
-              maxFeePerGas: ctx.gasOverrides.maxFeePerGas,
-              ...(ctx.gasOverrides.maxPriorityFeePerGas != null
-                ? { maxPriorityFeePerGas: ctx.gasOverrides.maxPriorityFeePerGas }
-                : {}),
-            }
-          : {};
-
-      // ---------------------------------------------------------------------
-      // 2) Optional approve step (ERC20.approve(NativeTokenVault, amount))
-      //    - We still quote gas properly via quoteL2Gas using calldata.
-      // ---------------------------------------------------------------------
-      if (needsApprove) {
+      if (current < p.amount) {
         approvals.push({ token: p.token, spender: ctx.l2NativeTokenVault, amount: p.amount });
 
-        // Quote gas from calldata (works even if we skip simulate elsewhere)
-        const approveCalldata = encodeFunctionData({
+        const data = encodeFunctionData({
           abi: IERC20ABI as Abi,
           functionName: 'approve',
           args: [ctx.l2NativeTokenVault, p.amount] as const,
@@ -78,13 +56,17 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
 
         const approveTxCandidate: TransactionRequest = {
           to: p.token,
-          data: approveCalldata,
+          data: data,
           value: 0n,
           from: ctx.sender,
-          ...gasOverrides,
         };
 
         const approveGas = await quoteL2Gas({ ctx, tx: approveTxCandidate });
+        if (approveGas) {
+          approveTxCandidate.gas = approveGas.gasLimit;
+          approveTxCandidate.maxFeePerGas = approveGas.maxFeePerGas;
+          approveTxCandidate.maxPriorityFeePerGas = approveGas.maxPriorityFeePerGas;
+        }
 
         // Use simulateContract only to produce a write-ready request object
         const approveSim = await wrapAs(
@@ -97,7 +79,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
               functionName: 'approve',
               args: [ctx.l2NativeTokenVault, p.amount] as const,
               account: ctx.client.account,
-              ...gasOverrides,
+              ...approveGas,
             }),
           {
             ctx: { where: 'l2.simulateContract', to: p.token },
@@ -108,14 +90,6 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         const { ...approveRequest } = approveSim.request;
         const approveTx: ViemPlanWriteRequest = {
           ...approveRequest,
-          ...gasOverrides,
-          ...(approveGas
-            ? {
-                gas: approveGas.gasLimit,
-                maxFeePerGas: approveGas.maxFeePerGas,
-                maxPriorityFeePerGas: approveGas.maxPriorityFeePerGas,
-              }
-            : {}),
         };
 
         steps.push({
@@ -126,9 +100,6 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         });
       }
 
-      // ---------------------------------------------------------------------
-      // 3) Ensure token is registered in L2NativeTokenVault (static/sim call)
-      // ---------------------------------------------------------------------
       const ensure = await wrapAs(
         'CONTRACT',
         OP_WITHDRAWALS.erc20.ensureRegistered,
@@ -145,42 +116,39 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
           message: 'Failed to ensure token is registered in L2NativeTokenVault.',
         },
       );
-
       const assetId = ensure.result;
-
       const assetData = encodeAbiParameters(
         [
           { type: 'uint256', name: 'amount' },
           { type: 'address', name: 'l1Receiver' },
           { type: 'address', name: 'l2Token' },
         ],
-        [p.amount, toL1, p.token],
+        [p.amount, p.to ?? ctx.sender, p.token],
       );
 
-      // ---------------------------------------------------------------------
-      // 4) Withdraw step (L2AssetRouter.withdraw(assetId, assetData))
-      //    - Always quote gas from calldata.
-      //    - Simulate only if approvals are not required.
-      // ---------------------------------------------------------------------
+      // L2AssetRouter.withdraw(assetId, assetData)
       const withdrawCalldata = encodeFunctionData({
         abi: IL2AssetRouterABI as Abi,
         functionName: 'withdraw',
         args: [assetId, assetData] as const,
       });
-
       const withdrawTxCandidate: TransactionRequest = {
         to: ctx.l2AssetRouter,
         data: withdrawCalldata,
         value: 0n,
         from: ctx.sender,
-        ...gasOverrides,
       };
 
       const withdrawGas = await quoteL2Gas({ ctx, tx: withdrawTxCandidate });
+      if (withdrawGas) {
+        withdrawTxCandidate.gas = withdrawGas.gasLimit;
+        withdrawTxCandidate.maxFeePerGas = withdrawGas.maxFeePerGas;
+        withdrawTxCandidate.maxPriorityFeePerGas = withdrawGas.maxPriorityFeePerGas;
+      }
 
       let withdrawTx: ViemPlanWriteRequest;
 
-      if (needsApprove) {
+      if (current < p.amount) {
         // Do NOT simulate (can revert prior to approve). Return raw write params.
         withdrawTx = {
           address: ctx.l2AssetRouter,
@@ -188,14 +156,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
           functionName: 'withdraw',
           args: [assetId, assetData] as const,
           account: ctx.client.account,
-          ...gasOverrides,
-          ...(withdrawGas
-            ? {
-                gas: withdrawGas.gasLimit,
-                maxFeePerGas: withdrawGas.maxFeePerGas,
-                maxPriorityFeePerGas: withdrawGas.maxPriorityFeePerGas,
-              }
-            : {}),
+          ...withdrawGas,
         } satisfies ViemPlanWriteRequest;
       } else {
         const sim = await wrapAs(
@@ -208,7 +169,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
               functionName: 'withdraw',
               args: [assetId, assetData] as const,
               account: ctx.client.account,
-              ...gasOverrides,
+              ...withdrawGas,
             }),
           {
             ctx: { where: 'l2.simulateContract', to: ctx.l2AssetRouter },
@@ -219,14 +180,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         const { ...withdrawRequest } = sim.request;
         withdrawTx = {
           ...withdrawRequest,
-          ...gasOverrides,
-          ...(withdrawGas
-            ? {
-                gas: withdrawGas.gasLimit,
-                maxFeePerGas: withdrawGas.maxFeePerGas,
-                maxPriorityFeePerGas: withdrawGas.maxPriorityFeePerGas,
-              }
-            : {}),
+          ...withdrawGas,
         };
       }
 
@@ -237,14 +191,8 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         tx: withdrawTx,
       });
 
-      // ---------------------------------------------------------------------
-      // 5) Fees (single L2 tx cost)
-      //     - We mirror ethers behavior: feeToken = base token on L2
-      //     - l2Gas = withdrawGas (approve not included, same as ethers route)
-      // ---------------------------------------------------------------------
-      const feeToken = await ctx.client.baseToken(ctx.chainIdL2);
       const fees = buildFeeBreakdown({
-        feeToken,
+        feeToken: await ctx.client.baseToken(ctx.chainIdL2),
         l2Gas: withdrawGas,
       });
 

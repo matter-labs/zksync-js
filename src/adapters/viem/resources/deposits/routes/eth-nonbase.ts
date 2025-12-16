@@ -13,15 +13,16 @@ import { isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
 import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
-import { quoteL2BaseCost, buildFeeBreakdown } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 const { wrapAs } = createErrorHandlers('deposits');
 
 // ETH deposit to a chain whose base token is NOT ETH.
 export function routeEthNonBase(): DepositRouteStrategy {
   return {
+    // TODO: do we even need these validations?
     async preflight(p, ctx) {
-      // Assert deposit asset is ETH
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthAsset,
@@ -32,8 +33,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { token: p.token } },
       );
-
-      // Resolve base token & assert it's not ETH on target chain
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
@@ -45,8 +44,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { baseToken, chainIdL2: ctx.chainIdL2 } },
       );
-
-      // Cheap preflight: ensure user has enough ETH for msg.value (= p.amount)
+      // Check sufficient ETH balance to cover deposit amount
       const ethBal = await wrapAs(
         'RPC',
         OP_DEPOSITS.ethNonBase.ethBalance,
@@ -56,7 +54,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
           message: 'Failed to read L1 ETH balance.',
         },
       );
-
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthBalance,
@@ -70,10 +67,9 @@ export function routeEthNonBase(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      // 1) Resolve base token (fees paid in base ERC-20)
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
 
-      // 2) Quote L2 gas (model tx has no value for two-bridges ETH-nonbase)
+      // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
@@ -89,11 +85,11 @@ export function routeEthNonBase(): DepositRouteStrategy {
 
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
-      // 3) Base cost + mintValue
+      // L2TransactionBase cost
       const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
       const mintValue = l2BaseCost + ctx.operatorTip;
 
-      // 4) Approvals (base token allowance for mintValue)
+      // -- Approvals --
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<ViemPlanWriteRequest>[] = [];
 
@@ -142,7 +138,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         });
       }
 
-      // 5) Two-bridges calldata
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.ethNonBase.encodeCalldata,
@@ -160,7 +155,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const requestStruct = {
         chainId: ctx.chainIdL2,
         mintValue,
-        l2Value: p.amount, // TODO: 0n?
+        l2Value: p.amount,
         l2GasLimit: l2Gas.gasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
@@ -169,12 +164,10 @@ export function routeEthNonBase(): DepositRouteStrategy {
         secondBridgeCalldata,
       } as const;
 
-      // 6) Build bridge request (simulate only if approval not needed)
       let bridgeTx: ViemPlanWriteRequest;
       let calldata: `0x${string}`;
 
       if (needsApprove) {
-        // write-ready request (no simulate)
         bridgeTx = {
           address: ctx.bridgehub,
           abi: IBridgehubABI,
@@ -217,7 +210,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         bridgeTx = { ...sim.request };
       }
 
-      // 7) Quote L1 gas for the bridge tx (uses calldata we just built)
+      // --- Estimate L1 Gas ---
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data: calldata,
@@ -225,7 +218,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         from: ctx.sender,
         ...ctx.gasOverrides,
       };
-
       const l1Gas = await quoteL1Gas({
         ctx,
         tx: l1TxCandidate,
@@ -233,7 +225,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
       });
 
-      // apply gas quote to the write request if we have it
       if (l1Gas) {
         bridgeTx = {
           ...bridgeTx,
@@ -251,7 +242,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
         tx: bridgeTx,
       });
 
-      // 8) Fees
       const fees = buildFeeBreakdown({
         feeToken: baseToken,
         l1Gas,

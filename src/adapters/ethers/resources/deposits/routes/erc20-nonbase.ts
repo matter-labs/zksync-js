@@ -9,8 +9,9 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
-import { buildFeeBreakdown, quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
@@ -39,9 +40,10 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       const baseIsEth = isETH(baseToken);
 
-      // Establish L2 gas parameters
-      // We attempt to determine a safe L2 gas limit based on token deployment status.
-      // If that fails, we fall back to a safe constant of 3_000_000n.
+      // Estimating L2 gas for deposits
+      // Unique for ERC-20 non-base deposits
+      // Need to account for first-time bridged tokens
+      // which require a higher gas limit (1M - 3M gas)
       const l2GasParams = await determineErc20L2Gas({
         ctx,
         l1Token: p.token,
@@ -55,16 +57,14 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       // TODO: proper error handling with error envelope
       if (!l2GasParams) throw new Error('Failed to establish L2 gas parameters.');
 
-      // --- Step 3: Calculate Base Cost & Mint Value ---
+      // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
       const mintValue = baseCost + ctx.operatorTip;
 
-      // Approvals (branch by who pays fees)
+      //  -- Approvals --
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
       const assetRouter = ctx.l1AssetRouter;
-
-      // Always ensure deposit token approval for the amount
 
       const erc20Deposit = new Contract(p.token, IERC20ABI, l1Signer);
       const allowanceToken: bigint = (await wrapAs(
@@ -87,7 +87,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
             to: p.token,
             data: erc20Deposit.interface.encodeFunctionData('approve', [assetRouter, p.amount]),
             from: ctx.sender,
-            ...ctx.gasOverrides, // Apply overrides to approval too
+            ...ctx.gasOverrides,
           },
         });
       }
@@ -120,8 +120,6 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         }
       }
 
-      // --- Step 5: Construct L1 Transaction ---
-      // Encode "Two Bridges" specific calldata
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.nonbase.encodeCalldata,
@@ -134,7 +132,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
 
       const requestStruct = {
         chainId: ctx.chainIdL2,
-        mintValue, // fees (in ETH if base=ETH, else pulled as base ERC-20)
+        mintValue,
         l2Value: 0n,
         l2GasLimit: l2GasParams.gasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
@@ -179,7 +177,6 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         tx: l1TxCandidate,
       });
 
-      // --- Step 7: Finalize Output ---
       const fees = buildFeeBreakdown({
         feeToken: baseToken,
         l1Gas: l1GasParams,
