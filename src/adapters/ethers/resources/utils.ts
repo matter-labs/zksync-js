@@ -1,11 +1,6 @@
 import { AbiCoder, ethers } from 'ethers';
 import type { Address } from '../../../core/types';
-import {
-  L2_NATIVE_TOKEN_VAULT_ADDRESS,
-  L1_FEE_ESTIMATION_COEF_DENOMINATOR,
-  L1_FEE_ESTIMATION_COEF_NUMERATOR,
-  ETH_ADDRESS,
-} from '../../../core/constants';
+import { L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS } from '../../../core/constants';
 
 // TODO: refactor this entirely
 // separate encoding, and move gas helpers to new resource
@@ -47,28 +42,6 @@ export function encodeNTVAssetId(chainId: bigint, address: string) {
 }
 
 export const encodeNTVTransferData = encodeNativeTokenVaultTransferData;
-
-// Scales the provided gas limit by the L1 fee estimation coefficient
-export function scaleGasLimit(gasLimit: bigint): bigint {
-  return (
-    (gasLimit * BigInt(L1_FEE_ESTIMATION_COEF_NUMERATOR)) /
-    BigInt(L1_FEE_ESTIMATION_COEF_DENOMINATOR)
-  );
-}
-
-// Checks the base cost is not higher than the provided value
-export async function checkBaseCost(
-  baseCost: ethers.BigNumberish,
-  value: ethers.BigNumberish | Promise<ethers.BigNumberish>,
-): Promise<void> {
-  const resolvedValue = await value;
-  if (baseCost > resolvedValue) {
-    throw new Error(
-      'The base cost of performing the priority operation is higher than the provided value parameter ' +
-        `for the transaction: baseCost: ${String(baseCost)}, provided value: ${String(resolvedValue)}!`,
-    );
-  }
-}
 
 // --- Two-bridges encoding: generic tuple (token, amount, l2Receiver) ---
 export function encodeSecondBridgeArgs(

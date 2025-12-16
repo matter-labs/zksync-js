@@ -53,32 +53,6 @@ export const encodeNTVAssetId = encodeNativeTokenVaultAssetId;
 export const encodeNTVTransferData = encodeNativeTokenVaultTransferData;
 
 /* -----------------------------------------------------------------------------
- * L2 request builders (ETH direct)
- * ---------------------------------------------------------------------------*/
-
-export function buildDirectRequestStruct(args: {
-  chainId: bigint;
-  mintValue: bigint;
-  l2GasLimit: bigint;
-  gasPerPubdata: bigint;
-  refundRecipient: Address;
-  l2Contract: Address;
-  l2Value: bigint;
-}) {
-  return {
-    chainId: args.chainId,
-    l2Contract: args.l2Contract,
-    mintValue: args.mintValue,
-    l2Value: args.l2Value,
-    l2Calldata: '0x' as Hex,
-    l2GasLimit: args.l2GasLimit,
-    l2GasPerPubdataByteLimit: args.gasPerPubdata,
-    factoryDeps: [] as Hex[],
-    refundRecipient: args.refundRecipient,
-  };
-}
-
-/* -----------------------------------------------------------------------------
  * Two-bridges encoding: generic tuple (token, amount, l2Receiver)
  * ---------------------------------------------------------------------------*/
 export function encodeSecondBridgeArgs(token: Address, amount: bigint, l2Receiver: Address): Hex {
@@ -112,4 +86,30 @@ export function encodeSecondBridgeEthArgs(
   ethToken: Address = ETH_ADDRESS,
 ): Hex {
   return encodeSecondBridgeArgs(ethToken, amount, l2Receiver);
+}
+
+/* -----------------------------------------------------------------------------
+ * L2 request builders (ETH direct)
+ * ---------------------------------------------------------------------------*/
+
+export function buildDirectRequestStruct(args: {
+  chainId: bigint;
+  mintValue: bigint;
+  l2GasLimit: bigint;
+  gasPerPubdata: bigint;
+  refundRecipient: Address;
+  l2Contract: Address;
+  l2Value: bigint;
+}) {
+  return {
+    chainId: args.chainId,
+    l2Contract: args.l2Contract,
+    mintValue: args.mintValue,
+    l2Value: args.l2Value,
+    l2Calldata: '0x' as Hex,
+    l2GasLimit: args.l2GasLimit,
+    l2GasPerPubdataByteLimit: args.gasPerPubdata,
+    factoryDeps: [] as Hex[],
+    refundRecipient: args.refundRecipient,
+  };
 }
