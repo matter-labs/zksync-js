@@ -1,15 +1,18 @@
-// src/adapters/viem/resources/deposits/services/fees.ts
+// src/adapters/viem/resources/deposits/services/fee.ts
 
+import { encodeFunctionData } from 'viem';
 import type { BuildCtx } from '../context';
-import { IBridgehubABI } from '../../../../../core/abi';
 import type { Address } from '../../../../../core/types/primitives';
 import type {
   DepositFeeBreakdown,
   L1DepositFeeParams,
   L2DepositFeeParams,
 } from '../../../../../core/types/fees';
-import { createErrorHandlers } from '../../../errors/error-ops';
 import type { GasQuote } from './gas';
+import { quoteL2BaseCost as coreQuoteL2BaseCost, type AbiEncoder } from '../../../../../core/resources/deposits/gas';
+import { viemToGasEstimator } from '../../../../viem/estimator';
+import { createErrorHandlers } from '../../../errors/error-ops';
+import { IBridgehubABI } from '../../../../../core/abi';
 
 const { wrapAs } = createErrorHandlers('deposits');
 
@@ -18,47 +21,26 @@ export type QuoteL2BaseCostInput = {
   l2GasLimit: bigint;
 };
 
-/**
- * Fetch L1 gas price (EIP-1559 preferred, legacy supported) used by Bridgehub base cost calculation.
- *
- * For viem, prefer estimateFeesPerGas(), fallback to getGasPrice().
- */
-async function fetchL1GasPriceForBaseCost(ctx: BuildCtx): Promise<bigint> {
-  if (typeof ctx.client.l1.estimateFeesPerGas === 'function') {
-    const fees = await ctx.client.l1.estimateFeesPerGas();
-    if (fees?.maxFeePerGas != null) return BigInt(fees.maxFeePerGas);
-  }
+const encode: AbiEncoder = (abi, fn, args) => {
+  return encodeFunctionData({ abi, functionName: fn, args });
+};
 
-  if (typeof ctx.client.l1.getGasPrice === 'function') {
-    const gp = await ctx.client.l1.getGasPrice();
-    if (gp != null) return BigInt(gp);
-  }
-
-  throw new Error('Could not fetch L1 gas price for Bridgehub base cost calculation.');
-}
-
-/**
- * Quotes the L2 base cost for an L1->L2 transaction using Bridgehub.
- */
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
   const { ctx, l2GasLimit } = input;
+  const estimator = viemToGasEstimator(ctx.client.l1);
 
-  const l1GasPrice = await fetchL1GasPriceForBaseCost(ctx);
+  // Use core logic to fetch gas price to share that logic
+  const fees = await estimator.estimateFeesPerGas();
+  const gasPrice = fees.maxFeePerGas ?? fees.gasPrice ?? await estimator.getGasPrice();
 
-  const raw = await wrapAs(
-    'RPC',
-    'deposits.fees.l2BaseCost',
-    () =>
-      ctx.client.l1.readContract({
-        address: ctx.bridgehub,
-        abi: IBridgehubABI,
-        functionName: 'l2TransactionBaseCost',
-        args: [ctx.chainIdL2, l1GasPrice, l2GasLimit, ctx.gasPerPubdata],
-      }),
-    { ctx: { chainIdL2: ctx.chainIdL2 } },
-  );
-
-  return BigInt(raw);
+  return wrapAs('RPC', 'deposits.fees.l2BaseCost', async () => {
+    return await ctx.client.l1.readContract({
+      address: ctx.bridgehub,
+      abi: IBridgehubABI,
+      functionName: 'l2TransactionBaseCost',
+      args: [ctx.chainIdL2, gasPrice, l2GasLimit, ctx.gasPerPubdata]
+    });
+  }, { ctx: { chainIdL2: ctx.chainIdL2 } });
 }
 
 export type BuildFeeBreakdownInput = {

@@ -182,16 +182,18 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
             if (overrides.gasLimit != null) step.tx.gas = overrides.gasLimit;
           }
 
-          if (step.tx.gas == null) {
+          // If no explicit gas limit override, try to re-estimate
+          // This ensures we use the Public Client for estimation (which handles accounts correctly)
+          // rather than relying on WalletClient which seems to have issues with account context in some versions.
+          if (!p.l2TxOverrides?.gasLimit) {
             try {
               const feePart =
                 step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
                   ? {
-                      maxFeePerGas: step.tx.maxFeePerGas,
-                      maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                    }
+                    maxFeePerGas: step.tx.maxFeePerGas,
+                    maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+                  }
                   : {};
-
               const params: EstimateContractGasParameters = {
                 address: step.tx.address,
                 abi: step.tx.abi as Abi,
@@ -204,16 +206,16 @@ export function createWithdrawalsResource(client: ViemClient): WithdrawalsResour
               const gas = await client.l2.estimateContractGas(params);
               step.tx.gas = (gas * 115n) / 100n;
             } catch {
-              /* ignore */
+              // If re-estimation fails, keep the original gasLimit
             }
           }
           // TODO: revisit fees
           const fee1559 =
             step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
               ? {
-                  maxFeePerGas: step.tx.maxFeePerGas,
-                  maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                }
+                maxFeePerGas: step.tx.maxFeePerGas,
+                maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+              }
               : {};
 
           const baseReq = {

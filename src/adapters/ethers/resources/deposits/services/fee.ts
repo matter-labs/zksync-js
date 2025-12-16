@@ -1,16 +1,17 @@
-// src/adapters/ethers/resources/deposits/services/fees.ts
+// src/adapters/ethers/resources/deposits/services/fee.ts
 
-import { Contract } from 'ethers';
+import { Interface } from 'ethers';
 import type { BuildCtx } from '../context';
-import { IBridgehubABI } from '../../../../../core/abi';
 import type { Address } from '../../../../../core/types/primitives';
 import type {
   DepositFeeBreakdown,
   L1DepositFeeParams,
   L2DepositFeeParams,
 } from '../../../../../core/types/fees';
-import { createErrorHandlers } from '../../../errors/error-ops';
 import type { GasQuote } from './gas';
+import { quoteL2BaseCost as coreQuoteL2BaseCost, type AbiEncoder } from '../../../../../core/resources/deposits/gas';
+import { ethersToGasEstimator } from '../../../../ethers/estimator';
+import { createErrorHandlers } from '../../../errors/error-ops';
 
 const { wrapAs } = createErrorHandlers('deposits');
 
@@ -19,40 +20,25 @@ export type QuoteL2BaseCostInput = {
   l2GasLimit: bigint;
 };
 
-/**
- * Fetch L1 gas price (EIP-1559 preferred, legacy supported) used by Bridgehub base cost calculation.
- */
-async function fetchL1GasPriceForBaseCost(ctx: BuildCtx): Promise<bigint> {
-  const fd = await ctx.client.l1.getFeeData();
-  if (fd.maxFeePerGas != null) return BigInt(fd.maxFeePerGas);
-  if (fd.gasPrice != null) return BigInt(fd.gasPrice);
+const encode: AbiEncoder = (abi, fn, args) => {
+  return new Interface(abi).encodeFunctionData(fn, args);
+};
 
-  const legacyClient = ctx.client.l1 as { getGasPrice?: () => Promise<bigint> };
-  if (typeof legacyClient.getGasPrice === 'function') {
-    return await legacyClient.getGasPrice();
-  }
-
-  throw new Error('Could not fetch L1 gas price for Bridgehub base cost calculation.');
-}
-
-/**
- * Quotes the L2 base cost for an L1->L2 transaction using Bridgehub.
- *
- */
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
   const { ctx, l2GasLimit } = input;
+  const estimator = ethersToGasEstimator(ctx.client.l1);
 
-  const bridgehub = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
-  const l1GasPrice = await fetchL1GasPriceForBaseCost(ctx);
-
-  const raw = (await wrapAs(
-    'RPC',
-    'deposits.fees.l2BaseCost',
-    () => bridgehub.l2TransactionBaseCost(ctx.chainIdL2, l1GasPrice, l2GasLimit, ctx.gasPerPubdata),
-    { ctx: { chainIdL2: ctx.chainIdL2 } },
-  )) as bigint;
-
-  return BigInt(raw);
+  return wrapAs('RPC', 'deposits.fees.l2BaseCost', () =>
+    coreQuoteL2BaseCost({
+      estimator,
+      encode,
+      bridgehub: ctx.bridgehub,
+      chainIdL2: ctx.chainIdL2,
+      l2GasLimit,
+      gasPerPubdata: ctx.gasPerPubdata
+    }),
+    { ctx: { chainIdL2: ctx.chainIdL2 } }
+  );
 }
 
 export type BuildFeeBreakdownInput = {

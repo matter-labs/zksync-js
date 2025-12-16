@@ -230,15 +230,17 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
             }
           }
 
-          // todo: fix gas estimation
-          if (step.tx.gas == null) {
+          // If no explicit gas limit override, try to re-estimate
+          // This allows us to use a more accurate gas limit than the fallback (safety) limit
+          // that might have been set during the 'prepare' phase.
+          if (!p.l1TxOverrides?.gasLimit) {
             try {
               const feePart =
                 step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
                   ? {
-                      maxFeePerGas: step.tx.maxFeePerGas,
-                      maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                    }
+                    maxFeePerGas: step.tx.maxFeePerGas,
+                    maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+                  }
                   : {};
               const params: EstimateContractGasParameters = {
                 address: step.tx.address,
@@ -256,7 +258,7 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
               });
               step.tx.gas = (gas * 115n) / 100n;
             } catch {
-              // ignore
+              // If re-estimation fails, keep the original gasLimit
             }
           }
 
@@ -266,9 +268,9 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
           const fee1559 =
             step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
               ? {
-                  maxFeePerGas: step.tx.maxFeePerGas,
-                  maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                }
+                maxFeePerGas: step.tx.maxFeePerGas,
+                maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+              }
               : {};
 
           const baseReq = {

@@ -216,13 +216,15 @@ export function createDepositsResource(client: EthersClient): DepositsResource {
             }
           }
 
-          // TODO: fix gas estimation
-          if (!step.tx.gasLimit) {
+          // If no explicit gas limit override, try to re-estimate
+          // This allows us to use a more accurate gas limit than the fallback (safety) limit
+          // that might have been set during the 'prepare' phase (e.g. if approval was missing then).
+          if (!p.l1TxOverrides?.gasLimit) {
             try {
               const est = await client.l1.estimateGas(step.tx);
               step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
             } catch {
-              // ignore
+              // If re-estimation fails, keep the original gasLimit (which is likely the safe fallback)
             }
           }
 
