@@ -56,8 +56,7 @@ const { status, receipt: l1Receipt } = await sdk.withdrawals.finalize(handle.l2T
 
 | Route           | Meaning                                              |
 | --------------- | ---------------------------------------------------- |
-| `eth-base`      | Base token is **ETH** on L2                          |
-| `eth-nonbase`   | Base token is **not ETH** on L2                      |
+| `base`          | Withdrawing the **base token** (ETH or otherwise)    |
 | `erc20-nonbase` | Withdrawing an ERC-20 that is **not** the base token |
 
 You **don’t** pass a route manually; it’s derived from network metadata and the token.
@@ -84,7 +83,7 @@ Estimate the operation (route, approvals, gas hints). Does **not** send transact
 const q = await sdk.withdrawals.quote({ token, amount, to });
 /*
 {
-  route: "eth-base" | "eth-nonbase" | "erc20-nonbase",
+  route: "base" | "erc20-nonbase",
   summary: {
     route,
     approvalsNeeded: [{ token, spender, amount }],
@@ -257,9 +256,9 @@ export interface Eip1559GasOverrides {
 }
 
 export interface WithdrawQuote {
-  route: 'eth-base' | 'eth-nonbase' | 'erc20-nonbase';
+  route: 'base' | 'erc20-nonbase';
   summary: {
-    route: 'eth-base' | 'eth-nonbase' | 'erc20-nonbase';
+    route: 'base' | 'erc20-nonbase';
     approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
     amounts: {
       transfer: {
