@@ -1,6 +1,6 @@
 // src/adapters/viem/resources/deposits/services/gas.ts
 
-import type { TransactionRequest } from 'viem';
+import { zeroAddress, type TransactionRequest } from 'viem';
 import type { BuildCtx } from '../context';
 import type { DepositRoute } from '../../../../../core/types/flows/deposits';
 import type { TxOverrides } from '../../../../../core/types/fees';
@@ -25,6 +25,7 @@ export type QuoteL2GasInput = {
   route: DepositRoute;
   l2TxForModeling?: TransactionRequest;
   overrideGasLimit?: bigint;
+  stateOverrides?: Record<string, unknown>;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -60,6 +61,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     gasPerPubdata: ctx.gasPerPubdata,
     l2GasLimit: ctx.l2GasLimit, // TODO: investigate if this should be passed here; weird viem quirk
     overrideGasLimit,
+    stateOverrides: input.stateOverrides,
   });
 }
 
@@ -87,15 +89,21 @@ export async function determineErc20L2Gas(input: {
 
   try {
     const l2NativeTokenVault = (await ctx.client.contracts()).l2NativeTokenVault;
+    // Note: `l2TokenAddress` is now legacy way to get L2 token address for a given L1 token.
+    // We will need to change this to `tokenAddress[assetId]` from the NTV
+    // TODO: query the assetId on L1 using assetId mapping from l1TokenAddress https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+    // query the l2TokenAddress on l2 using assetId using tokenAddress mapping https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
     const l2TokenAddress = await ctx.client.l2.readContract({
       address: l2NativeTokenVault.address,
       abi: l2NativeTokenVault.abi,
       functionName: 'l2TokenAddress',
       args: [l1Token as `0x${string}`],
     });
-    const code = await ctx.client.l2.getCode({ address: l2TokenAddress });
-    const isDeployed = code !== '0x';
-    if (!isDeployed) {
+
+    // we can assume that the token has not been deployed to L2 if
+    // the l2TokenAddress is the zero address. This essentially means
+    // the token has not been registered on L2 yet.
+    if (l2TokenAddress === zeroAddress) {
       return quoteL2Gas({
         ctx,
         route: 'erc20-nonbase',

@@ -31,7 +31,7 @@ async function main() {
   const signer = new Wallet(PRIVATE_KEY, l1);
 
   // SDK
-  const client = await createEthersClient({ l1, l2, signer });
+  const client = createEthersClient({ l1, l2, signer });
   const sdk = createEthersSdk(client);
 
   // Replace with your L1 base-token address (ERC-20)

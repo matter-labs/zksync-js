@@ -11,7 +11,10 @@ export interface CoreTransactionRequest {
 }
 
 export interface GasEstimator {
-  estimateGas(tx: CoreTransactionRequest): Promise<bigint>;
+  estimateGas(
+    tx: CoreTransactionRequest,
+    stateOverrides?: Record<string, unknown>,
+  ): Promise<bigint>;
 
   estimateFeesPerGas(): Promise<{
     maxFeePerGas?: bigint;

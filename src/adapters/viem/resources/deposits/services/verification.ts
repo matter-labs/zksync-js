@@ -65,6 +65,7 @@ export async function waitForL2ExecutionFromL1Tx(
 ): Promise<{ l2Receipt: TransactionReceipt; l2TxHash: Hex }> {
   // Wait for L1 receipt
   const l1Receipt = await l1.waitForTransactionReceipt({ hash: l1TxHash });
+
   if (!l1Receipt) throw new Error('No L1 receipt found');
 
   // Extract L2 tx hash from logs

@@ -23,14 +23,23 @@ export function routeEthDirect(): DepositRouteStrategy {
         to: p.to ?? ctx.sender,
         from: ctx.sender,
         data: '0x',
-        value: p.amount,
+        value: 0n,
       };
+      // We use state override to ensure sufficient balance for gas estimation
+      // Recall we are doing an L1-L2 deposit, so its likely the L2 balance is zero
+      // and estimation may fail.
       const l2GasParams = await quoteL2Gas({
         ctx,
         route: 'eth-base',
         l2TxForModeling: l2TxModel,
         overrideGasLimit: ctx.l2GasLimit,
+        stateOverrides: {
+          [ctx.sender]: {
+            balance: '0xffffffffffffffffffff',
+          },
+        },
       });
+
       // TODO: proper error handling
       if (!l2GasParams) {
         throw new Error('Failed to estimate L2 gas for deposit.');
@@ -67,7 +76,10 @@ export function routeEthDirect(): DepositRouteStrategy {
       });
       if (l1GasParams) {
         l1TxCandidate.gasLimit = l1GasParams.gasLimit;
+        l1TxCandidate.maxFeePerGas = l1GasParams.maxFeePerGas;
+        l1TxCandidate.maxPriorityFeePerGas = l1GasParams.maxPriorityFeePerGas;
       }
+
       const steps: PlanStep<TransactionRequest>[] = [
         {
           key: 'bridgehub:direct',

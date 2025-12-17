@@ -25,6 +25,7 @@ export type QuoteL2GasInput = {
   route: DepositRoute;
   l2TxForModeling?: TransactionRequest;
   overrideGasLimit?: bigint;
+  stateOverrides?: Record<string, unknown>;
 };
 
 export type ResolveErc20L2GasLimitInput = {
@@ -65,6 +66,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     gasPerPubdata: ctx.gasPerPubdata,
     l2GasLimit: ctx.l2GasLimit,
     overrideGasLimit,
+    stateOverrides: input.stateOverrides,
   });
 }
 
@@ -92,10 +94,16 @@ export async function determineErc20L2Gas(input: {
 
   try {
     const { l2NativeTokenVault } = await ctx.client.contracts();
+    // Note: `l2TokenAddress` is now legacy way to get L2 token address for a given L1 token.
+    // We will need to change this to `tokenAddress[assetId]` from the NTV
+    // TODO: query the assetId on L1 using assetId mapping from l1TokenAddress https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+    // query the l2TokenAddress on l2 using assetId using tokenAddress mapping https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
     const l2TokenAddress = (await l2NativeTokenVault.l2TokenAddress(l1Token)) as string;
-    const code = await ctx.client.l2.getCode(l2TokenAddress);
-    const isDeployed = code !== '0x';
-    if (!isDeployed) {
+
+    // we can assume that the token has not been deployed to L2 if
+    // the l2TokenAddress is the zero address. This essentially means
+    // the token has not been registered on L2 yet.
+    if (l2TokenAddress === '0x0000000000000000000000000000000000000000') {
       return quoteL2Gas({
         ctx,
         route: 'erc20-nonbase',

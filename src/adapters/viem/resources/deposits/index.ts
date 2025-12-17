@@ -216,7 +216,8 @@ export function createDepositsResource(client: ViemClient): DepositsResource {
               );
             }
           }
-
+          // TODO: Remove gas override handling logic here
+          // This is now handled in the estimator and the prepare phase
           if (p.l1TxOverrides) {
             const overrides = p.l1TxOverrides;
             if (overrides.maxFeePerGas != null) {

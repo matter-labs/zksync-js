@@ -170,7 +170,6 @@ export function createDepositsResource(client: EthersClient): DepositsResource {
         const stepHashes: Record<string, Hex> = {};
 
         const managed = new NonceManager(client.signer);
-
         const from = await managed.getAddress();
         let next = await client.l1.getTransactionCount(from, 'latest');
 

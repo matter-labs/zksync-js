@@ -55,6 +55,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       // Unique for ERC-20 non-base deposits
       // Need to account for first-time bridged tokens
       // which require a higher gas limit (1M - 3M gas)
+
       const l2Gas = await determineErc20L2Gas({
         ctx,
         l1Token: p.token,
@@ -197,6 +198,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         functionName: 'requestL2TransactionTwoBridges',
         args: [requestStruct],
       });
+
       // --- Estimate L1 Gas ---
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,

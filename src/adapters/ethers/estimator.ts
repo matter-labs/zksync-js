@@ -1,4 +1,4 @@
-import type { Provider, TransactionRequest } from 'ethers';
+import type { Provider, TransactionRequest, JsonRpcProvider } from 'ethers';
 import type { GasEstimator, CoreTransactionRequest } from '../../core/adapters/interfaces';
 import type { Address } from '../../core/types/primitives';
 
@@ -19,7 +19,10 @@ export function toCoreTx(tx: TransactionRequest): CoreTransactionRequest {
 // This allows the core logic to estimate gas using the Ethers.js provider.
 export function ethersToGasEstimator(provider: Provider): GasEstimator {
   return {
-    async estimateGas(tx: CoreTransactionRequest): Promise<bigint> {
+    async estimateGas(
+      tx: CoreTransactionRequest,
+      stateOverrides?: Record<string, unknown>,
+    ): Promise<bigint> {
       const ethTx: TransactionRequest = {
         to: tx.to,
         from: tx.from,
@@ -29,6 +32,29 @@ export function ethersToGasEstimator(provider: Provider): GasEstimator {
         maxFeePerGas: tx.maxFeePerGas,
         maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
       };
+
+      // Only attempt state overrides if they exist AND the provider supports raw 'send'
+      if (stateOverrides && 'send' in provider) {
+        try {
+          const jsonRpcProvider = provider as JsonRpcProvider;
+          const result = (await jsonRpcProvider.send('eth_estimateGas', [
+            ethTx,
+            'latest',
+            stateOverrides,
+          ])) as string;
+          return BigInt(result);
+        } catch (error) {
+          // TODO: use proper logger
+          console.warn(
+            'Failed to estimate gas with state overrides, falling back to standard estimation:',
+            error,
+          );
+        }
+      } else if (stateOverrides) {
+        // TODO: use proper logger
+        console.warn('Provider does not support "send", skipping state overrides estimation.');
+      }
+
       return await provider.estimateGas(ethTx);
     },
 

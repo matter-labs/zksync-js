@@ -136,6 +136,8 @@ export function routeErc20Base(): DepositRouteStrategy {
       });
       if (l1GasParams) {
         l1TxCandidate.gasLimit = l1GasParams.gasLimit;
+        l1TxCandidate.maxFeePerGas = l1GasParams.maxFeePerGas;
+        l1TxCandidate.maxPriorityFeePerGas = l1GasParams.maxPriorityFeePerGas;
       }
 
       steps.push({

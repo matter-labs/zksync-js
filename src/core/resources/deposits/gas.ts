@@ -127,14 +127,16 @@ export type QuoteL2GasInput = {
   gasPerPubdata?: bigint;
   l2GasLimit?: bigint;
   overrideGasLimit?: bigint;
+  stateOverrides?: Record<string, unknown>;
 };
 
 // Quotes L2 gas for a deposit tx.
 export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | undefined> {
-  const { estimator, route, tx, gasPerPubdata, l2GasLimit, overrideGasLimit } = input;
+  const { estimator, route, tx, gasPerPubdata, l2GasLimit, overrideGasLimit, stateOverrides } =
+    input;
 
   const market = await fetchFees(estimator);
-  const maxFeePerGas = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n; // simplified fallback? Adapters check maxFeePerGas then gasPrice. fetchFees handles this.
+  const maxFeePerGas = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n;
 
   const txGasLimit = tx?.gasLimit != null ? BigInt(tx.gasLimit) : undefined;
   const explicit = overrideGasLimit ?? txGasLimit;
@@ -159,7 +161,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
   // the likely outdated docs from https://github.com/matter-labs/era-contracts/blob/main/docs/l2_system_contracts/zksync_fee_model.md
   // Revisit when we have up-to-date info.
   try {
-    const execEstimate = await estimator.estimateGas(tx);
+    const execEstimate = await estimator.estimateGas(tx, stateOverrides);
 
     // Arbitrary values used here based on observed success / failure of erc20 bridging.
     const memoryBytes = route === 'erc20-nonbase' ? 500n : DEFAULT_ABI_BYTES;

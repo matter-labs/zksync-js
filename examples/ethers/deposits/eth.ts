@@ -41,7 +41,7 @@ async function main() {
   console.log('L2 balance:', l2Balance.toString());
 
   // --- INIT SDK ---
-  const client = await createEthersClient({ l1, l2, signer });
+  const client = createEthersClient({ l1, l2, signer });
   const sdk = createEthersSdk(client);
 
   // --- DEPOSIT PARAMS ---

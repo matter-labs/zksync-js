@@ -32,6 +32,11 @@ export function routeEthDirect(): DepositRouteStrategy {
         route: 'eth-base',
         l2TxForModeling: l2TxModel,
         overrideGasLimit: ctx.l2GasLimit,
+        stateOverrides: {
+          [ctx.sender]: {
+            balance: '0xffffffffffffffffffff',
+          },
+        },
       });
       // TODO: proper error handling
       if (!l2GasParams) {
