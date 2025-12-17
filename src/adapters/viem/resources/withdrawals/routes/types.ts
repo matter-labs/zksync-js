@@ -5,18 +5,24 @@ import type { WithdrawParams } from '../../../../../core/types/flows/withdrawals
 import type { RouteStrategy } from '../../../../../core/types/flows/route';
 import type { BuildCtx as WithdrawBuildCtx } from '../context';
 import type { Address, Hex } from '../../../../../core/types';
+import type { WithdrawalFeeBreakdown } from '../../../../../core/types/fees';
 
-// viem writeContract() parameter type
-export type ViemPlanWriteRequest = Parameters<
-  WalletClient<Transport, Chain, Account>['writeContract']
->[0];
+// Base type from viem:
+type ViemWriteParams = Parameters<WalletClient<Transport, Chain, Account>['writeContract']>[0];
+
+/**
+ * viem specific
+ * Plan-time write request: relax 'value' so a single type can hold both
+ * non-payable (no value) and payable (value: bigint) requests.
+ */
+export type ViemPlanWriteRequest = Omit<ViemWriteParams, 'value'> & { value?: bigint };
 
 export type WithdrawQuoteExtras = Record<string, never>;
 
 export type WithdrawRouteStrategy = RouteStrategy<
   WithdrawParams,
   ViemPlanWriteRequest,
-  WithdrawQuoteExtras,
+  WithdrawalFeeBreakdown,
   WithdrawBuildCtx
 >;
 

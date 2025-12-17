@@ -9,7 +9,7 @@ import {
   setErc20Allowance,
   describeForAdapters,
 } from '../adapter-harness.ts';
-import { FORMAL_ETH_ADDRESS } from '../../../core/constants.ts';
+import { FORMAL_ETH_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { decodeSecondBridgeErc20, decodeTwoBridgeOuter } from '../decode-helpers.ts';
 
@@ -26,20 +26,13 @@ const ERC20_TOKEN = '0x3333333333333333333333333333333333333333' as const;
 const BASE_TOKEN = ADAPTER_TEST_ADDRESSES.baseTokenFor324;
 const RECEIVER = '0x4444444444444444444444444444444444444444' as const;
 
-const withBuffer = (x: bigint) => (x * 10100n) / 10000n;
-
-function expectedMint(kind: AdapterKind, baseCost: bigint, operatorTip: bigint) {
-  const raw = baseCost + operatorTip;
-  return kind === 'viem' ? withBuffer(raw) : raw;
-}
-
 describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
   it('handles non-base ERC-20 where fees are paid in ETH (no approvals required)', async () => {
     const harness = factory();
-    const ctx = makeDepositContext(harness, { l2GasLimit: 600_000n });
+    const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
     const amount = 1_000n;
     const baseCost = 3_000n;
-    const mintValue = expectedMint(kind, baseCost, ctx.operatorTip);
+    const mintValue = baseCost + ctx.operatorTip;
 
     setBridgehubBaseToken(harness, ctx, FORMAL_ETH_ADDRESS);
     setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
@@ -52,16 +45,19 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
 
     expect(res.approvals.length).toBe(0);
     expect(res.steps.length).toBe(1);
-    expect(res.quoteExtras.baseCost).toBe(baseCost);
-    expect(res.quoteExtras.mintValue).toBe(mintValue);
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(res.fees?.mintValue).toBe(mintValue);
+    expect(res.fees?.token.toLowerCase()).toBe(FORMAL_ETH_ADDRESS.toLowerCase());
 
     const step = res.steps[0];
     const tx = step.tx as any;
+    const expectedKey =
+      kind === 'viem' ? 'bridgehub:two-bridges:erc20-nonbase' : 'bridgehub:two-bridges';
+    expect(step.key).toBe(expectedKey);
+
     if (kind === 'ethers') {
       const info = decodeTwoBridgeOuter(tx.data);
       const bridgeArgs = decodeSecondBridgeErc20(info.secondBridgeCalldata);
-
-      expect(step.key).toBe('bridgehub:two-bridges:nonbase');
       expect((tx.to as string).toLowerCase()).toBe(ADAPTER_TEST_ADDRESSES.bridgehub.toLowerCase());
       expect((tx.from as string).toLowerCase()).toBe(ctx.sender.toLowerCase());
       expect(BigInt(tx.value ?? 0n)).toBe(mintValue);
@@ -70,12 +66,9 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       expect(bridgeArgs.token).toBe(ERC20_TOKEN.toLowerCase());
       expect(bridgeArgs.amount).toBe(amount);
       expect(bridgeArgs.receiver).toBe(RECEIVER.toLowerCase());
-      expect(tx.gasLimit).toBe((100_000n * 125n) / 100n);
-      expect(res.quoteExtras.baseToken.toLowerCase()).toBe(FORMAL_ETH_ADDRESS.toLowerCase());
-      expect(res.quoteExtras.baseIsEth).toBe(true);
+      expect(tx.gasLimit).toBe((100_000n * 120n) / 100n);
     } else {
       const infoArgs = (tx.args?.[0] ?? {}) as any;
-      expect(step.key).toBe('bridgehub:two-bridges:nonbase');
       expect((tx.address as string).toLowerCase()).toBe(
         ADAPTER_TEST_ADDRESSES.bridgehub.toLowerCase(),
       );
@@ -88,10 +81,10 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
 
   it('requires approvals when deposit and base allowances are insufficient', async () => {
     const harness = factory();
-    const ctx = makeDepositContext(harness);
+    const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
     const amount = 5_000n;
     const baseCost = 4_000n;
-    const mintValue = expectedMint(kind, baseCost, ctx.operatorTip);
+    const mintValue = baseCost + ctx.operatorTip;
 
     setBridgehubBaseToken(harness, ctx, BASE_TOKEN);
     setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
@@ -103,18 +96,25 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       ctx as any,
     );
 
-    expect(res.approvals).toEqual([
-      { token: ERC20_TOKEN, spender: ctx.l1AssetRouter, amount },
-      { token: BASE_TOKEN, spender: ctx.l1AssetRouter, amount: mintValue },
-    ]);
+    expect(res.approvals.length).toBe(2);
+    const [approveDepositNeed, approveBaseNeed] = res.approvals;
+    expect(approveDepositNeed.token.toLowerCase()).toBe(ERC20_TOKEN.toLowerCase());
+    expect(approveDepositNeed.spender.toLowerCase()).toBe(ctx.l1AssetRouter.toLowerCase());
+    expect(approveDepositNeed.amount).toBe(amount);
+
+    expect(approveBaseNeed.token.toLowerCase()).toBe(BASE_TOKEN.toLowerCase());
+    expect(approveBaseNeed.spender.toLowerCase()).toBe(ctx.l1AssetRouter.toLowerCase());
+    expect(approveBaseNeed.amount).toBe(mintValue);
     expect(res.steps.length).toBe(3); // two approvals + bridge
-    expect(res.quoteExtras.baseCost).toBe(baseCost);
-    expect(res.quoteExtras.mintValue).toBe(mintValue);
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(res.fees?.mintValue).toBe(mintValue);
 
     const [approveDeposit, approveBase, bridge] = res.steps;
     expect(approveDeposit.kind).toBe('approve');
     expect(approveBase.kind).toBe('approve');
-    expect(bridge.key).toBe('bridgehub:two-bridges:nonbase');
+    const expectedBridgeKey =
+      kind === 'viem' ? 'bridgehub:two-bridges:erc20-nonbase' : 'bridgehub:two-bridges';
+    expect(bridge.key).toBe(expectedBridgeKey);
 
     if (kind === 'ethers') {
       const txDep = approveDeposit.tx as any;
@@ -125,8 +125,7 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       const info = decodeTwoBridgeOuter((bridge.tx as any).data);
       expect(BigInt((bridge.tx as any).value ?? 0n)).toBe(0n);
       expect(BigInt(info.mintValue)).toBe(mintValue);
-      expect(res.quoteExtras.baseToken.toLowerCase()).toBe(BASE_TOKEN.toLowerCase());
-      expect(res.quoteExtras.baseIsEth).toBe(false);
+      expect(res.fees?.token.toLowerCase()).toBe(BASE_TOKEN.toLowerCase());
     } else {
       const depArgs = (approveDeposit.tx as any).args as unknown[];
       const baseArgs = (approveBase.tx as any).args as unknown[];
@@ -145,12 +144,12 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
   });
 
   if (kind === 'ethers') {
-    it('ignores estimateGas failures and leaves gasLimit undefined', async () => {
+    it('ignores estimateGas failures and applies the safe fallback gas limit', async () => {
       const harness = factory();
-      const ctx = makeDepositContext(harness);
+      const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
       const amount = 2_000n;
       const baseCost = 3_000n;
-      const mintValue = expectedMint('ethers', baseCost, ctx.operatorTip);
+      const mintValue = baseCost + ctx.operatorTip;
 
       setBridgehubBaseToken(harness, ctx, BASE_TOKEN);
       setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
@@ -160,13 +159,13 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
 
       const res = await ROUTES.ethers.build({ token: ERC20_TOKEN, amount } as any, ctx as any);
       const bridgeTx = res.steps.at(-1)!.tx as any;
-      expect(bridgeTx.gasLimit).toBeUndefined();
+      expect(bridgeTx.gasLimit).toBe(SAFE_L1_BRIDGE_GAS);
     });
   }
 
   it('wraps allowance read failures as ZKsyncError', async () => {
     const harness = factory();
-    const ctx = makeDepositContext(harness);
+    const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
     const amount = 1_000n;
     const baseCost = 2_000n;
 

@@ -11,6 +11,7 @@ import {
 } from '../adapter-harness.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { parseDirectBridgeTx, parseApproveTx } from '../decode-helpers.ts';
+import { SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
 
 type AdapterKind = 'ethers' | 'viem';
 
@@ -19,15 +20,13 @@ const ROUTES = {
   viem: routeViem(),
 } as const;
 
-const withBuffer = (x: bigint) => (x * 10100n) / 10000n;
-
 describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
   it('skips approval when allowance covers mintValue and builds a zero-value bridge tx', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness);
     const amount = 1_000n;
     const baseCost = 2_000n;
-    const expectedMint = withBuffer(baseCost + ctx.operatorTip + amount);
+    const expectedMint = baseCost + ctx.operatorTip + amount;
 
     setBridgehubBaseCost(harness, ctx, baseCost);
     setErc20Allowance(
@@ -43,8 +42,8 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
 
     expect(res.approvals.length).toBe(0);
     expect(res.steps.length).toBe(1);
-    expect(res.quoteExtras.baseCost).toBe(baseCost);
-    expect(res.quoteExtras.mintValue).toBe(expectedMint);
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(res.fees?.mintValue).toBe(expectedMint);
 
     const bridge = res.steps[0];
     expect(bridge.key).toBe('bridgehub:direct:erc20-base');
@@ -57,7 +56,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     expect(info.l2Contract).toBe(ADAPTER_TEST_ADDRESSES.signer.toLowerCase());
 
     if (kind === 'ethers') {
-      expect(info.gasLimit).toBe((100_000n * 115n) / 100n);
+      expect(info.gasLimit).toBe((100_000n * 120n) / 100n);
     }
   });
 
@@ -66,7 +65,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     const ctx = makeDepositContext(harness);
     const amount = 5_000n;
     const baseCost = 4_000n;
-    const expectedMint = withBuffer(baseCost + ctx.operatorTip + amount);
+    const expectedMint = baseCost + ctx.operatorTip + amount;
 
     setBridgehubBaseCost(harness, ctx, baseCost);
     setErc20Allowance(
@@ -80,14 +79,12 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     const payload = { token: ADAPTER_TEST_ADDRESSES.baseTokenFor324, amount } as any;
     const res = await ROUTES[kind].build(payload, ctx as any);
 
-    expect(res.approvals).toEqual([
-      {
-        token: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
-        spender: ctx.l1AssetRouter,
-        amount: expectedMint,
-      },
-    ]);
-    expect(res.quoteExtras.mintValue).toBe(expectedMint);
+    expect(res.approvals.length).toBe(1);
+    const [approval] = res.approvals;
+    expect(approval.token.toLowerCase()).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
+    expect(approval.spender.toLowerCase()).toBe(ctx.l1AssetRouter.toLowerCase());
+    expect(approval.amount).toBe(expectedMint);
+    expect(res.fees?.mintValue).toBe(expectedMint);
     expect(res.steps.length).toBe(2);
 
     const approve = res.steps[0];
@@ -106,12 +103,12 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
   });
 
   if (kind === 'ethers') {
-    it('ignores estimateGas failures and leaves gasLimit undefined', async () => {
+    it('ignores estimateGas failures and falls back to the safe gas limit', async () => {
       const harness = factory();
       const ctx = makeDepositContext(harness);
       const amount = 2_000n;
       const baseCost = 3_000n;
-      const expectedMint = withBuffer(baseCost + ctx.operatorTip + amount);
+      const expectedMint = baseCost + ctx.operatorTip + amount;
 
       setBridgehubBaseCost(harness, ctx, baseCost);
       setErc20Allowance(
@@ -128,7 +125,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
         ctx as any,
       );
       const info = parseDirectBridgeTx('ethers', res.steps[0].tx);
-      expect(info.gasLimit).toBeUndefined();
+      expect(info.gasLimit).toBe(SAFE_L1_BRIDGE_GAS);
     });
   }
 

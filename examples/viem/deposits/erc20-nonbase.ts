@@ -40,14 +40,13 @@ async function main() {
     throw new Error('Set a 0x-prefixed 32-byte PRIVATE_KEY in .env');
   }
 
-  // // Pick an ERC-20 on L1 (example uses a dev/mocked token)
+  // Pick an ERC-20 on L1 (example uses a dev/mocked token)
   // Make sure you hold some of this token on L1 before running!
   // Example: sepolia test token (TEST)
   // https://sepolia.etherscan.io/token/0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873
   const TOKEN = (process.env.DEPOSIT_TOKEN ??
     '0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873') as Address;
 
-  // // Viem clients
   const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
   const l1 = createPublicClient({ transport: http(L1_RPC) });
   const l2 = createPublicClient({ transport: http(L2_RPC) });
@@ -57,42 +56,42 @@ async function main() {
     transport: http(L1_RPC),
   });
 
-  // // Init SDK
+  // Init SDK
   const client = createViemClient({ l1, l2, l1Wallet });
   const sdk = createViemSdk(client);
 
   const me = account.address as Address;
 
-  // // Read decimals to build the amount
+  // Read decimals to build the amount
   const decimals = (await l1.readContract({
     address: TOKEN,
     abi: IERC20ABI,
     functionName: 'decimals',
   })) as number;
 
-  const amount = parseUnits('250', decimals); // deposit 250 tokens
+  const amount = parseUnits('2', decimals); // deposit 2 tokens
 
-  // // QUOTE → no sends
+  // QUOTE → no sends
   const quote = await sdk.deposits.quote({ token: TOKEN, to: me, amount });
   console.log('QUOTE →', quote);
 
-  // // PREPARE → route + steps only
+  // PREPARE → route + steps only
   const prepared = await sdk.deposits.prepare({ token: TOKEN, to: me, amount });
   console.log('PREPARE →', prepared);
 
-  // // CREATE → sends approval(s) if needed + bridge step
+  // CREATE → sends approval(s) if needed + bridge step
   const created = await sdk.deposits.create({ token: TOKEN, to: me, amount });
   console.log('CREATE →', created);
 
-  // // STATUS (quick)
+  // STATUS (quick)
   console.log('STATUS →', await sdk.deposits.status(created));
 
-  // // WAIT L1 inclusion
+  // WAIT L1 inclusion
   console.log('⏳ Waiting for L1 inclusion…');
   const l1Receipt = await sdk.deposits.wait(created, { for: 'l1' });
   console.log('✅ L1 included at block:', l1Receipt?.blockNumber);
 
-  // // WAIT L2 execution
+  // WAIT L2 execution
   console.log('⏳ Waiting for L2 execution…');
   const l2Receipt = await sdk.deposits.wait(created, { for: 'l2' });
   console.log('✅ L2 executed at block:', l2Receipt?.blockNumber);

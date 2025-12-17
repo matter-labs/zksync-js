@@ -47,8 +47,8 @@ describe('withdrawals.e2e (viem): ETH withdrawal', () => {
       amount: WITHDRAW_WEI,
       to: me,
     });
-    expect(q.route).toBe('eth-base');
-    expect(q.suggestedL2GasLimit).toBeDefined();
+    expect(q.route).toBe('base');
+    expect(q.fees.l2.gasLimit).toBeDefined();
   }, 10_000);
 
   it('should prepare the withdrawal plan', async () => {
@@ -57,7 +57,7 @@ describe('withdrawals.e2e (viem): ETH withdrawal', () => {
       amount: WITHDRAW_WEI,
       to: me,
     });
-    expect(plan.route).toBe('eth-base');
+    expect(plan.route).toBe('base');
     expect(plan.steps.length).toBeGreaterThan(0);
   }, 10_000);
 

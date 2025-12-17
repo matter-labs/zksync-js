@@ -20,6 +20,11 @@ import {
   IBaseTokenABI,
 } from '../../core/abi';
 import { createError } from '../../core/errors/factory';
+import { OP_DEPOSITS } from '../../core/types';
+import { createErrorHandlers } from './errors/error-ops';
+
+// error handling
+const { wrapAs } = createErrorHandlers('client');
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -241,7 +246,10 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const { bridgehub } = await ensureAddresses();
     const bh = new Contract(bridgehub, IBridgehubABI, l1);
 
-    return (await bh.baseToken(chainId)) as Address;
+    return (await wrapAs('CONTRACT', OP_DEPOSITS.base.baseToken, () => bh.baseToken(chainId), {
+      ctx: { where: 'bridgehub.baseToken', chainIdL2: chainId },
+      message: 'Failed to read base token.',
+    })) as Address;
   }
 
   const client: EthersClient = {

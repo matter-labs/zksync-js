@@ -1,12 +1,14 @@
 // src/adapters/ethers/resources/withdrawals/routes/eth.ts
-import { Contract, Interface, type TransactionRequest } from 'ethers';
+
+import { type TransactionRequest } from 'ethers';
 import type { WithdrawRouteStrategy } from './types';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { L2_BASE_TOKEN_ADDRESS } from '../../../../../core/constants';
-import { IBaseTokenABI } from '../../../../../core/abi.ts';
 
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../../core/types';
+import { quoteL2Gas } from '../services/gas.ts';
+import { buildFeeBreakdown } from '../services/fees.ts';
 
 const { wrapAs } = createErrorHandlers('withdrawals');
 
@@ -15,54 +17,37 @@ export function routeEthBase(): WithdrawRouteStrategy {
   return {
     async build(p, ctx) {
       const steps: Array<PlanStep<TransactionRequest>> = [];
-      const { gasLimit: overrideGasLimit, maxFeePerGas, maxPriorityFeePerGas } = ctx.fee;
 
-      const base = new Contract(
-        L2_BASE_TOKEN_ADDRESS,
-
-        new Interface(IBaseTokenABI),
-        ctx.client.l2,
-      );
-
-      const toL1 = p.to ?? ctx.sender;
+      const base = (await ctx.client.contracts()).l2BaseTokenSystem;
       const data = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.eth.encodeWithdraw,
-        () => Promise.resolve(base.interface.encodeFunctionData('withdraw', [toL1])),
+        () => Promise.resolve(base.interface.encodeFunctionData('withdraw', [p.to ?? ctx.sender])),
         {
-          ctx: { where: 'L2BaseToken.withdraw', to: toL1 },
+          ctx: { where: 'L2BaseToken.withdraw', to: p.to ?? ctx.sender },
           message: 'Failed to encode ETH withdraw calldata.',
         },
       );
 
+      // L2 transaction for gas estimation
       const tx: TransactionRequest = {
         to: L2_BASE_TOKEN_ADDRESS,
         data,
         from: ctx.sender,
         value: p.amount,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
       };
 
-      // TODO: improve gas estimations
-      if (overrideGasLimit != null) {
-        tx.gasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_WITHDRAWALS.eth.estGas,
-            () => ctx.client.l2.estimateGas(tx),
-            {
-              ctx: { where: 'l2.estimateGas', to: L2_BASE_TOKEN_ADDRESS },
-              message: 'Failed to estimate gas for L2 ETH withdraw.',
-            },
-          );
-          tx.gasLimit = (BigInt(est) * 115n) / 100n;
-        } catch {
-          // ignore
-        }
+      const gas = await quoteL2Gas({ ctx, tx });
+      if (gas) {
+        tx.gasLimit = gas.gasLimit;
+        tx.maxFeePerGas = gas.maxFeePerGas;
+        tx.maxPriorityFeePerGas = gas.maxPriorityFeePerGas;
       }
+
+      const fees = buildFeeBreakdown({
+        feeToken: L2_BASE_TOKEN_ADDRESS,
+        l2Gas: gas,
+      });
 
       steps.push({
         key: 'l2-base-token:withdraw',
@@ -71,7 +56,7 @@ export function routeEthBase(): WithdrawRouteStrategy {
         tx,
       });
 
-      return { steps, approvals: [], quoteExtras: {} };
+      return { steps, approvals: [], fees };
     },
   };
 }

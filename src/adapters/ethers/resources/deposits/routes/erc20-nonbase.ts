@@ -4,46 +4,25 @@ import type { DepositRouteStrategy } from './types';
 import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { encodeSecondBridgeErc20Args } from '../../utils';
-import { IERC20ABI, IBridgehubABI } from '../../../../../core/abi.ts';
+import { IERC20ABI } from '../../../../../core/abi.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
+import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
 
-// TODO: all gas buffers need to be moved to a dedicated resource
-const MIN_L2_GAS_FOR_ERC20 = 2_500_000n;
-
 export function routeErc20NonBase(): DepositRouteStrategy {
   return {
-    async preflight() {
-      // TODO: move validations here
-    },
-
-    async build(p, ctx) {
-      const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
-      const assetRouter = ctx.l1AssetRouter;
-      const { gasPriceForBaseCost, gasLimit: overrideGasLimit, ...txFeeOverrides } = ctx.fee;
-      const txOverrides =
-        overrideGasLimit != null
-          ? { ...txFeeOverrides, gasLimit: overrideGasLimit }
-          : txFeeOverrides;
-      let resolvedL1GasLimit: bigint = overrideGasLimit ?? ctx.l2GasLimit;
-
-      // Resolve target base token once
-      const baseToken = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.nonbase.baseToken ?? 'deposits.erc20-nonbase:baseToken',
-        () => bh.baseToken(ctx.chainIdL2),
-        {
-          ctx: { where: 'bridgehub.baseToken', chainIdL2: ctx.chainIdL2 },
-          message: 'Failed to read base token.',
-        },
-      )) as `0x${string}`;
-
-      // Safety: this route is only for "deposit token ≠ base token"
+    // TODO: do we even need these validations?
+    async preflight(p, ctx) {
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.nonbase.assertNonBaseToken,
@@ -54,70 +33,66 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         },
         { ctx: { depositToken: p.token, baseToken } },
       );
+    },
 
-      // TODO: refactor to improve gas estimate / fees
-      const l2GasLimitUsed =
-        ctx.l2GasLimit && ctx.l2GasLimit > 0n
-          ? ctx.l2GasLimit < MIN_L2_GAS_FOR_ERC20
-            ? MIN_L2_GAS_FOR_ERC20
-            : ctx.l2GasLimit
-          : MIN_L2_GAS_FOR_ERC20;
+    async build(p, ctx) {
+      const l1Signer = ctx.client.getL1Signer();
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseIsEth = isETH(baseToken);
 
-      const rawBaseCost = (await wrapAs(
+      // Estimating L2 gas for deposits
+      // Unique for ERC-20 non-base deposits
+      // Need to account for first-time bridged tokens
+      // which require a higher gas limit (1M - 3M gas)
+      const l2GasParams = await determineErc20L2Gas({
+        ctx,
+        l1Token: p.token,
+        modelTx: {
+          to: p.to ?? ctx.sender,
+          from: ctx.sender,
+          data: '0x',
+          value: 0n,
+        },
+      });
+      // TODO: proper error handling with error envelope
+      if (!l2GasParams) throw new Error('Failed to establish L2 gas parameters.');
+
+      // L2TransactionBase cost
+      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const mintValue = baseCost + ctx.operatorTip;
+
+      //  -- Approvals --
+      const approvals: ApprovalNeed[] = [];
+      const steps: PlanStep<TransactionRequest>[] = [];
+      const assetRouter = ctx.l1AssetRouter;
+
+      const erc20Deposit = new Contract(p.token, IERC20ABI, l1Signer);
+      const allowanceToken: bigint = (await wrapAs(
         'RPC',
-        OP_DEPOSITS.nonbase.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            l2GasLimitUsed,
-            ctx.gasPerPubdata,
-          ),
+        OP_DEPOSITS.nonbase.allowanceToken,
+        () => erc20Deposit.allowance(ctx.sender, assetRouter),
         {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost from Bridgehub.',
+          ctx: { where: 'erc20.allowance', token: p.token, spender: assetRouter },
+          message: 'Failed to read deposit-token allowance.',
         },
       )) as bigint;
 
-      const baseCost = BigInt(rawBaseCost);
-      const mintValue = baseCost + ctx.operatorTip;
-
-      // Approvals (branch by who pays fees)
-      const approvals: ApprovalNeed[] = [];
-      const steps: PlanStep<TransactionRequest>[] = [];
-
-      const l1Signer = ctx.client.getL1Signer();
-
-      // Always ensure deposit token approval for the amount
-      {
-        const erc20Deposit = new Contract(p.token, IERC20ABI, l1Signer);
-        const allowanceToken: bigint = (await wrapAs(
-          'RPC',
-          OP_DEPOSITS.nonbase.allowanceToken,
-          () => erc20Deposit.allowance(ctx.sender, assetRouter),
-          {
-            ctx: { where: 'erc20.allowance', token: p.token, spender: assetRouter },
-            message: 'Failed to read deposit-token allowance.',
+      if (allowanceToken < p.amount) {
+        approvals.push({ token: p.token, spender: assetRouter, amount: p.amount });
+        steps.push({
+          key: `approve:${p.token}:${assetRouter}`,
+          kind: 'approve',
+          description: `Approve ${p.amount} for router (deposit token)`,
+          tx: {
+            to: p.token,
+            data: erc20Deposit.interface.encodeFunctionData('approve', [assetRouter, p.amount]),
+            from: ctx.sender,
+            ...ctx.gasOverrides,
           },
-        )) as bigint;
-
-        if (allowanceToken < p.amount) {
-          approvals.push({ token: p.token, spender: assetRouter, amount: p.amount });
-          const data = erc20Deposit.interface.encodeFunctionData('approve', [
-            assetRouter,
-            p.amount,
-          ]);
-          steps.push({
-            key: `approve:${p.token}:${assetRouter}`,
-            kind: 'approve',
-            description: `Approve ${p.amount} for router (deposit token)`,
-            tx: { to: p.token, data, from: ctx.sender, ...txOverrides },
-          });
-        }
+        });
       }
 
       // If base token is NOT ETH, fees are paid in base ERC-20 ⇒ approve base token for mintValue
-      const baseIsEth = isETH(baseToken);
       if (!baseIsEth) {
         const erc20Base = new Contract(baseToken, IERC20ABI, l1Signer);
         const allowanceBase: bigint = (await wrapAs(
@@ -129,15 +104,18 @@ export function routeErc20NonBase(): DepositRouteStrategy {
             message: 'Failed to read base-token allowance.',
           },
         )) as bigint;
-
         if (allowanceBase < mintValue) {
           approvals.push({ token: baseToken, spender: assetRouter, amount: mintValue });
-          const data = erc20Base.interface.encodeFunctionData('approve', [assetRouter, mintValue]);
           steps.push({
             key: `approve:${baseToken}:${assetRouter}`,
             kind: 'approve',
             description: `Approve base token for mintValue`,
-            tx: { to: baseToken, data, from: ctx.sender, ...txOverrides },
+            tx: {
+              to: baseToken,
+              data: erc20Base.interface.encodeFunctionData('approve', [assetRouter, mintValue]),
+              from: ctx.sender,
+              ...ctx.gasOverrides,
+            },
           });
         }
       }
@@ -152,11 +130,11 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         },
       );
 
-      const outer = {
+      const requestStruct = {
         chainId: ctx.chainIdL2,
-        mintValue, // fees (in ETH if base=ETH, else pulled as base ERC-20)
+        mintValue,
         l2Value: 0n,
-        l2GasLimit: l2GasLimitUsed,
+        l2GasLimit: l2GasParams.gasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
         secondBridgeAddress: assetRouter,
@@ -164,52 +142,56 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         secondBridgeCalldata,
       } as const;
 
-      const dataTwo = bh.interface.encodeFunctionData('requestL2TransactionTwoBridges', [outer]);
+      const bh = (await ctx.client.contracts()).bridgehub;
+      const data = bh.interface.encodeFunctionData('requestL2TransactionTwoBridges', [
+        requestStruct,
+      ]);
 
+      // If Base is ETH, we attach value to the tx.
+      // If Base is ERC20, we send 0 ETH (fees pulled via transferFrom).
+      const txValue = baseIsEth ? mintValue : 0n;
       // If base = ETH ⇒ msg.value must equal mintValue. Else ⇒ msg.value = 0.
-      const bridgeTx: TransactionRequest = {
+      const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
-        data: dataTwo,
-        value: baseIsEth ? mintValue : 0n,
+        data,
+        value: txValue,
         from: ctx.sender,
-        ...txOverrides,
+        ...ctx.gasOverrides,
       };
-
-      if (overrideGasLimit != null) {
-        bridgeTx.gasLimit = overrideGasLimit;
-        resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.nonbase.estGas,
-            () => ctx.client.l1.estimateGas(bridgeTx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub, baseIsEth },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          // TODO: refactor to improve gas estimate / fees
-          const buffered = (BigInt(est) * 125n) / 100n;
-          bridgeTx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore;
-        }
+      const l1GasParams = await quoteL1Gas({
+        ctx,
+        tx: l1TxCandidate,
+        overrides: ctx.gasOverrides,
+        fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
+      });
+      if (l1GasParams) {
+        l1TxCandidate.gasLimit = l1GasParams.gasLimit;
+        l1TxCandidate.maxFeePerGas = l1GasParams.maxFeePerGas;
+        l1TxCandidate.maxPriorityFeePerGas = l1GasParams.maxPriorityFeePerGas;
       }
+
       steps.push({
-        key: 'bridgehub:two-bridges:nonbase',
+        key: 'bridgehub:two-bridges',
         kind: 'bridgehub:two-bridges',
         description: baseIsEth
-          ? 'Bridge ERC-20 (fees in ETH) via Bridgehub.requestL2TransactionTwoBridges'
-          : 'Bridge ERC-20 (fees in base ERC-20) via Bridgehub.requestL2TransactionTwoBridges',
-        tx: bridgeTx,
+          ? 'Bridge ERC-20 (Fees paid in ETH)'
+          : 'Bridge ERC-20 (Fees paid in Base Token)',
+        tx: l1TxCandidate,
+      });
+
+      const fees = buildFeeBreakdown({
+        feeToken: baseToken,
+        l1Gas: l1GasParams,
+        l2Gas: l2GasParams,
+        l2BaseCost: baseCost,
+        operatorTip: ctx.operatorTip,
+        mintValue,
       });
 
       return {
         steps,
         approvals,
-        quoteExtras: { baseCost, mintValue, baseToken, baseIsEth, l1GasLimit: resolvedL1GasLimit },
+        fees,
       };
     },
   };

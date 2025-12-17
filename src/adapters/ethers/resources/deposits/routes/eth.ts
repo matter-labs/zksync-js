@@ -6,11 +6,10 @@ import type { TransactionRequest } from 'ethers';
 import { buildDirectRequestStruct } from '../../utils';
 import { IBridgehubABI } from '../../../../../core/abi.ts';
 import type { PlanStep } from '../../../../../core/types/flows/base';
-import { createErrorHandlers } from '../../../errors/error-ops';
-import { OP_DEPOSITS } from '../../../../../core/types';
-
-// error handling
-const { wrapAs } = createErrorHandlers('deposits');
+import { ETH_ADDRESS } from '../../../../../core/constants.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // ETH deposit route via Bridgehub.requestL2TransactionDirect
 // ETH is base token
@@ -18,83 +17,91 @@ export function routeEthDirect(): DepositRouteStrategy {
   return {
     async build(p, ctx) {
       const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
-      const { gasPriceForBaseCost, gasLimit: overrideGasLimit, ...txFeeOverrides } = ctx.fee;
 
-      // base cost
-      const rawBaseCost: bigint = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.eth.baseCost,
-        () =>
-          bh.l2TransactionBaseCost(
-            ctx.chainIdL2,
-            gasPriceForBaseCost,
-            ctx.l2GasLimit,
-            ctx.gasPerPubdata,
-          ),
-        {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost from Bridgehub.',
+      // TX request created for gas estimation only
+      const l2TxModel: TransactionRequest = {
+        to: p.to ?? ctx.sender,
+        from: ctx.sender,
+        data: '0x',
+        value: 0n,
+      };
+      // We use state override to ensure sufficient balance for gas estimation
+      // Recall we are doing an L1-L2 deposit, so its likely the L2 balance is zero
+      // and estimation may fail.
+      const l2GasParams = await quoteL2Gas({
+        ctx,
+        route: 'eth-base',
+        l2TxForModeling: l2TxModel,
+        overrideGasLimit: ctx.l2GasLimit,
+        stateOverrides: {
+          [ctx.sender]: {
+            balance: '0xffffffffffffffffffff',
+          },
         },
-      )) as bigint;
-      const baseCost = BigInt(rawBaseCost);
+      });
 
-      const l2Contract = p.to ?? ctx.sender;
-      const l2Value = p.amount;
-      const mintValue = baseCost + ctx.operatorTip + l2Value;
+      // TODO: proper error handling
+      if (!l2GasParams) {
+        throw new Error('Failed to estimate L2 gas for deposit.');
+      }
+
+      // L2TransactionBase cost
+      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const mintValue = baseCost + ctx.operatorTip + p.amount;
 
       const req = buildDirectRequestStruct({
         chainId: ctx.chainIdL2,
         mintValue,
-        l2GasLimit: ctx.l2GasLimit,
+        l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
-        l2Contract,
-        l2Value,
+        l2Contract: p.to ?? ctx.sender,
+        l2Value: p.amount,
       });
 
       const data = bh.interface.encodeFunctionData('requestL2TransactionDirect', [req]);
-      let resolvedL1GasLimit: bigint = overrideGasLimit ?? ctx.l2GasLimit;
-      const tx: TransactionRequest = {
+
+      // TX for estimating L1 gas
+      const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data,
         value: mintValue,
         from: ctx.sender,
-        ...txFeeOverrides,
+        ...ctx.gasOverrides,
       };
-      if (overrideGasLimit != null) {
-        tx.gasLimit = overrideGasLimit;
-        resolvedL1GasLimit = overrideGasLimit;
-      } else {
-        try {
-          const est = await wrapAs(
-            'RPC',
-            OP_DEPOSITS.eth.estGas,
-            () => ctx.client.l1.estimateGas(tx),
-            {
-              ctx: { where: 'l1.estimateGas', to: ctx.bridgehub },
-              message: 'Failed to estimate gas for Bridgehub request.',
-            },
-          );
-          const buffered = (BigInt(est) * 115n) / 100n;
-          tx.gasLimit = buffered;
-          resolvedL1GasLimit = buffered;
-        } catch {
-          // ignore
-        }
+      const l1GasParams = await quoteL1Gas({
+        ctx,
+        tx: l1TxCandidate,
+        overrides: ctx.gasOverrides,
+      });
+      if (l1GasParams) {
+        l1TxCandidate.gasLimit = l1GasParams.gasLimit;
+        l1TxCandidate.maxFeePerGas = l1GasParams.maxFeePerGas;
+        l1TxCandidate.maxPriorityFeePerGas = l1GasParams.maxPriorityFeePerGas;
       }
+
       const steps: PlanStep<TransactionRequest>[] = [
         {
           key: 'bridgehub:direct',
           kind: 'bridgehub:direct',
           description: 'Bridge ETH via Bridgehub.requestL2TransactionDirect',
-          tx,
+          tx: l1TxCandidate,
         },
       ];
+
+      const fees = buildFeeBreakdown({
+        feeToken: ETH_ADDRESS,
+        l1Gas: l1GasParams,
+        l2Gas: l2GasParams,
+        l2BaseCost: baseCost,
+        operatorTip: ctx.operatorTip,
+        mintValue,
+      });
 
       return {
         steps,
         approvals: [],
-        quoteExtras: { baseCost, mintValue, l1GasLimit: resolvedL1GasLimit },
+        fees,
       };
     },
   };

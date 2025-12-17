@@ -2,27 +2,27 @@
 
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
+import { encodeFunctionData } from 'viem';
+import type { Abi, TransactionRequest } from 'viem';
+
 import { IBridgehubABI, IERC20ABI } from '../../../../../core/abi.ts';
-import { encodeSecondBridgeEthArgs, buildViemFeeOverrides } from '../../utils';
+import { encodeSecondBridgeEthArgs } from '../../utils';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
-import type { Abi } from 'viem';
+import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-// error handling
+import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { quoteL2BaseCost } from '../services/fee.ts';
+import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+
 const { wrapAs } = createErrorHandlers('deposits');
-
-// TODO: all gas buffers need to be moved to a dedicated resource
-// this is getting messy
-const BASE_COST_BUFFER_BPS = 100n; // 1%
-const BPS = 10_000n;
-const withBuffer = (x: bigint) => (x * (BPS + BASE_COST_BUFFER_BPS)) / BPS;
 
 // ETH deposit to a chain whose base token is NOT ETH.
 export function routeEthNonBase(): DepositRouteStrategy {
   return {
+    // TODO: do we even need these validations?
     async preflight(p, ctx) {
-      // Assert the asset is ETH.
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthAsset,
@@ -33,24 +33,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { token: p.token } },
       );
-
-      // Resolve base token & assert it's not ETH on target chain.
-      const baseToken = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.ethNonBase.baseToken,
-        () =>
-          ctx.client.l1.readContract({
-            address: ctx.bridgehub,
-            abi: IBridgehubABI as Abi,
-            functionName: 'baseToken',
-            args: [ctx.chainIdL2],
-          }),
-        {
-          ctx: { where: 'bridgehub.baseToken', chainIdL2: ctx.chainIdL2 },
-          message: 'Failed to read base token.',
-        },
-      )) as `0x${string}`;
-
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertNonEthBase,
@@ -61,8 +44,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { baseToken, chainIdL2: ctx.chainIdL2 } },
       );
-
-      // Ensure user has enough ETH for the deposit amount (msg.value).
+      // Check sufficient ETH balance to cover deposit amount
       const ethBal = await wrapAs(
         'RPC',
         OP_DEPOSITS.ethNonBase.ethBalance,
@@ -72,7 +54,6 @@ export function routeEthNonBase(): DepositRouteStrategy {
           message: 'Failed to read L1 ETH balance.',
         },
       );
-
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthBalance,
@@ -83,52 +64,32 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
         { ctx: { required: p.amount.toString(), balance: ethBal.toString() } },
       );
-
-      return;
     },
 
     async build(p, ctx) {
-      const { gasPriceForBaseCost } = ctx.fee;
-      const txFeeOverrides = buildViemFeeOverrides(ctx.fee);
+      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
 
-      // Resolve base token
-      const baseToken = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.ethNonBase.baseToken,
-        () =>
-          ctx.client.l1.readContract({
-            address: ctx.bridgehub,
-            abi: IBridgehubABI as Abi,
-            functionName: 'baseToken',
-            args: [ctx.chainIdL2],
-          }),
-        {
-          ctx: { where: 'bridgehub.baseToken', chainIdL2: ctx.chainIdL2 },
-          message: 'Failed to read base token.',
-        },
-      )) as `0x${string}`;
+      // TX request created for gas estimation only
+      const l2TxModel: TransactionRequest = {
+        to: p.to ?? ctx.sender,
+        from: ctx.sender,
+        data: '0x',
+        value: 0n,
+      };
+      const l2Gas = await quoteL2Gas({
+        ctx,
+        route: 'eth-nonbase',
+        l2TxForModeling: l2TxModel,
+        overrideGasLimit: ctx.l2GasLimit,
+      });
 
-      // Compute baseCost / mintValue
-      const rawBaseCost = (await wrapAs(
-        'CONTRACT',
-        OP_DEPOSITS.ethNonBase.baseCost,
-        () =>
-          ctx.client.l1.readContract({
-            address: ctx.bridgehub,
-            abi: IBridgehubABI as Abi,
-            functionName: 'l2TransactionBaseCost',
-            args: [ctx.chainIdL2, gasPriceForBaseCost, ctx.l2GasLimit, ctx.gasPerPubdata],
-          }),
-        {
-          ctx: { where: 'l2TransactionBaseCost', chainIdL2: ctx.chainIdL2 },
-          message: 'Could not fetch L2 base cost.',
-        },
-      )) as bigint;
+      if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
-      const baseCost = BigInt(rawBaseCost);
-      const mintValueRaw = baseCost + ctx.operatorTip;
-      const mintValue = withBuffer(mintValueRaw);
+      // L2TransactionBase cost
+      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const mintValue = l2BaseCost + ctx.operatorTip;
 
+      // -- Approvals --
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<ViemPlanWriteRequest>[] = [];
 
@@ -172,7 +133,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         steps.push({
           key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
           kind: 'approve',
-          description: `Approve base token for mintValue`,
+          description: `Approve base token for fees (mintValue)`,
           tx: { ...approveSim.request },
         });
       }
@@ -191,11 +152,11 @@ export function routeEthNonBase(): DepositRouteStrategy {
         },
       );
 
-      const outer = {
+      const requestStruct = {
         chainId: ctx.chainIdL2,
         mintValue,
-        l2Value: 0n,
-        l2GasLimit: ctx.l2GasLimit,
+        l2Value: p.amount,
+        l2GasLimit: l2Gas.gasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
         secondBridgeAddress: ctx.l1AssetRouter,
@@ -203,23 +164,26 @@ export function routeEthNonBase(): DepositRouteStrategy {
         secondBridgeCalldata,
       } as const;
 
-      // viem: if approval needed, don't simulate the bridge call (could revert).
-      // Return a write-ready request with correct `value = p.amount`.
       let bridgeTx: ViemPlanWriteRequest;
-      let resolvedL1GasLimit: bigint | undefined;
+      let calldata: `0x${string}`;
 
       if (needsApprove) {
         bridgeTx = {
           address: ctx.bridgehub,
           abi: IBridgehubABI,
           functionName: 'requestL2TransactionTwoBridges',
-          args: [outer],
+          args: [requestStruct],
           value: p.amount, // base ≠ ETH ⇒ msg.value == secondBridgeValue
           account: ctx.client.account,
         } as const;
-        resolvedL1GasLimit = ctx.l2GasLimit;
+
+        calldata = encodeFunctionData({
+          abi: IBridgehubABI as Abi,
+          functionName: 'requestL2TransactionTwoBridges',
+          args: [requestStruct],
+        });
       } else {
-        const twoBridgesSim = await wrapAs(
+        const sim = await wrapAs(
           'CONTRACT',
           OP_DEPOSITS.ethNonBase.estGas,
           () =>
@@ -227,8 +191,8 @@ export function routeEthNonBase(): DepositRouteStrategy {
               address: ctx.bridgehub,
               abi: IBridgehubABI,
               functionName: 'requestL2TransactionTwoBridges',
-              args: [outer],
-              value: p.amount, // base ≠ ETH ⇒ msg.value == secondBridgeValue
+              args: [requestStruct],
+              value: p.amount,
               account: ctx.client.account,
             }),
           {
@@ -236,8 +200,38 @@ export function routeEthNonBase(): DepositRouteStrategy {
             message: 'Failed to simulate Bridgehub two-bridges request.',
           },
         );
-        bridgeTx = { ...twoBridgesSim.request, ...txFeeOverrides };
-        resolvedL1GasLimit = twoBridgesSim.request.gas ?? ctx.l2GasLimit;
+
+        calldata = encodeFunctionData({
+          abi: sim.request.abi as Abi,
+          functionName: sim.request.functionName,
+          args: sim.request.args,
+        });
+
+        bridgeTx = { ...sim.request };
+      }
+
+      // --- Estimate L1 Gas ---
+      const l1TxCandidate: TransactionRequest = {
+        to: ctx.bridgehub,
+        data: calldata,
+        value: p.amount,
+        from: ctx.sender,
+        ...ctx.gasOverrides,
+      };
+      const l1Gas = await quoteL1Gas({
+        ctx,
+        tx: l1TxCandidate,
+        overrides: ctx.gasOverrides,
+        fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
+      });
+
+      if (l1Gas) {
+        bridgeTx = {
+          ...bridgeTx,
+          gas: l1Gas.gasLimit,
+          maxFeePerGas: l1Gas.maxFeePerGas,
+          maxPriorityFeePerGas: l1Gas.maxPriorityFeePerGas,
+        };
       }
 
       steps.push({
@@ -248,10 +242,19 @@ export function routeEthNonBase(): DepositRouteStrategy {
         tx: bridgeTx,
       });
 
+      const fees = buildFeeBreakdown({
+        feeToken: baseToken,
+        l1Gas,
+        l2Gas,
+        l2BaseCost,
+        operatorTip: ctx.operatorTip,
+        mintValue,
+      });
+
       return {
         steps,
         approvals,
-        quoteExtras: { baseCost, mintValue, l1GasLimit: resolvedL1GasLimit },
+        fees,
       };
     },
   };

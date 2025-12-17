@@ -67,8 +67,8 @@ async function main() {
   // --- Deposit params ---
   const me = account.address as Address;
   const params = {
-    amount: parseEther('0.01'),
-    token: ETH_ADDRESS, // ETH sentinel
+    amount: parseEther('0.001'),
+    token: ETH_ADDRESS,
     to: me,
     // optional:
     // l2GasLimit: 300_000n,
@@ -77,23 +77,23 @@ async function main() {
     // refundRecipient: me,
   } as const;
 
-  // 1) QUOTE
+  // QUOTE
   const quote = await sdk.deposits.quote(params);
   console.log('QUOTE →', quote);
 
-  // 2) PREPARE (no txs sent)
+  // PREPARE (no txs sent)
   const plan = await sdk.deposits.prepare(params);
   console.log('PREPARE →', plan);
 
-  // 3) CREATE (send deposit)
+  // CREATE (send deposit)
   const handle = await sdk.deposits.create(params);
   console.log('CREATE →', handle);
 
-  // 4) STATUS
+  // STATUS
   const status = await sdk.deposits.status(handle);
   console.log('STATUS →', status);
 
-  // 5) WAIT: L1 inclusion
+  // WAIT: L1 inclusion
   console.log('⏳ Waiting for L1 inclusion...');
   const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
   console.log('✅ L1 included at block:', l1Receipt?.blockNumber);
@@ -101,7 +101,7 @@ async function main() {
   const statusAfterL1 = await sdk.deposits.status(handle);
   console.log('STATUS (after L1) →', statusAfterL1);
 
-  // 6) WAIT: L2 execution
+  // WAIT: L2 execution
   console.log('⏳ Waiting for L2 execution...');
   const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
   console.log('✅ L2 executed at block:', l2Receipt?.blockNumber);

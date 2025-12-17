@@ -24,9 +24,9 @@ import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { L2_BASE_TOKEN_ADDRESS } from '../../../src/core/constants';
 
-const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
-const L2_RPC = 'http://localhost:3050'; // your L2 RPC
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in the environment');
@@ -42,7 +42,7 @@ async function main() {
 
   const params = {
     token: L2_BASE_TOKEN_ADDRESS, // BASE token on this chain
-    amount: parseEther('1'),
+    amount: parseEther('20'),
     to: me,
     // l2GasLimit?: 300_000n, fee overrides, etc...
   } as const;

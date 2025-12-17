@@ -20,9 +20,9 @@ import { createEthersClient } from '../../../src/adapters/ethers/client';
 import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 
-const L1_RPC = 'http://localhost:8545';
-const L2_RPC = 'http://localhost:3050';
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 // Example L2-ETH token on Sophon (replace with the correct one for your chain)
 const SOPH_ETH = '0x29bF0eCe24D64De5E2034865A339AbBf16FdcAc0' as Address;

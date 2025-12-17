@@ -1,12 +1,15 @@
 // src/adapters/ethers/resources/withdrawals/routes/erc20-nonbase.ts
 
-import { AbiCoder, Contract, type TransactionRequest } from 'ethers';
+import { Contract, type TransactionRequest } from 'ethers';
 import type { WithdrawRouteStrategy } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
-import { IL2AssetRouterABI, L2NativeTokenVaultABI, IERC20ABI } from '../../../../../core/abi';
+import { IERC20ABI } from '../../../../../core/abi';
 
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../../core/types';
+import { quoteL2Gas } from '../services/gas';
+import { buildFeeBreakdown } from '../services/fees';
+import { encodeNativeTokenVaultTransferData } from '../../utils';
 
 const { wrapAs } = createErrorHandlers('withdrawals');
 
@@ -23,11 +26,6 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
     async build(p, ctx) {
       const steps: Array<PlanStep<TransactionRequest>> = [];
       const approvals: ApprovalNeed[] = [];
-      const { gasLimit: overrideGasLimit, maxFeePerGas, maxPriorityFeePerGas } = ctx.fee;
-      const txOverrides =
-        overrideGasLimit != null
-          ? { maxFeePerGas, maxPriorityFeePerGas, gasLimit: overrideGasLimit }
-          : { maxFeePerGas, maxPriorityFeePerGas };
 
       // L2 allowance
       const erc20 = new Contract(p.token, IERC20ABI, ctx.client.getL2Signer());
@@ -54,16 +52,29 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
           p.amount,
         ]);
 
+        const approveTx: TransactionRequest = {
+          to: p.token,
+          data: data,
+          from: ctx.sender,
+        };
+
+        const approveGas = await quoteL2Gas({ ctx, tx: approveTx });
+        if (approveGas) {
+          approveTx.gasLimit = approveGas.gasLimit;
+          approveTx.maxFeePerGas = approveGas.maxFeePerGas;
+          approveTx.maxPriorityFeePerGas = approveGas.maxPriorityFeePerGas;
+        }
+
         steps.push({
           key: `approve:l2:${p.token}:${ctx.l2NativeTokenVault}`,
           kind: 'approve:l2',
           description: `Approve ${p.amount} to NativeTokenVault`,
-          tx: { to: p.token, data, from: ctx.sender, ...txOverrides },
+          tx: approveTx,
         });
       }
 
       // Compute assetId + assetData
-      const ntv = new Contract(ctx.l2NativeTokenVault, L2NativeTokenVaultABI, ctx.client.l2);
+      const ntv = (await ctx.client.contracts()).l2NativeTokenVault;
       const assetId = (await wrapAs(
         'CONTRACT',
         OP_WITHDRAWALS.erc20.ensureRegistered,
@@ -73,16 +84,12 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
           message: 'Failed to ensure token is registered in L2NativeTokenVault.',
         },
       )) as `0x${string}`;
-
       const assetData = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeAssetData,
         () =>
           Promise.resolve(
-            AbiCoder.defaultAbiCoder().encode(
-              ['uint256', 'address', 'address'],
-              [p.amount, p.to ?? ctx.sender, p.token],
-            ),
+            encodeNativeTokenVaultTransferData(p.amount, p.to ?? ctx.sender, p.token),
           ),
         {
           ctx: { where: 'AbiCoder.encode', token: p.token, to: p.to ?? ctx.sender },
@@ -91,7 +98,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       );
 
       // L2AssetRouter.withdraw(assetId, assetData)
-      const l2ar = new Contract(ctx.l2AssetRouter, IL2AssetRouterABI, ctx.client.l2);
+      const l2ar = (await ctx.client.contracts()).l2AssetRouter;
       const dataWithdraw = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeWithdraw,
@@ -107,8 +114,14 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         to: ctx.l2AssetRouter,
         data: dataWithdraw,
         from: ctx.sender,
-        ...txOverrides,
       };
+
+      const withdrawGas = await quoteL2Gas({ ctx, tx: withdrawTx });
+      if (withdrawGas) {
+        withdrawTx.gasLimit = withdrawGas.gasLimit;
+        withdrawTx.maxFeePerGas = withdrawGas.maxFeePerGas;
+        withdrawTx.maxPriorityFeePerGas = withdrawGas.maxPriorityFeePerGas;
+      }
 
       steps.push({
         key: 'l2-asset-router:withdraw',
@@ -117,7 +130,12 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         tx: withdrawTx,
       });
 
-      return { steps, approvals, quoteExtras: {} };
+      const fees = buildFeeBreakdown({
+        feeToken: await ctx.client.baseToken(ctx.chainIdL2),
+        l2Gas: withdrawGas,
+      });
+
+      return { steps, approvals, fees };
     },
   };
 }

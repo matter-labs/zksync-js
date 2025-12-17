@@ -24,9 +24,9 @@ import { createEthersSdk } from '../../../src/adapters/ethers/sdk';
 import type { Address } from '../../../src/core/types/primitives';
 import { ETH_ADDRESS } from '../../../src/core/constants';
 
-const L1_RPC = 'http://localhost:8545';
-const L2_RPC = 'http://localhost:3050';
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
+const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in the environment');
@@ -44,7 +44,6 @@ async function main() {
     token: ETH_ADDRESS, // ETH token on this chain
     amount: parseEther('.0001'),
     to: me,
-    // l2GasLimit?: 300_000n, fee overrides, etc...
     // l2TxOverrides: {
     //   gasLimit: 400_000n,
     //   maxFeePerGas: parseEther('0.00000002'),

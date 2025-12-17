@@ -41,7 +41,7 @@ async function main() {
   console.log('L2 balance:', l2Balance.toString());
 
   // --- INIT SDK ---
-  const client = await createEthersClient({ l1, l2, signer });
+  const client = createEthersClient({ l1, l2, signer });
   const sdk = createEthersSdk(client);
 
   // --- DEPOSIT PARAMS ---
@@ -61,23 +61,23 @@ async function main() {
     // },
   } as const;
 
-  // --- STEP 1: QUOTE ---
+  // --- QUOTE ---
   const quote = await sdk.deposits.quote(params);
   console.log('QUOTE →', quote);
 
-  // --- STEP 2: PREPARE ---
+  // --- PREPARE ---
   const plan = await sdk.deposits.prepare(params);
   console.log('PREPARE →', plan);
 
-  // --- STEP 3: CREATE (send tx) ---
+  // --- CREATE (send tx) ---
   const handle = await sdk.deposits.create(params);
   console.log('CREATE →', handle);
 
-  // --- STEP 4: STATUS ---
+  // --- STATUS ---
   const status = await sdk.deposits.status(handle);
   console.log('STATUS →', status);
 
-  // --- STEP 5: WAIT ---
+  // --- WAIT ---
   console.log('⏳ Waiting for L1 inclusion...');
   const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
   console.log('✅ L1 included at block:', l1Receipt?.blockNumber);

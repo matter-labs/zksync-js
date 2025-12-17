@@ -4,13 +4,12 @@ import type { WithdrawParams } from '../../../../../core/types/flows/withdrawals
 import type { RouteStrategy } from '../../../../../core/types/flows/route';
 import type { BuildCtx as WithdrawBuildCtx } from '../context';
 import type { Address, Hex } from '../../../../../core/types';
-
-export type WithdrawQuoteExtras = Record<string, never>;
+import type { WithdrawalFeeBreakdown } from '../../../../../core/types/fees';
 
 export type WithdrawRouteStrategy = RouteStrategy<
   WithdrawParams,
   TransactionRequest,
-  WithdrawQuoteExtras,
+  WithdrawalFeeBreakdown,
   WithdrawBuildCtx
 >;
 

@@ -13,6 +13,6 @@ function normalizeTokenForRouting(token: Address): Address {
 export function pickWithdrawRoute(args: { token: Address; baseIsEth: boolean }): WithdrawRoute {
   const tokenNorm = normalizeTokenForRouting(args.token);
   const isL2BaseAlias = tokenNorm.toLowerCase() === L2_BASE_TOKEN_ADDRESS.toLowerCase();
-  if (isL2BaseAlias) return args.baseIsEth ? 'eth-base' : 'eth-nonbase';
+  if (isL2BaseAlias) return 'base';
   return 'erc20-nonbase';
 }
