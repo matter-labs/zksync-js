@@ -103,17 +103,28 @@ const q = await sdk.deposits.quote({
 /*
 {
   route: "eth-base" | "eth-nonbase" | "erc20-base" | "erc20-nonbase",
-  approvalsNeeded: [{ token, spender, amount }],
-  baseCost?: bigint,
-  mintValue?: bigint,
-  suggestedL2GasLimit?: bigint,
-  gasPerPubdata?: bigint
+  summary: {
+    route,
+    approvalsNeeded: [{ token, spender, amount }],
+    amounts: {
+      transfer: { token, amount }
+    },
+    fees: {
+      token,
+      maxTotal,
+      mintValue,
+      l1: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, maxTotal },
+      l2: { total, baseCost, operatorTip, gasLimit, maxFeePerGas, maxPriorityFeePerGas, gasPerPubdata }
+    },
+    baseCost,
+    mintValue
+  }
 }
 */
 ```
 
 > [!TIP]
-> If `approvalsNeeded` is non-empty (ERC-20), `create()` will automatically include those steps.
+> If `summary.approvalsNeeded` is non-empty (ERC-20), `create()` will automatically include those steps.
 
 ### `tryQuote(p) → Promise<{ ok: true; value: DepositQuote } | { ok: false; error }>`
 
@@ -254,11 +265,38 @@ export interface Eip1559GasOverrides {
 
 export interface DepositQuote {
   route: 'eth-base' | 'eth-nonbase' | 'erc20-base' | 'erc20-nonbase';
-  approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
-  baseCost?: bigint;
-  mintValue?: bigint;
-  suggestedL2GasLimit?: bigint;
-  gasPerPubdata?: bigint;
+  summary: {
+    route: 'eth-base' | 'eth-nonbase' | 'erc20-base' | 'erc20-nonbase';
+    approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
+    amounts: {
+      transfer: {
+        token: Address;
+        amount: bigint;
+      };
+    };
+    fees: {
+      token: Address;
+      maxTotal: bigint;
+      mintValue: bigint;
+      l1: {
+        gasLimit: bigint;
+        maxFeePerGas: bigint;
+        maxPriorityFeePerGas: bigint;
+        maxTotal: bigint;
+      };
+      l2: {
+        total: bigint;
+        baseCost: bigint;
+        operatorTip: bigint;
+        gasLimit: bigint;
+        maxFeePerGas: bigint;
+        maxPriorityFeePerGas: bigint;
+        gasPerPubdata: bigint;
+      };
+    };
+    baseCost: bigint;
+    mintValue: bigint;
+  };
 }
 
 export interface DepositPlan<TTx = TransactionRequest> {

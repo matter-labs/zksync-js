@@ -100,8 +100,19 @@ const q = await sdk.withdrawals.quote({ token, amount, to });
 /*
 {
   route: "eth-base" | "eth-nonbase" | "erc20-nonbase",
-  approvalsNeeded: [{ token, spender, amount }],
-  suggestedL2GasLimit?: bigint
+  summary: {
+    route,
+    approvalsNeeded: [{ token, spender, amount }],
+    amounts: {
+      transfer: { token, amount }
+    },
+    fees: {
+      token,
+      maxTotal,
+      mintValue,
+      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
+    }
+  }
 }
 */
 ```
@@ -256,8 +267,27 @@ export interface Eip1559GasOverrides {
 
 export interface WithdrawQuote {
   route: 'eth-base' | 'eth-nonbase' | 'erc20-nonbase';
-  approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
-  suggestedL2GasLimit?: bigint;
+  summary: {
+    route: 'eth-base' | 'eth-nonbase' | 'erc20-nonbase';
+    approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
+    amounts: {
+      transfer: {
+        token: Address;
+        amount: bigint;
+      };
+    };
+    fees: {
+      token: Address;
+      maxTotal: bigint;
+      mintValue?: bigint;
+      l2?: {
+        gasLimit: bigint;
+        maxFeePerGas: bigint;
+        maxPriorityFeePerGas?: bigint;
+        total: bigint;
+      };
+    };
+  };
 }
 
 export interface WithdrawPlan<TTx = TransactionRequest> {
