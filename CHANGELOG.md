@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/matter-labs/zksync-js/compare/v0.0.2...v0.0.3) (2025-12-19)
+
+
+### Bug Fixes
+
+* add repository field for npm provenance verification ([8e7bb53](https://github.com/matter-labs/zksync-js/commit/8e7bb53a6d866746e28b0f1cb06b61effe9bd10c))
+
 ## [0.0.2](https://github.com/matter-labs/zksync-js/compare/v0.0.1...v0.0.2) (2025-12-19)
 
 
