@@ -110,5 +110,12 @@ jobs:
 
       - run: bun install
 
+      - name: Debug OIDC
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Workflow: $GITHUB_WORKFLOW"
+          echo "Workflow ref: $GITHUB_WORKFLOW_REF"
+          npm whoami 2>&1 || echo "Not logged in (expected for OIDC)"
+
       - name: Publish to npm
         run: npm publish --access public --tag latest --provenance
