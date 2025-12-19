@@ -116,6 +116,10 @@
     "LICENSE"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matter-labs/zksync-js"
+  },
   "packageManager": "bun@^1.1.0",
   "scripts": {
     "clean": "rimraf dist",
