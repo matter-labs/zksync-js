@@ -90,7 +90,7 @@ jobs:
     if: ${{ inputs.skip_publish != 'true' }}
     permissions:
       contents: read
-      id-token: write  # Required for npm provenance / trusted publishing
+      id-token: write  # Required for npm OIDC trusted publishing
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -98,13 +98,15 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
-          bun-version: 'latest'
+          bun-version: '1.3.5'
 
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: 22.x
           registry-url: 'https://registry.npmjs.org'
-          scope: '@matterlabs'
+
+      - name: Upgrade npm for OIDC support
+        run: npm install -g npm@11.7.0
 
       - run: bun install
 
