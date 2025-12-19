@@ -14,10 +14,10 @@ jobs:
     name: unit-tests 🧪
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
           bun-version: 'latest'
 
@@ -34,7 +34,7 @@ jobs:
           mv coverage/lcov.info lcov.unit.info
 
       - name: Upload unit coverage
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: lcov-unit
           path: lcov.unit.info
@@ -45,10 +45,10 @@ jobs:
     needs: unit-tests
     steps:
       - name: Checkout repo
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
           bun-version: 'latest'
 
@@ -59,12 +59,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lcov
 
       - name: Install Foundry (anvil)
-        uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5
+        uses: foundry-rs/foundry-toolchain@8b0419c685ef46cb79ec93fbdc131174afceb730 # v1.6.0
         with:
           version: v1.3.4
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@6cb6ddb5b674810fead2d2ba2ee95e640800c434 # v1
+        uses: dutterbutter/zksync-server-action@0ccaf62628692bf7dbb6a0832b1f0a9c2a7c08ee # v0.1.0
 
       - name: Compile test contracts
         working-directory: tests/contracts
@@ -88,7 +88,7 @@ jobs:
           lcov -a lcov.e2e.ethers.info -a lcov.e2e.viem.info -o lcov.e2e.info
 
       - name: Upload e2e coverage
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: lcov-e2e
           path: lcov.e2e.info
@@ -101,15 +101,15 @@ jobs:
       pull-requests: write
     needs: [unit-tests, e2e-tests]
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: lcov-unit
           path: ./cov
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: lcov-e2e
           path: ./cov
@@ -121,7 +121,7 @@ jobs:
 
       - name: Report coverage on PR
         if: ${{ github.event_name == 'pull_request' }}
-        uses: zgosalvez/github-actions-report-lcov@b9c423417947b8f4156df37174e5a8be99a02747 # v5
+        uses: zgosalvez/github-actions-report-lcov@8ead3c903cefbc389528f5e032e793a5d0e5b626 # v5.0.2
         with:
           coverage-files: ./cov/lcov.merged.info
           minimum-coverage: 80
@@ -131,7 +131,7 @@ jobs:
           title-prefix: "ci-run-tests"
 
       - name: Upload merged LCOV
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: lcov-merged
           path: ./cov/lcov.merged.info
@@ -144,18 +144,18 @@ jobs:
     needs: coverage-merge
     steps:
       - name: Checkout repo
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 2
 
       - name: Download merged LCOV
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: lcov-merged
           path: ./cov
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           files: ./cov/lcov.merged.info
           flags: combined
