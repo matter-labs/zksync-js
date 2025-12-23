@@ -18,7 +18,7 @@ async function main() {
   const sdk = createEthersSdk(client);
 
   const me = (await signer.getAddress());
-  const l2Token = await sdk.helpers.l2TokenAddress(L1_ERC20_TOKEN);
+  const l2Token = await sdk.tokens.toL2Address(L1_ERC20_TOKEN);
 
   // Prepare withdraw params
   const params = {

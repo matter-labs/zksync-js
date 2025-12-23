@@ -3,10 +3,21 @@
 import type { ViemClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import { pickWithdrawRoute } from '../../../../core/resources/withdrawals/route';
-import type { WithdrawParams, WithdrawRoute } from '../../../../core/types/flows/withdrawals';
+import { type WithdrawParams, type WithdrawRoute } from '../../../../core/types/flows/withdrawals';
 import type { CommonCtx } from '../../../../core/types/flows/base';
-import { isEthBasedChain } from '../token-info';
 import type { TxOverrides } from '../../../../core/types/fees';
+import { createNTVCodec } from '../../../../core/codec/ntv';
+import { encodeAbiParameters, keccak256, type Hex } from 'viem';
+import { ETH_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../../core/constants';
+
+// Create NTV codec for assetId calculations
+const ntvCodec = createNTVCodec({
+  encode: (types, values) => encodeAbiParameters(
+    types.map((t, i) => ({ type: t, name: `arg${i}` })),
+    values
+  ) as Hex,
+  keccak256: (data: Hex) => keccak256(data) as Hex,
+});
 
 // Common context for building withdrawal (L2 -> L1) transactions
 export interface BuildCtx extends CommonCtx {
@@ -43,7 +54,15 @@ export async function commonCtx(
   } = await client.ensureAddresses();
 
   const chainIdL2 = BigInt(await client.l2.getChainId());
-  const baseIsEth = await isEthBasedChain(client.l2, l2NativeTokenVault);
+
+  // Check if chain is ETH-based by comparing base token assetId with ETH assetId
+  const { l2NativeTokenVault: l2NtvContract } = await client.contracts();
+  const [baseTokenAssetId, l1ChainId] = await Promise.all([
+    l2NtvContract.read.BASE_TOKEN_ASSET_ID() as Promise<Hex>,
+    l2NtvContract.read.L1_CHAIN_ID() as Promise<bigint>,
+  ]);
+  const ethAssetId = ntvCodec.encodeAssetId(l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS);
+  const baseIsEth = baseTokenAssetId.toLowerCase() === ethAssetId.toLowerCase();
 
   // route selection
   const route = pickWithdrawRoute({ token: p.token, baseIsEth });

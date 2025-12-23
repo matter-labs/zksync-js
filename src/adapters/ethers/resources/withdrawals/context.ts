@@ -3,10 +3,18 @@
 import type { EthersClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import { pickWithdrawRoute } from '../../../../core/resources/withdrawals/route';
-import type { WithdrawParams, WithdrawRoute } from '../../../../core/types/flows/withdrawals';
+import { type WithdrawParams, type WithdrawRoute } from '../../../../core/types/flows/withdrawals';
 import type { CommonCtx } from '../../../../core/types/flows/base';
-import { isEthBasedChain } from '../token-info';
 import type { TxOverrides } from '../../../../core/types/fees';
+import { createNTVCodec } from '../../../../core/codec/ntv';
+import { AbiCoder, ethers } from 'ethers';
+import { ETH_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../../core/constants';
+
+// Create NTV codec for assetId calculations
+const ntvCodec = createNTVCodec({
+  encode: (types, values) => new AbiCoder().encode(types, values) as `0x${string}`,
+  keccak256: (data: `0x${string}`) => ethers.keccak256(data) as `0x${string}`,
+});
 
 // Common context for building withdrawal (L2 -> L1) transactions
 export interface BuildCtx extends CommonCtx {
@@ -44,7 +52,15 @@ export async function commonCtx(
 
   const { chainId } = await client.l2.getNetwork();
   const chainIdL2 = BigInt(chainId);
-  const baseIsEth = await isEthBasedChain(client.l2, l2NativeTokenVault);
+
+  // Check if chain is ETH-based by comparing base token assetId with ETH assetId
+  const { l2NativeTokenVault: l2NtvContract } = await client.contracts();
+  const [baseTokenAssetId, l1ChainId] = await Promise.all([
+    l2NtvContract.BASE_TOKEN_ASSET_ID() as Promise<`0x${string}`>,
+    l2NtvContract.L1_CHAIN_ID() as Promise<bigint>,
+  ]);
+  const ethAssetId = ntvCodec.encodeAssetId(l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS);
+  const baseIsEth = baseTokenAssetId.toLowerCase() === ethAssetId.toLowerCase();
 
   // route selection
   const route = pickWithdrawRoute({ token: p.token, baseIsEth });

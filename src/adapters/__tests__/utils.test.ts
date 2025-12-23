@@ -17,18 +17,6 @@ const SAMPLE = {
 };
 
 describe('adapters/utils — encoding parity', () => {
-  it('encodeNativeTokenVaultAssetId matches between ethers & viem implementations', () => {
-    const ethersEncoded = ethersUtils.encodeNativeTokenVaultAssetId(SAMPLE.chainId, SAMPLE.token);
-    const viemEncoded = viemUtils
-      .encodeNativeTokenVaultAssetId(SAMPLE.chainId, SAMPLE.token)
-      .toLowerCase();
-
-    expect(ethersEncoded.toLowerCase()).toBe(viemEncoded);
-    expect(ethersUtils.encodeNTVAssetId(SAMPLE.chainId, SAMPLE.token).toLowerCase()).toBe(
-      ethersEncoded.toLowerCase(),
-    );
-  });
-
   it('encodeNativeTokenVaultTransferData encodes amount/receiver/token identically', () => {
     const ethersEncoded = ethersUtils.encodeNativeTokenVaultTransferData(
       SAMPLE.amount,
@@ -48,9 +36,6 @@ describe('adapters/utils — encoding parity', () => {
     expect(BigInt(amount.toString())).toBe(SAMPLE.amount);
     expect((receiver as string).toLowerCase()).toBe(SAMPLE.receiver.toLowerCase());
     expect((token as string).toLowerCase()).toBe(SAMPLE.token.toLowerCase());
-    expect(ethersUtils.encodeNTVTransferData(SAMPLE.amount, SAMPLE.receiver, SAMPLE.token)).toBe(
-      ethersEncoded,
-    );
   });
 
   it('encodeSecondBridgeDataV1 prefixes 0x01 and encodes payload equally', () => {

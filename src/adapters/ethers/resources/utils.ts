@@ -2,18 +2,8 @@ import { AbiCoder, ethers } from 'ethers';
 import type { Address } from '../../../core/types';
 import { L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS } from '../../../core/constants';
 
-// TODO: refactor this entirely
-// separate encoding, and move gas helpers to new resource
-
-// Returns the assetId for a token in the Native Token Vault with specific origin chainId and address
-export function encodeNativeTokenVaultAssetId(chainId: bigint, address: string) {
-  const abi = new AbiCoder();
-  const hex = abi.encode(
-    ['uint256', 'address', 'address'],
-    [chainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, address],
-  );
-  return ethers.keccak256(hex);
-}
+// Encoding utilities for deposit/withdrawal data
+// Note: AssetId encoding is now handled via sdk.tokens or core/codec/ntv.ts
 
 // Encodes the data for a transfer of a token through the Native Token Vault
 export function encodeNativeTokenVaultTransferData(
@@ -31,17 +21,7 @@ export function encodeSecondBridgeDataV1(assetId: string, transferData: string) 
 
   return ethers.concat(['0x01', data]);
 }
-// Encodes the data for a second bridge transfer
-export function encodeNTVAssetId(chainId: bigint, address: string) {
-  const abi = new AbiCoder();
-  const hex = abi.encode(
-    ['uint256', 'address', 'address'],
-    [chainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, address],
-  );
-  return ethers.keccak256(hex);
-}
 
-export const encodeNTVTransferData = encodeNativeTokenVaultTransferData;
 
 // --- Two-bridges encoding: generic tuple (token, amount, l2Receiver) ---
 export function encodeSecondBridgeArgs(
