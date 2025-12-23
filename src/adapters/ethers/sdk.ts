@@ -9,6 +9,10 @@ import {
   createWithdrawalsResource,
   type WithdrawalsResource as WithdrawalsResourceType,
 } from './resources/withdrawals/index';
+import {
+  createTokensResource,
+  type TokensResource as TokensResourceType,
+} from './resources/tokens/index';
 import { type Address, type Hex } from '../../core/types';
 import { isAddressEq } from '../../core/utils/addr';
 import { L2_BASE_TOKEN_ADDRESS, ETH_ADDRESS, FORMAL_ETH_ADDRESS } from '../../core/constants';
@@ -17,6 +21,7 @@ import { L2_BASE_TOKEN_ADDRESS, ETH_ADDRESS, FORMAL_ETH_ADDRESS } from '../../co
 export interface EthersSdk {
   deposits: DepositsResourceType;
   withdrawals: WithdrawalsResourceType;
+  tokens: TokensResourceType;
   helpers: {
     // addresses & contracts
     addresses(): Promise<ResolvedAddresses>;
@@ -45,6 +50,7 @@ export function createEthersSdk(client: EthersClient): EthersSdk {
   return {
     deposits: createDepositsResource(client),
     withdrawals: createWithdrawalsResource(client),
+    tokens: createTokensResource(client),
 
     // TODO: might update to create dedicated resources for these
     helpers: {
