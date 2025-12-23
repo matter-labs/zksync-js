@@ -1,7 +1,7 @@
 // src/adapters/viem/resources/utils.ts
-import { encodeAbiParameters, keccak256, concat, type Hex } from 'viem';
+import { encodeAbiParameters, concat, type Hex } from 'viem';
 import type { Address } from '../../../core/types';
-import { L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS } from '../../../core/constants';
+import { ETH_ADDRESS } from '../../../core/constants';
 
 /* -----------------------------------------------------------------------------
  * Encoding utilities for deposit/withdrawal data

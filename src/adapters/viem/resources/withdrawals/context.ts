@@ -15,8 +15,8 @@ const ntvCodec = createNTVCodec({
   encode: (types, values) => encodeAbiParameters(
     types.map((t, i) => ({ type: t, name: `arg${i}` })),
     values
-  ) as Hex,
-  keccak256: (data: Hex) => keccak256(data) as Hex,
+  ),
+  keccak256: (data: Hex) => keccak256(data),
 });
 
 // Common context for building withdrawal (L2 -> L1) transactions
@@ -58,8 +58,8 @@ export async function commonCtx(
   // Check if chain is ETH-based by comparing base token assetId with ETH assetId
   const { l2NativeTokenVault: l2NtvContract } = await client.contracts();
   const [baseTokenAssetId, l1ChainId] = await Promise.all([
-    l2NtvContract.read.BASE_TOKEN_ASSET_ID() as Promise<Hex>,
-    l2NtvContract.read.L1_CHAIN_ID() as Promise<bigint>,
+    l2NtvContract.read.BASE_TOKEN_ASSET_ID(),
+    l2NtvContract.read.L1_CHAIN_ID(),
   ]);
   const ethAssetId = ntvCodec.encodeAssetId(l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS);
   const baseIsEth = baseTokenAssetId.toLowerCase() === ethAssetId.toLowerCase();

@@ -49,8 +49,6 @@ export interface NTVCodecDeps {
  * ```
  */
 export function createNTVCodec(deps: NTVCodecDeps) {
-    const { encode, keccak256 } = deps;
-
     /**
      * Encodes an assetId for a token in the Native Token Vault.
      *
@@ -63,8 +61,8 @@ export function createNTVCodec(deps: NTVCodecDeps) {
      * @returns The computed assetId as a bytes32 hex string
      */
     function encodeAssetId(originChainId: bigint, ntvAddress: Address, tokenAddress: Address): Hex {
-        const encoded = encode(['uint256', 'address', 'address'], [originChainId, ntvAddress, tokenAddress]);
-        return keccak256(encoded);
+        const encoded = deps.encode(['uint256', 'address', 'address'], [originChainId, ntvAddress, tokenAddress]);
+        return deps.keccak256(encoded);
     }
 
     return {

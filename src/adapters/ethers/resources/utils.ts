@@ -1,6 +1,6 @@
 import { AbiCoder, ethers } from 'ethers';
 import type { Address } from '../../../core/types';
-import { L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS } from '../../../core/constants';
+import { ETH_ADDRESS } from '../../../core/constants';
 
 // Encoding utilities for deposit/withdrawal data
 // Note: AssetId encoding is now handled via sdk.tokens or core/codec/ntv.ts

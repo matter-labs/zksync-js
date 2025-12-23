@@ -122,7 +122,7 @@ export function createTokensResource(client: EthersClient): TokensResource {
             // Query L2 NTV for L2 token address
             const { l2NativeTokenVault } = await client.contracts();
             const l2Token = await l2NativeTokenVault.l2TokenAddress(normalized) as Hex;
-            return l2Token as Address;
+            return l2Token;
         });
     }
 
@@ -142,7 +142,7 @@ export function createTokensResource(client: EthersClient): TokensResource {
             // Query L2 AssetRouter for L1 token address
             const { l2AssetRouter } = await client.contracts();
             const l1Token = await l2AssetRouter.l1TokenAddress(l2Token) as Hex;
-            return l1Token as Address;
+            return l1Token;
         });
     }
 
@@ -171,7 +171,7 @@ export function createTokensResource(client: EthersClient): TokensResource {
         return wrapAs('CONTRACT', 'tokens.l2TokenFromAssetId', async () => {
             const { l2NativeTokenVault } = await client.contracts();
             const tokenAddr = await l2NativeTokenVault.tokenAddress(assetId) as Hex;
-            return tokenAddr as Address;
+            return tokenAddr;
         });
     }
 
@@ -179,7 +179,7 @@ export function createTokensResource(client: EthersClient): TokensResource {
         return wrapAs('CONTRACT', 'tokens.l1TokenFromAssetId', async () => {
             const { l1NativeTokenVault } = await client.contracts();
             const tokenAddr = await l1NativeTokenVault.tokenAddress(assetId) as Hex;
-            return tokenAddr as Address;
+            return tokenAddr;
         });
     }
 
@@ -231,7 +231,7 @@ export function createTokensResource(client: EthersClient): TokensResource {
                 args.originChainId,
                 normalized,
             ) as Hex;
-            return predicted as Address;
+            return predicted;
         });
     }
 
