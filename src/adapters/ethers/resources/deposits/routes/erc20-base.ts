@@ -19,11 +19,14 @@ const { wrapAs } = createErrorHandlers('deposits');
 export function routeErc20Base(): DepositRouteStrategy {
   return {
     async preflight(p, ctx) {
+      const resolved =
+        ctx.resolvedToken ??
+        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l1' }) : undefined);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.base.assertErc20Asset,
         () => {
-          if (isETH(p.token)) {
+          if (resolved?.kind === 'eth' || isETH(p.token)) {
             throw new Error('erc20-base route requires an ERC-20 token (not ETH).');
           }
         },
@@ -31,7 +34,7 @@ export function routeErc20Base(): DepositRouteStrategy {
       );
 
       // Check provided token matches target chain base token
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.base.assertMatchesBase,
@@ -48,7 +51,7 @@ export function routeErc20Base(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {

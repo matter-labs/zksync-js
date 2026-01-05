@@ -8,7 +8,7 @@ import { IERC20ABI } from '../../../../../core/abi.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
-import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
+import { isETH } from '../../../../../core/utils/addr';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 import { quoteL2BaseCost } from '../services/fee.ts';
@@ -20,14 +20,16 @@ const { wrapAs } = createErrorHandlers('deposits');
 
 export function routeErc20NonBase(): DepositRouteStrategy {
   return {
-    // TODO: do we even need these validations?
     async preflight(p, ctx) {
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const resolved =
+        ctx.resolvedToken ??
+        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l1' }) : undefined);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.nonbase.assertNonBaseToken,
         () => {
-          if (normalizeAddrEq(baseToken, p.token)) {
+          if (resolved?.kind === 'base' || resolved?.kind === 'eth') {
             throw new Error('erc20-nonbase route requires a non-base ERC-20 deposit token.');
           }
         },
@@ -37,8 +39,8 @@ export function routeErc20NonBase(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
-      const baseIsEth = isETH(baseToken);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseIsEth = ctx.baseIsEth ?? isETH(baseToken);
 
       // Estimating L2 gas for deposits
       // Unique for ERC-20 non-base deposits

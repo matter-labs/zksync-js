@@ -23,6 +23,7 @@ import { createFinalizationServices, type FinalizationServices } from './service
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
+import { createTokensResource, type TokensResource } from '../tokens';
 
 // --------------------
 // Withdrawal Route map
@@ -94,15 +95,20 @@ export interface WithdrawalsResource {
   >;
 }
 
-export function createWithdrawalsResource(client: EthersClient): WithdrawalsResource {
+export function createWithdrawalsResource(
+  client: EthersClient,
+  tokens?: TokensResource,
+): WithdrawalsResource {
   // Finalization services
   const svc: FinalizationServices = createFinalizationServices(client);
   // error handling
   const { wrap, toResult } = createErrorHandlers('withdrawals');
+  // tokens resource (shared)
+  const tokensResource = tokens ?? createTokensResource(client);
 
   // Build a withdrawal plan (route + steps) without executing it
   async function buildPlan(p: WithdrawParams): Promise<WithdrawPlan<TransactionRequest>> {
-    const ctx = await commonCtx(p, client);
+    const ctx = await commonCtx(p, client, tokensResource);
     await ROUTES[ctx.route].preflight?.(p, ctx);
     const { steps, approvals, fees } = await ROUTES[ctx.route].build(p, ctx);
 

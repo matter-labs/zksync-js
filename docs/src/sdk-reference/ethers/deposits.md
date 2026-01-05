@@ -10,6 +10,7 @@ L1 → L2 deposits for ETH and ERC-20 tokens with quote, prepare, create, status
 * **Typical flow:** `quote → create → wait({ for: 'l2' })`
 * **Auto-routing:** ETH vs ERC-20 and base-token vs non-base handled automatically
 * **Error style:** Throwing methods (`quote`, `prepare`, `create`, `wait`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`)
+* **Token mapping:** Use `sdk.tokens` for L1⇄L2 token lookups and assetIds before calling into deposits if you need token metadata.
 
 ## Import
 

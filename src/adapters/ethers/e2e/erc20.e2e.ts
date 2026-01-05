@@ -122,7 +122,7 @@ describe('e2e (ethers): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
   }, 180_000);
 
   it('deposits: should reflect L2 token credit (resolve L2 token and check deltas)', async () => {
-    const resolved = await sdk.helpers.l2TokenAddress(l1TokenAddr);
+    const resolved = await sdk.tokens.toL2Address(l1TokenAddr);
     expect(resolved).toMatch(/^0x[0-9a-fA-F]{40}$/);
     l2TokenAddr = resolved as Address;
 

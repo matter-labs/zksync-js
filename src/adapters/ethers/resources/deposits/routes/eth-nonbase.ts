@@ -21,26 +21,28 @@ const { wrapAs } = createErrorHandlers('deposits');
 export function routeEthNonBase(): DepositRouteStrategy {
   return {
     async preflight(p, ctx) {
+      const resolved =
+        ctx.resolvedToken ??
+        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l1' }) : undefined);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertEthAsset,
         () => {
-          if (!isETH(p.token)) {
+          if (resolved?.kind !== 'eth' && !isETH(p.token)) {
             throw new Error('eth-nonbase route requires ETH as the deposit asset.');
           }
         },
         { ctx: { token: p.token } },
       );
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.ethNonBase.assertNonEthBase,
         () => {
-          if (isETH(baseToken)) {
+          if (ctx.baseIsEth) {
             throw new Error('eth-nonbase route requires target chain base token ≠ ETH.');
           }
         },
-        { ctx: { baseToken, chainIdL2: ctx.chainIdL2 } },
+        { ctx: { baseIsEth: ctx.baseIsEth, chainIdL2: ctx.chainIdL2 } },
       );
       // Check sufficient ETH balance to cover deposit amount
       const ethBal = await wrapAs(
@@ -68,7 +70,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1;
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {

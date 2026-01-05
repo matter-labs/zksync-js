@@ -36,6 +36,7 @@ export type Resource =
   | 'deposits'
   | 'withdrawals'
   | 'withdrawal-finalization'
+  | 'tokens'
   | 'helpers'
   | 'zksrpc'
   | 'client';

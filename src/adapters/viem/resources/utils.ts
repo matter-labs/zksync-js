@@ -1,24 +1,12 @@
 // src/adapters/viem/resources/utils.ts
-import { encodeAbiParameters, keccak256, concat, type Hex } from 'viem';
+import { encodeAbiParameters, concat, type Hex } from 'viem';
 import type { Address } from '../../../core/types';
-import { L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS } from '../../../core/constants';
+import { ETH_ADDRESS } from '../../../core/constants';
 
 /* -----------------------------------------------------------------------------
- * Native Token Vault encoding
+ * Encoding utilities for deposit/withdrawal data
+ * Note: AssetId encoding is now handled via sdk.tokens or core/codec/ntv.ts
  * ---------------------------------------------------------------------------*/
-
-// Returns the assetId for a token in the Native Token Vault with specific origin chainId and address
-export function encodeNativeTokenVaultAssetId(chainId: bigint, address: string): Hex {
-  const encoded = encodeAbiParameters(
-    [
-      { type: 'uint256', name: 'originChainId' },
-      { type: 'address', name: 'ntv' },
-      { type: 'address', name: 'token' },
-    ],
-    [chainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, address as Address],
-  );
-  return keccak256(encoded);
-}
 
 // Encodes the data for a transfer of a token through the Native Token Vault
 export function encodeNativeTokenVaultTransferData(
@@ -47,10 +35,6 @@ export function encodeSecondBridgeDataV1(assetId: Hex, transferData: Hex): Hex {
   );
   return concat(['0x01', data]);
 }
-
-/* Aliases kept for parity with ethers utils */
-export const encodeNTVAssetId = encodeNativeTokenVaultAssetId;
-export const encodeNTVTransferData = encodeNativeTokenVaultTransferData;
 
 /* -----------------------------------------------------------------------------
  * Two-bridges encoding: generic tuple (token, amount, l2Receiver)

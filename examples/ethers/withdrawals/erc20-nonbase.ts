@@ -3,13 +3,13 @@
  * Example: Withdraw a non-base ERC-20 from L2
  *
  * Notes:
- * - Pass the L1 token address to `sdk.helpers.l2TokenAddress` to discover its L2 counterpart.
+ * - Pass the L1 token address to `sdk.tokens.toL2Address` to discover its L2 counterpart.
  * - Route: `erc20-nonbase` → NTV + L2AssetRouter.withdraw(assetId, assetData).
  * - SDK will add an L2 approval step (spender = L2NativeTokenVault) if needed.
  *
  * Flow:
  * 1) Connect to L1 + L2 RPCs and create Ethers SDK client.
- * 2) Resolve the L2 token address using `sdk.helpers.l2TokenAddress(L1_TOKEN)`.
+ * 2) Resolve the L2 token address using `sdk.tokens.toL2Address(L1_TOKEN)`.
  * 3) Inspect balances/symbol/decimals.
  * 4) Call `sdk.withdrawals.quote` or `prepare` (optional).
  * 5) Call `sdk.withdrawals.create` (approve first if needed, then withdraw).
@@ -42,7 +42,7 @@ async function main() {
   const me = (await signer.getAddress()) as Address;
 
   // Discover the corresponding L2 token for this L1 token
-  const l2Token = await sdk.helpers.l2TokenAddress(L1_ERC20_TOKEN);
+  const l2Token = await sdk.tokens.toL2Address(L1_ERC20_TOKEN);
 
   const erc20L1 = new Contract(L1_ERC20_TOKEN, IERC20ABI, l1);
   const erc20L2 = new Contract(l2Token, IERC20ABI, l2);
