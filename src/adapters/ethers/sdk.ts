@@ -42,10 +42,12 @@ export interface EthersSdk {
 }
 
 export function createEthersSdk(client: EthersClient): EthersSdk {
+  const tokens = createTokensResource(client);
+
   return {
-    deposits: createDepositsResource(client),
-    withdrawals: createWithdrawalsResource(client),
-    tokens: createTokensResource(client),
+    deposits: createDepositsResource(client, tokens),
+    withdrawals: createWithdrawalsResource(client, tokens),
+    tokens,
 
     // TODO: might update to create dedicated resources for these
     helpers: {

@@ -74,16 +74,23 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       }
 
       // Compute assetId + assetData
-      const ntv = (await ctx.client.contracts()).l2NativeTokenVault;
-      const assetId = (await wrapAs(
-        'CONTRACT',
-        OP_WITHDRAWALS.erc20.ensureRegistered,
-        () => ntv.getFunction('ensureTokenIsRegistered').staticCall(p.token),
-        {
-          ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
-          message: 'Failed to ensure token is registered in L2NativeTokenVault.',
-        },
-      )) as `0x${string}`;
+      const resolved =
+        ctx.resolvedToken ??
+        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l2' }) : undefined);
+      const assetId =
+        resolved?.assetId ??
+        ((await wrapAs(
+          'CONTRACT',
+          OP_WITHDRAWALS.erc20.ensureRegistered,
+          async () => {
+            const ntv = (await ctx.client.contracts()).l2NativeTokenVault;
+            return ntv.getFunction('ensureTokenIsRegistered').staticCall(p.token);
+          },
+          {
+            ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
+            message: 'Failed to ensure token is registered in L2NativeTokenVault.',
+          },
+        )) as `0x${string}`);
       const assetData = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeAssetData,
@@ -131,7 +138,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       });
 
       const fees = buildFeeBreakdown({
-        feeToken: await ctx.client.baseToken(ctx.chainIdL2),
+        feeToken: ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2)),
         l2Gas: withdrawGas,
       });
 

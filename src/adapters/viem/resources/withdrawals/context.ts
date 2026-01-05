@@ -12,10 +12,11 @@ import { ETH_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../../core/con
 
 // Create NTV codec for assetId calculations
 const ntvCodec = createNTVCodec({
-  encode: (types, values) => encodeAbiParameters(
-    types.map((t, i) => ({ type: t, name: `arg${i}` })),
-    values
-  ),
+  encode: (types, values) =>
+    encodeAbiParameters(
+      types.map((t, i) => ({ type: t, name: `arg${i}` })),
+      values,
+    ),
   keccak256: (data: Hex) => keccak256(data),
 });
 

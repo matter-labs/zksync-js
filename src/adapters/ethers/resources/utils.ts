@@ -22,7 +22,6 @@ export function encodeSecondBridgeDataV1(assetId: string, transferData: string) 
   return ethers.concat(['0x01', data]);
 }
 
-
 // --- Two-bridges encoding: generic tuple (token, amount, l2Receiver) ---
 export function encodeSecondBridgeArgs(
   token: Address,
