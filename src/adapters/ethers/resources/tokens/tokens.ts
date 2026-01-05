@@ -106,6 +106,11 @@ export function createTokensResource(client: EthersClient): TokensResource {
   // Public API Implementation
   // -------------------------
 
+  // Note: `l2TokenAddress` is now legacy way to get L2 token address for a given L1 token.
+  // We will need to change this to `tokenAddress[assetId]` from the NTV
+  // TODO: query the assetId on L1 using assetId mapping from l1TokenAddress https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+  // query the l2TokenAddress on l2 using assetId using tokenAddress mapping https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+
   async function toL2Address(l1Token: Address): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.toL2Address', async () => {
       const normalized = normalizeL1Token(l1Token);
