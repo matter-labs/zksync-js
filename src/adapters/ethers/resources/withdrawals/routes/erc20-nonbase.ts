@@ -79,18 +79,21 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l2' }) : undefined);
       const assetId =
         resolved?.assetId ??
-        ((await wrapAs(
+        (await wrapAs(
           'CONTRACT',
           OP_WITHDRAWALS.erc20.ensureRegistered,
           async () => {
             const ntv = (await ctx.client.contracts()).l2NativeTokenVault;
-            return ntv.getFunction('ensureTokenIsRegistered').staticCall(p.token);
+            const ensured = (await ntv
+              .getFunction('ensureTokenIsRegistered')
+              .staticCall(p.token)) as `0x${string}`;
+            return ensured;
           },
           {
             ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
             message: 'Failed to ensure token is registered in L2NativeTokenVault.',
           },
-        )) as `0x${string}`);
+        ));
       const assetData = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeAssetData,

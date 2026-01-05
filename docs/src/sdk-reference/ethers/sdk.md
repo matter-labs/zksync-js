@@ -7,7 +7,7 @@ High-level SDK built on top of the **Ethers adapter** — provides deposits, wit
 ## At a Glance
 
 * **Factory:** `createEthersSdk(client) → EthersSdk`
-* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.helpers`
+* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.helpers`
 * **Client vs SDK:** The **client** wires RPC/signing, while the **SDK** adds high-level flows (`quote → prepare → create → wait`) and convenience helpers.
 
 ## Import
@@ -40,6 +40,10 @@ await sdk.deposits.wait(handle, { for: 'l2' });
 
 // Example: resolve core contracts
 const { l1NativeTokenVault } = await sdk.helpers.contracts();
+
+// Example: map a token L1 → L2
+const token = await sdk.tokens.resolve('0xYourToken');
+console.log(token.l2);
 ```
 
 > [!TIP]
@@ -66,6 +70,11 @@ See [Deposits](./deposits.md).
 
 L2 → L1 flows.
 See [Withdrawals](./withdrawals.md).
+
+### `tokens: TokensResource`
+
+Token identity, L1⇄L2 mapping, bridge asset IDs, chain token facts.
+See [Tokens](./tokens.md).
 
 ## `helpers`
 
@@ -105,35 +114,6 @@ L1 address of the **base token** for the current (or provided) L2 chain.
 
 ```ts
 const base = await sdk.helpers.baseToken(); // infers from client.l2
-```
-
-### `l2TokenAddress(l1Token: Address) → Promise<Address>`
-
-Return the **L2 token address** for a given L1 token.
-
-* Handles ETH special case (L2 ETH placeholder).
-* If token is the chain’s base token, returns the L2 base-token system address.
-* Otherwise queries `IL2NativeTokenVault.l2TokenAddress`.
-
-```ts
-const l2Crown = await sdk.helpers.l2TokenAddress(CROWN_ERC20_ADDRESS);
-```
-
-### `l1TokenAddress(l2Token: Address) → Promise<Address>`
-
-Return the **L1 token** corresponding to an L2 token via `IL2AssetRouter.l1TokenAddress`.
-ETH placeholder resolves to canonical ETH.
-
-```ts
-const l1Crown = await sdk.helpers.l1TokenAddress(L2_CROWN_ADDRESS);
-```
-
-### `assetId(l1Token: Address) → Promise<Hex>`
-
-Get the `bytes32` asset ID via `L1NativeTokenVault.assetId` (handles ETH canonically).
-
-```ts
-const id = await sdk.helpers.assetId(CROWN_ERC20_ADDRESS);
 ```
 
 ## Notes & Pitfalls

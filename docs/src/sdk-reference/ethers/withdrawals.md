@@ -10,6 +10,7 @@ L2 → L1 withdrawals for ETH and ERC-20 tokens with quote, prepare, create, sta
 * **Typical flow:** `quote → create → wait({ for: 'l2' }) → wait({ for: 'ready' }) → finalize`
 * **Auto-routing:** ETH vs ERC-20 and base-token vs non-base handled internally
 * **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
+* **Token mapping:** Use `sdk.tokens` if you need L1/L2 token addresses or assetIds ahead of time.
 
 ## Import
 
