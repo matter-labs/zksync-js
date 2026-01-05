@@ -8,6 +8,7 @@ import { encodeSecondBridgeEthArgs } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
+import { isETH } from '../../../../../core/utils/addr';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
