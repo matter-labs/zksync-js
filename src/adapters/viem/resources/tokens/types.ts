@@ -14,9 +14,7 @@ export type TokenKind = 'eth' | 'base' | 'erc20';
  * Reference to a token on a specific chain.
  * Used as input to identify a token for resolution.
  */
-export type TokenRef =
-  | { chain: 'l1'; address: Address }
-  | { chain: 'l2'; address: Address };
+export type TokenRef = { chain: 'l1'; address: Address } | { chain: 'l2'; address: Address };
 
 /**
  * Fully resolved token information including L1/L2 addresses,

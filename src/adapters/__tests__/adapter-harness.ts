@@ -227,6 +227,7 @@ type ViemClientState = {
   gasPrice?: bigint;
   fees?: { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
   code?: string;
+  chainId?: bigint;
 };
 
 function makeViemClient(state: ViemClientState): PublicClient {
@@ -314,6 +315,9 @@ function makeViemClient(state: ViemClientState): PublicClient {
     },
     async getGasPrice() {
       return state.gasPrice ?? 5n;
+    },
+    async getChainId() {
+      return state.chainId ?? 324n;
     },
     async getCode({ address }: { address: Address }) {
       const key = lower(address);

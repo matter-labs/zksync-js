@@ -97,8 +97,8 @@ export async function determineErc20L2Gas(input: {
             address: l2NativeTokenVault.address,
             abi: l2NativeTokenVault.abi,
             functionName: 'l2TokenAddress',
-            args: [l1Token as `0x${string}`],
-          })) as Address;
+            args: [l1Token],
+          }));
         })();
 
     // we can assume that the token has not been deployed to L2 if

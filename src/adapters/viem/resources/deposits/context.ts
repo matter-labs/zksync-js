@@ -1,7 +1,6 @@
 // src/adapters/viem/resources/deposits/context.ts
 import type { ViemClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
-import { pickDepositRoute } from '../../../../core/resources/deposits/route';
 import type { DepositParams, DepositRoute } from '../../../../core/types/flows/deposits';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
