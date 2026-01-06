@@ -1,13 +1,13 @@
 # ViemSdk
 
-High-level SDK built on top of the **Viem adapter** — provides deposits, withdrawals, and chain-aware helpers.
+High-level SDK built on top of the **Viem adapter** — provides deposits, withdrawals, tokens, and chain-aware helpers.
 
 ---
 
 ## At a Glance
 
 * **Factory:** `createViemSdk(client) → ViemSdk`
-* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.helpers`
+* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.helpers`
 * **Client vs SDK:** The **client** wires RPC/signing; the **SDK** adds high-level flows (`quote → prepare → create → wait`) and convenience helpers.
 * **Wallets by flow:**
 
@@ -55,7 +55,8 @@ await sdk.deposits.wait(handle, { for: 'l2' });
 
 // Example: resolve contracts and map an L1 token to its L2 address
 const { l1NativeTokenVault } = await sdk.helpers.contracts();
-const l2Crown = await sdk.helpers.l2TokenAddress(CROWN_ERC20_ADDRESS);
+const token = await sdk.tokens.resolve('0xYourToken');
+console.log(token.l2);
 ```
 
 > [!TIP]
@@ -72,7 +73,7 @@ const l2Crown = await sdk.helpers.l2TokenAddress(CROWN_ERC20_ADDRESS);
 **Returns:** `ViemSdk`
 
 > [!TIP]
-> The SDK composes the client with resources: `deposits`, `withdrawals`, and convenience `helpers`.
+> The SDK composes the client with resources: `deposits`, `withdrawals`, `tokens`, and convenience `helpers`.
 
 ## ViemSdk Interface
 
@@ -85,6 +86,11 @@ See [Deposits](./deposits.md).
 
 L2 → L1 flows.
 See [Withdrawals](./withdrawals.md).
+
+### `tokens: TokensResource`
+
+Token identity, L1⇄L2 mapping, bridge asset IDs, chain token facts.
+See [Tokens](./tokens.md).
 
 ## `helpers`
 
@@ -125,35 +131,6 @@ L1 address of the **base token** for the current (or supplied) L2 chain.
 
 ```ts
 const base = await sdk.helpers.baseToken(); // infers from the L2 client
-```
-
-### `l2TokenAddress(l1Token: Address) → Promise<Address>`
-
-L2 token address for an L1 token.
-
-* Handles ETH special case (L2 ETH placeholder).
-* If the token is the chain’s base token, returns the L2 base-token system address.
-* Otherwise queries `IL2NativeTokenVault.l2TokenAddress`.
-
-```ts
-const l2Crown = await sdk.helpers.l2TokenAddress(CROWN_ERC20_ADDRESS);
-```
-
-### `l1TokenAddress(l2Token: Address) → Promise<Address>`
-
-L1 token for an L2 token via `IL2AssetRouter.l1TokenAddress`.
-ETH placeholder resolves to canonical ETH.
-
-```ts
-const l1Crown = await sdk.helpers.l1TokenAddress(L2_CROWN_ADDRESS);
-```
-
-### `assetId(l1Token: Address) → Promise<Hex>`
-
-`bytes32` asset ID via `L1NativeTokenVault.assetId` (ETH handled canonically).
-
-```ts
-const id = await sdk.helpers.assetId(CROWN_ERC20_ADDRESS);
 ```
 
 ---

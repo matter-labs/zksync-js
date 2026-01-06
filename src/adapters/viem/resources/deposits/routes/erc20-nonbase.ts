@@ -27,18 +27,18 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         'VALIDATION',
         OP_DEPOSITS.nonbase.assertNotEthAsset,
         () => {
-          if (isETH(p.token)) {
+          if (ctx.resolvedToken?.kind === 'eth' || isETH(p.token)) {
             throw new Error('erc20-nonbase route requires an ERC-20 token (not ETH).');
           }
         },
         { ctx: { token: p.token } },
       );
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.nonbase.assertNonBaseToken,
         () => {
-          if (normalizeAddrEq(baseToken, p.token)) {
+          if (ctx.resolvedToken?.kind === 'base' || normalizeAddrEq(baseToken, p.token)) {
             throw new Error('erc20-nonbase route requires a non-base ERC-20 deposit token.');
           }
         },
@@ -47,8 +47,8 @@ export function routeErc20NonBase(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
-      const baseIsEth = isETH(baseToken);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseIsEth = ctx.baseIsEth ?? isETH(baseToken);
       const assetRouter = ctx.l1AssetRouter;
 
       // Estimating L2 gas for deposits

@@ -8,6 +8,8 @@ export type { DepositsResource } from './resources/deposits';
 export { createWithdrawalsResource } from './resources/withdrawals';
 export { createFinalizationServices } from './resources/withdrawals';
 export type { WithdrawalsResource, FinalizationServices } from './resources/withdrawals';
+export { createTokensResource } from './resources/tokens';
+export type { TokensResource } from './resources/tokens';
 
 export * from './errors/error-ops';
 export * from './errors/revert';

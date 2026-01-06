@@ -27,13 +27,13 @@ export function routeErc20Base(): DepositRouteStrategy {
         'VALIDATION',
         OP_DEPOSITS.base.assertErc20Asset,
         () => {
-          if (isETH(p.token)) {
+          if (ctx.resolvedToken?.kind === 'eth' || isETH(p.token)) {
             throw new Error('erc20-base route requires an ERC-20 token (not ETH).');
           }
         },
         { ctx: { token: p.token } },
       );
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
 
       await wrapAs(
         'VALIDATION',
@@ -48,7 +48,7 @@ export function routeErc20Base(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      const baseToken = await ctx.client.baseToken(ctx.chainIdL2);
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {

@@ -30,6 +30,7 @@ import { extractL2TxHashFromL1Logs, waitForL2ExecutionFromL1Tx } from './service
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
+import { createTokensResource, type TokensResource } from '../tokens';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -106,12 +107,16 @@ export interface DepositsResource {
 // --------------------
 // Resource factory
 // --------------------
-export function createDepositsResource(client: ViemClient): DepositsResource {
+export function createDepositsResource(
+  client: ViemClient,
+  tokens?: TokensResource,
+): DepositsResource {
+  const tokensResource = tokens ?? createTokensResource(client);
   // buildPlan constructs a DepositPlan for the given params
   // It does not execute any transactions
   // It can run preflight checks and may throw if the deposit cannot be performed
   async function buildPlan(p: DepositParams): Promise<DepositPlan<ViemPlanWriteRequest>> {
-    const ctx = await commonCtx(p, client);
+    const ctx = await commonCtx(p, client, tokensResource);
 
     const route = ctx.route;
     await ROUTES[route].preflight?.(p, ctx);
