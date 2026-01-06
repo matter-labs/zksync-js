@@ -7,7 +7,7 @@ Token identity, L1↔L2 mapping, bridge asset IDs, and chain token facts for ETH
 ## At a Glance
 
 * **Resource:** `sdk.tokens`
-* **Capabilities:** resolve tokens, map L1⇄L2 addresses, compute `assetId`, detect base token / chain ETH-ness, WETH helpers, predict bridged addresses.
+* **Capabilities:** resolve tokens, map L1⇄L2 addresses, compute `assetId`, detect base token, WETH helpers, predict bridged addresses.
 * **Auto-handling:** ETH aliases (`ETH_ADDRESS`, `FORMAL_ETH_ADDRESS`) and L2 base-token alias are normalized for you.
 * **Error style:** Throwing methods; wrap in try/catch or use higher-level `try*` callers.
 
