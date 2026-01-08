@@ -1,6 +1,6 @@
 // src/adapters/ethers/resources/tokens/types.ts
 
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Address, Hex } from '../primitives';
 
 // TODO: add links to source code from contracts
 

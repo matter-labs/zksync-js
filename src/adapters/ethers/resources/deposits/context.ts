@@ -5,7 +5,7 @@ import type { Address, Hex } from '../../../../core/types/primitives';
 import type { DepositParams, DepositRoute } from '../../../../core/types/flows/deposits';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
-import type { ResolvedToken, TokensResource } from '../tokens/types';
+import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
 
 // Common context for building deposit (L1-L2) transactions
 export interface BuildCtx extends CommonCtx {

@@ -33,4 +33,5 @@ export type * from './types/flows/base';
 export type * from './types/flows/deposits';
 export type * from './types/flows/withdrawals';
 export type * from './types/flows/route';
+export type * from './types/flows/token';
 export type * from './types/primitives';

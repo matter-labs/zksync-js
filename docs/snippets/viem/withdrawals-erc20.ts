@@ -44,7 +44,7 @@ async function main() {
   const me = account.address;
 
   // Resolve the L2-mapped token for an L1 ERC-20
-  const l2Token = await sdk.helpers.l2TokenAddress(L1_ERC20_TOKEN);
+  const l2Token = await sdk.tokens.toL2Address(L1_ERC20_TOKEN);
 
   // Withdraw params
   const params = {

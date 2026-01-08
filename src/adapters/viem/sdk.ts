@@ -11,10 +11,10 @@ import {
   createWithdrawalsResource,
   type WithdrawalsResource as WithdrawalsResourceType,
 } from './resources/withdrawals/index';
+import { createTokensResource } from './resources/tokens/index';
+import type { TokensResource as TokensResourceType } from '../../core/types/flows/token';
 
-import type { Address, Hex } from '../../core/types';
-import { isAddressEq } from '../../core/utils/addr';
-import { L2_BASE_TOKEN_ADDRESS, ETH_ADDRESS, FORMAL_ETH_ADDRESS } from '../../core/constants';
+import type { Address } from '../../core/types';
 
 // ABIs (to type contract handles returned from helpers.contracts())
 import type {
@@ -42,6 +42,7 @@ type ViemContracts = {
 export interface ViemSdk {
   deposits: DepositsResourceType;
   withdrawals: WithdrawalsResourceType;
+  tokens: TokensResourceType;
   helpers: {
     // addresses & contracts
     addresses(): Promise<ResolvedAddresses>;
@@ -53,16 +54,16 @@ export interface ViemSdk {
     l1Nullifier(): Promise<ViemContracts['l1Nullifier']>;
 
     baseToken(chainId?: bigint): Promise<Address>;
-    l2TokenAddress(l1Token: Address): Promise<Address>;
-    l1TokenAddress(l2Token: Address): Promise<Address>;
-    assetId(l1Token: Address): Promise<Hex>;
   };
 }
 
 export function createViemSdk(client: ViemClient): ViemSdk {
+  const tokens = createTokensResource(client);
+
   return {
-    deposits: createDepositsResource(client),
-    withdrawals: createWithdrawalsResource(client),
+    deposits: createDepositsResource(client, tokens),
+    withdrawals: createWithdrawalsResource(client, tokens),
+    tokens,
 
     helpers: {
       addresses: () => client.ensureAddresses(),
@@ -84,43 +85,6 @@ export function createViemSdk(client: ViemClient): ViemSdk {
       async baseToken(chainId?: bigint) {
         const id = chainId ?? BigInt(await client.l2.getChainId());
         return client.baseToken(id);
-      },
-
-      async l2TokenAddress(l1Token: Address): Promise<Address> {
-        // ETH on L1 → contracts’ ETH placeholder on L2
-        if (isAddressEq(l1Token, FORMAL_ETH_ADDRESS)) {
-          return ETH_ADDRESS;
-        }
-
-        // Base token → L2 base-token system address
-        const base = await client.baseToken(BigInt(await client.l2.getChainId()));
-        if (isAddressEq(l1Token, base)) {
-          return L2_BASE_TOKEN_ADDRESS;
-        }
-
-        // Lookup via L2 Native Token Vault
-        const { l2NativeTokenVault } = await client.contracts();
-        const addr = await l2NativeTokenVault.read.l2TokenAddress([l1Token]);
-        return addr;
-      },
-
-      async l1TokenAddress(l2Token: Address): Promise<Address> {
-        if (isAddressEq(l2Token, FORMAL_ETH_ADDRESS)) {
-          return FORMAL_ETH_ADDRESS;
-        }
-
-        const { l2AssetRouter } = await client.contracts();
-        const addr = await l2AssetRouter.read.l1TokenAddress([l2Token]);
-        return addr;
-      },
-
-      async assetId(l1Token: Address): Promise<Hex> {
-        // Normalize ETH → contracts placeholder
-        const norm = isAddressEq(l1Token, FORMAL_ETH_ADDRESS) ? ETH_ADDRESS : l1Token;
-
-        const { l1NativeTokenVault } = await client.contracts();
-        const id = await l1NativeTokenVault.read.assetId([norm]);
-        return id;
       },
     },
   };

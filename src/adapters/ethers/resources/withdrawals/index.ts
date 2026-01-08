@@ -23,7 +23,8 @@ import { createFinalizationServices, type FinalizationServices } from './service
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
-import { createTokensResource, type TokensResource } from '../tokens';
+import { createTokensResource } from '../tokens';
+import type { TokensResource } from '../../../../core/types/flows/token';
 
 // --------------------
 // Withdrawal Route map

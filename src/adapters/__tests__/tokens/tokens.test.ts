@@ -1,17 +1,23 @@
 import { describe, it, expect } from 'bun:test';
 import { Interface, AbiCoder, ethers } from 'ethers';
 
-import { createTokensResource } from '../ethers/resources/tokens';
-import { createEthersHarness, ADAPTER_TEST_ADDRESSES } from './adapter-harness';
+import { createTokensResource as createEthersTokens } from '../../ethers/resources/tokens';
+import { createTokensResource as createViemTokens } from '../../viem/resources/tokens';
+import {
+  ADAPTER_TEST_ADDRESSES,
+  describeForAdapters,
+  createAdapterHarness,
+} from '../adapter-harness';
 import {
   ETH_ADDRESS,
   FORMAL_ETH_ADDRESS,
   L2_ASSET_ROUTER_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
-} from '../../core/constants';
-import { IL2AssetRouterABI, L1NativeTokenVaultABI, L2NativeTokenVaultABI } from '../../core/abi';
-import { createNTVCodec } from '../../core/codec/ntv';
+} from '../../../core/constants';
+import { IL2AssetRouterABI, L1NativeTokenVaultABI, L2NativeTokenVaultABI } from '../../../core/abi';
+import { createNTVCodec } from '../../../core/codec/ntv';
+import type { AdapterHarness } from '../adapter-harness';
 
 const L1NTV = new Interface(L1NativeTokenVaultABI as any);
 const L2NTV = new Interface(L2NativeTokenVaultABI as any);
@@ -22,10 +28,15 @@ const ntvCodec = createNTVCodec({
   keccak256: (data: `0x${string}`) => ethers.keccak256(data) as `0x${string}`,
 });
 
-describe('adapters/tokens (ethers)', () => {
+describeForAdapters('tokens resource', (kind) => {
+  const makeTokens = (harness: AdapterHarness) =>
+    kind === 'ethers'
+      ? createEthersTokens((harness as any).client)
+      : createViemTokens((harness as any).client);
+
   it('resolves a non-base ERC20 with L1/L2 mapping and facts', async () => {
-    const harness = createEthersHarness();
-    const tokens = createTokensResource(harness.client);
+    const harness = createAdapterHarness(kind);
+    const tokens = makeTokens(harness);
 
     const l1Token = '0x0000000000000000000000000000000000000111' as const;
     const l2Token = '0x0000000000000000000000000000000000000222' as const;
@@ -33,7 +44,6 @@ describe('adapters/tokens (ethers)', () => {
     const baseTokenAssetId =
       '0xbbb0000000000000000000000000000000000000000000000000000000000002' as const;
 
-    // Base chain facts
     harness.registry.set(ADAPTER_TEST_ADDRESSES.l1NativeTokenVault, L1NTV, 'assetId', assetId, [
       l1Token,
     ]);
@@ -81,8 +91,8 @@ describe('adapters/tokens (ethers)', () => {
   });
 
   it('detects ETH-based chains via baseTokenAssetId', async () => {
-    const harness = createEthersHarness();
-    const tokens = createTokensResource(harness.client);
+    const harness = createAdapterHarness(kind);
+    const tokens = makeTokens(harness);
 
     const ethAssetId = ntvCodec.encodeAssetId(1n, L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS);
     harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'BASE_TOKEN_ASSET_ID', ethAssetId);
@@ -93,8 +103,8 @@ describe('adapters/tokens (ethers)', () => {
   });
 
   it('normalizes ETH aliases for CREATE2 predictions and base-token alias mapping', async () => {
-    const harness = createEthersHarness();
-    const tokens = createTokensResource(harness.client);
+    const harness = createAdapterHarness(kind);
+    const tokens = makeTokens(harness);
 
     const predicted = '0x0000000000000000000000000000000000000c0d' as const;
     harness.registry.set(
@@ -111,7 +121,6 @@ describe('adapters/tokens (ethers)', () => {
     });
     expect(computed.toLowerCase()).toBe(predicted.toLowerCase());
 
-    // Base-token alias should map back to L1 base token for the chain
     const baseL1 = await tokens.toL1Address(L2_BASE_TOKEN_ADDRESS);
     expect(baseL1.toLowerCase()).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
   });
