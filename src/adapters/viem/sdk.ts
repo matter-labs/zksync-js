@@ -11,9 +11,7 @@ import {
   createWithdrawalsResource,
   type WithdrawalsResource as WithdrawalsResourceType,
 } from './resources/withdrawals/index';
-import {
-  createTokensResource,
-} from './resources/tokens/index';
+import { createTokensResource } from './resources/tokens/index';
 import type { TokensResource as TokensResourceType } from '../../core/types/flows/token';
 
 import type { Address } from '../../core/types';
