@@ -7,7 +7,7 @@ import { type WithdrawParams, type WithdrawRoute } from '../../../../core/types/
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
 import type { Hex } from '../../../../core/types/primitives';
-import type { ResolvedToken, TokensResource } from '../tokens/types';
+import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
 
 // Common context for building withdrawal (L2 -> L1) transactions
 export interface BuildCtx extends CommonCtx {

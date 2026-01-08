@@ -3,12 +3,16 @@
 import { encodeAbiParameters, keccak256 } from 'viem';
 import type { ViemClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
-import type { TokensResource, ResolvedToken, TokenRef, TokenKind } from './types';
+import type {
+  TokensResource,
+  ResolvedToken,
+  TokenRef,
+  TokenKind,
+} from '../../../../core/types/flows/token';
 import { createErrorHandlers } from '../../errors/error-ops';
-import { isAddressEq } from '../../../../core/utils/addr';
+import { isAddressEq, hexEq, normalizeL1Token } from '../../../../core/utils/addr';
 import {
   ETH_ADDRESS,
-  FORMAL_ETH_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
 } from '../../../../core/constants';
@@ -16,6 +20,7 @@ import { createNTVCodec } from '../../../../core/codec/ntv';
 
 const { wrapAs } = createErrorHandlers('tokens');
 
+// TODO: Should find a better place for this or improved approach
 const ntvCodec = createNTVCodec({
   encode: (types, values) =>
     encodeAbiParameters(
@@ -24,15 +29,6 @@ const ntvCodec = createNTVCodec({
     ),
   keccak256: (data: Hex) => keccak256(data),
 });
-
-// TODO: These helper functions could be moved to core/utils/addr.ts
-
-// Helper: case-insensitive hex equality
-const hexEq = (a: Hex, b: Hex): boolean => a.toLowerCase() === b.toLowerCase();
-
-// Normalize L1 token address (FORMAL_ETH_ADDRESS → ETH_ADDRESS)
-const normalizeL1Token = (token: Address): Address =>
-  isAddressEq(token, FORMAL_ETH_ADDRESS) ? ETH_ADDRESS : token;
 
 export function createTokensResource(client: ViemClient): TokensResource {
   let l2NtvL1ChainIdPromise: Promise<bigint> | null = null;
@@ -44,7 +40,7 @@ export function createTokensResource(client: ViemClient): TokensResource {
     if (!l2NtvL1ChainIdPromise) {
       l2NtvL1ChainIdPromise = wrapAs('INTERNAL', 'getL1ChainId', async () => {
         const { l2NativeTokenVault } = await client.contracts();
-        return (await l2NativeTokenVault.read.L1_CHAIN_ID());
+        return await l2NativeTokenVault.read.L1_CHAIN_ID();
       });
     }
     return l2NtvL1ChainIdPromise;
@@ -83,6 +79,15 @@ export function createTokensResource(client: ViemClient): TokensResource {
     return wethL2Promise;
   }
 
+  // -------------------------
+  // Public API Implementation
+  // -------------------------
+
+  // Note: `l2TokenAddress` is now legacy way to get L2 token address for a given L1 token.
+  // We will need to change this to `tokenAddress[assetId]` from the NTV
+  // TODO: query the assetId on L1 using assetId mapping from l1TokenAddress https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+  // query the l2TokenAddress on l2 using assetId using tokenAddress mapping https://github.com/matter-labs/era-contracts/blob/2855a3c54397d50e6925d486ae126ca8[…]3ec10fa1/l1-contracts/contracts/bridge/ntv/NativeTokenVault.sol
+
   async function toL2Address(l1Token: Address): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.toL2Address', async () => {
       const normalized = normalizeL1Token(l1Token);
@@ -94,7 +99,7 @@ export function createTokensResource(client: ViemClient): TokensResource {
       }
 
       const { l2NativeTokenVault } = await client.contracts();
-      const l2Token = (await l2NativeTokenVault.read.l2TokenAddress([normalized]));
+      const l2Token = await l2NativeTokenVault.read.l2TokenAddress([normalized]);
       return l2Token;
     });
   }
@@ -108,7 +113,7 @@ export function createTokensResource(client: ViemClient): TokensResource {
       }
 
       const { l2AssetRouter } = await client.contracts();
-      const l1Token = (await l2AssetRouter.read.l1TokenAddress([l2Token]));
+      const l1Token = await l2AssetRouter.read.l1TokenAddress([l2Token]);
       return l1Token;
     });
   }
@@ -117,35 +122,35 @@ export function createTokensResource(client: ViemClient): TokensResource {
     return wrapAs('CONTRACT', 'tokens.assetIdOfL1', async () => {
       const normalized = normalizeL1Token(l1Token);
       const { l1NativeTokenVault } = await client.contracts();
-      return (await l1NativeTokenVault.read.assetId([normalized]));
+      return await l1NativeTokenVault.read.assetId([normalized]);
     });
   }
 
   async function assetIdOfL2(l2Token: Address): Promise<Hex> {
     return wrapAs('CONTRACT', 'tokens.assetIdOfL2', async () => {
       const { l2NativeTokenVault } = await client.contracts();
-      return (await l2NativeTokenVault.read.assetId([l2Token]));
+      return await l2NativeTokenVault.read.assetId([l2Token]);
     });
   }
 
   async function l2TokenFromAssetId(assetId: Hex): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.l2TokenFromAssetId', async () => {
       const { l2NativeTokenVault } = await client.contracts();
-      return (await l2NativeTokenVault.read.tokenAddress([assetId]));
+      return await l2NativeTokenVault.read.tokenAddress([assetId]);
     });
   }
 
   async function l1TokenFromAssetId(assetId: Hex): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.l1TokenFromAssetId', async () => {
       const { l1NativeTokenVault } = await client.contracts();
-      return (await l1NativeTokenVault.read.tokenAddress([assetId]));
+      return await l1NativeTokenVault.read.tokenAddress([assetId]);
     });
   }
 
   async function originChainId(assetId: Hex): Promise<bigint> {
     return wrapAs('CONTRACT', 'tokens.originChainId', async () => {
       const { l2NativeTokenVault } = await client.contracts();
-      return (await l2NativeTokenVault.read.originChainId([assetId]));
+      return await l2NativeTokenVault.read.originChainId([assetId]);
     });
   }
 
@@ -181,10 +186,10 @@ export function createTokensResource(client: ViemClient): TokensResource {
     return wrapAs('CONTRACT', 'tokens.computeL2BridgedAddress', async () => {
       const normalized = normalizeL1Token(args.l1Token);
       const { l2NativeTokenVault } = await client.contracts();
-      const predicted = (await l2NativeTokenVault.read.calculateCreate2TokenAddress([
+      const predicted = await l2NativeTokenVault.read.calculateCreate2TokenAddress([
         args.originChainId,
         normalized,
-      ]));
+      ]);
       return predicted;
     });
   }

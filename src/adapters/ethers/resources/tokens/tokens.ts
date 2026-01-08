@@ -3,12 +3,16 @@
 import { AbiCoder, ethers } from 'ethers';
 import type { EthersClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
-import type { TokensResource, ResolvedToken, TokenRef, TokenKind } from './types';
+import type {
+  TokensResource,
+  ResolvedToken,
+  TokenRef,
+  TokenKind,
+} from '../../../../core/types/flows/token';
 import { createErrorHandlers } from '../../errors/error-ops';
-import { isAddressEq } from '../../../../core/utils/addr';
+import { isAddressEq, hexEq, normalizeL1Token } from '../../../../core/utils/addr';
 import {
   ETH_ADDRESS,
-  FORMAL_ETH_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
 } from '../../../../core/constants';
@@ -23,15 +27,6 @@ const ntvCodec = createNTVCodec({
   encode: (types, values) => abi.encode(types, values) as Hex,
   keccak256: (data: Hex) => ethers.keccak256(data) as Hex,
 });
-
-// TODO: These helper functions could be moved to core/utils/addr.ts
-
-// Helper: Case-insensitive hex comparison for bytes32/assetIds
-const hexEq = (a: Hex, b: Hex): boolean => a.toLowerCase() === b.toLowerCase();
-
-// Helper: Normalize L1 token address (FORMAL_ETH_ADDRESS → ETH_ADDRESS)
-const normalizeL1Token = (token: Address): Address =>
-  isAddressEq(token, FORMAL_ETH_ADDRESS) ? ETH_ADDRESS : token;
 
 /**
  * Creates a tokens resource for managing token identity, L1/L2 mappings,

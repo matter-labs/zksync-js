@@ -32,7 +32,8 @@ import { routeErc20NonBase } from './routes/erc20-nonbase';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
-import { createTokensResource, type TokensResource } from '../tokens';
+import { createTokensResource } from '../tokens';
+import type { TokensResource } from '../../../../core/types/flows/token';
 
 // --------------------
 // Withdrawal Route map

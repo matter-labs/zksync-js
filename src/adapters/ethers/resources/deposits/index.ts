@@ -21,7 +21,8 @@ import { routeErc20NonBase } from './routes/erc20-nonbase';
 import { routeEthNonBase } from './routes/eth-nonbase.ts';
 import { routeErc20Base } from './routes/erc20-base';
 import type { DepositRouteStrategy } from './routes/types.ts';
-import { createTokensResource, type TokensResource } from '../tokens';
+import { createTokensResource } from '../tokens';
+import type { TokensResource } from '../../../../core/types/flows/token';
 
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory.ts';

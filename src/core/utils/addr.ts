@@ -31,3 +31,10 @@ export function normalizeAddrEq(a?: string, b?: string): boolean {
 
   return normalize(a) === normalize(b);
 }
+
+// Hex comparison for bytes32/assetIds
+export const hexEq = (a: Hex, b: Hex): boolean => a.toLowerCase() === b.toLowerCase();
+
+// Normalize L1 token address (FORMAL_ETH_ADDRESS → ETH_ADDRESS)
+export const normalizeL1Token = (token: Address): Address =>
+  isAddressEq(token, FORMAL_ETH_ADDRESS) ? ETH_ADDRESS : token;

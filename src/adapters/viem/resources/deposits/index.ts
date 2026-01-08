@@ -30,7 +30,8 @@ import { extractL2TxHashFromL1Logs, waitForL2ExecutionFromL1Tx } from './service
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
-import { createTokensResource, type TokensResource } from '../tokens';
+import { createTokensResource } from '../tokens';
+import type { TokensResource } from '../../../../core/types/flows/token';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
