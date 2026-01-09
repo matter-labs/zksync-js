@@ -34,6 +34,7 @@
   - [Viem]()
     - [client](sdk-reference/viem/client.md)
     - [sdk](sdk-reference/viem/sdk.md)
+    - [contracts](sdk-reference/viem/contracts.md)
     - [deposits](sdk-reference/viem/deposits.md)
     - [withdrawals](sdk-reference/viem/withdrawals.md)
     - [finalization services](sdk-reference/viem/finalization-services.md)

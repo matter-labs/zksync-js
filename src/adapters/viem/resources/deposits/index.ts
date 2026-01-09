@@ -32,6 +32,8 @@ import { createError } from '../../../../core/errors/factory';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
 import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
+import { createContractsResource } from '../contracts';
+import type { ContractsResource } from '../contracts';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -111,13 +113,15 @@ export interface DepositsResource {
 export function createDepositsResource(
   client: ViemClient,
   tokens?: TokensResource,
+  contracts?: ContractsResource,
 ): DepositsResource {
   const tokensResource = tokens ?? createTokensResource(client);
+  const contractsResource = contracts ?? createContractsResource(client);
   // buildPlan constructs a DepositPlan for the given params
   // It does not execute any transactions
   // It can run preflight checks and may throw if the deposit cannot be performed
   async function buildPlan(p: DepositParams): Promise<DepositPlan<ViemPlanWriteRequest>> {
-    const ctx = await commonCtx(p, client, tokensResource);
+    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
 
     const route = ctx.route;
     await ROUTES[route].preflight?.(p, ctx);

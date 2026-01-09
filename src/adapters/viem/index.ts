@@ -9,6 +9,8 @@ export { createWithdrawalsResource } from './resources/withdrawals';
 export { createFinalizationServices } from './resources/withdrawals';
 export type { WithdrawalsResource, FinalizationServices } from './resources/withdrawals';
 export { createTokensResource } from './resources/tokens';
+export { createContractsResource } from './resources/contracts';
+export type { ContractsResource, ContractInstances } from './resources/contracts';
 
 export * from './errors/error-ops';
 export * from './errors/revert';

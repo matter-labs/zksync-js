@@ -3,7 +3,7 @@
  * Example: Withdraw a non-base ERC-20 from L2
  *
  * Notes:
- * - Resolve the L2 token with `sdk.helpers.l2TokenAddress(L1_TOKEN)`.
+ * - Resolve the L2 token with `sdk.tokens.toL2Address(L1_TOKEN)`.
  * - Route: `erc20-nonbase` → ensureRegistered + L2AssetRouter.withdraw(assetId, assetData).
  * - SDK inserts L2 approve(step) to NTV if needed.
  *

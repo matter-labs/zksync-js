@@ -89,6 +89,7 @@ const bridgehub = await client.zks.getBridgehubAddress();
 | [**Ethers · Withdrawals**](./ethers/withdrawals.md) | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
 | [**Viem · Client**](./viem/client.md)               | `PublicClient` / `WalletClient` integration, resolved addresses, contracts, ZK RPC access.    |
 | [**Viem · SDK**](./viem/sdk.md)                     | Same high-level surface as ethers, typed to viem contracts.                                   |
+| [**Viem · Contracts**](./viem/contracts.md)         | Resolved addresses and connected core contracts.                                               |
 | [**Viem · Deposits**](./viem/deposits.md)           | L1 → L2 flow with quote, prepare, create, status, and wait.                                   |
 | [**Viem · Withdrawals**](./viem/withdrawals.md)     | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
 | [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getL2ToL1LogProof`, enhanced receipts.           |
