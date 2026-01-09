@@ -36,8 +36,6 @@ export function encodeSecondBridgeDataV1(assetId: Hex, transferData: Hex): Hex {
   return concat(['0x01', data]);
 }
 
-
-
 /* -----------------------------------------------------------------------------
  * Two-bridges encoding: generic tuple (token, amount, l2Receiver)
  * ---------------------------------------------------------------------------*/

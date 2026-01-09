@@ -21,6 +21,8 @@ import { routeErc20NonBase } from './routes/erc20-nonbase';
 import { routeEthNonBase } from './routes/eth-nonbase.ts';
 import { routeErc20Base } from './routes/erc20-base';
 import type { DepositRouteStrategy } from './routes/types.ts';
+import { createTokensResource } from '../tokens';
+import type { TokensResource } from '../../../../core/types/flows/token';
 
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory.ts';
@@ -97,12 +99,17 @@ export interface DepositsResource {
 // --------------------
 // Resource factory
 // --------------------
-export function createDepositsResource(client: EthersClient): DepositsResource {
+export function createDepositsResource(
+  client: EthersClient,
+  tokens?: TokensResource,
+): DepositsResource {
+  const tokensResource = tokens ?? createTokensResource(client);
+
   // buildPlan constructs a DepositPlan for the given params
   // It does not execute any transactions
   // It can run preflight checks and may throw if the deposit cannot be performed
   async function buildPlan(p: DepositParams): Promise<DepositPlan<TransactionRequest>> {
-    const ctx = await commonCtx(p, client);
+    const ctx = await commonCtx(p, client, tokensResource);
 
     const route = ctx.route;
     await ROUTES[route].preflight?.(p, ctx);

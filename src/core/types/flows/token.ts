@@ -1,12 +1,14 @@
 // src/adapters/ethers/resources/tokens/types.ts
 
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Address, Hex } from '../primitives';
+
+// TODO: add links to source code from contracts
 
 /**
  * Token kind classification.
  * - 'eth': Ethereum / native ETH token
  * - 'base': The base token of the target L2 chain
- * - 'erc20': Standard ERC-20 token
+ * - 'erc20': ERC-20 token
  */
 export type TokenKind = 'eth' | 'base' | 'erc20';
 
@@ -201,7 +203,7 @@ export interface TokensResource {
   wethL2(): Promise<Address>;
 
   // -------------------------
-  // Predictability
+  // Computed Addresses
   // -------------------------
 
   /**
@@ -213,11 +215,11 @@ export interface TokensResource {
    *
    * @example
    * ```typescript
-   * const predictedL2Addr = await sdk.tokens.predictL2BridgedAddress({
+   * const predictedL2Addr = await sdk.tokens.computeL2BridgedAddress({
    *   originChainId: 1n,
    *   l1Token: '0x...'
    * });
    * ```
    */
-  predictL2BridgedAddress(args: { originChainId: bigint; l1Token: Address }): Promise<Address>;
+  computeL2BridgedAddress(args: { originChainId: bigint; l1Token: Address }): Promise<Address>;
 }

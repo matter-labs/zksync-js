@@ -8,13 +8,13 @@ import type { ResolvedAddresses } from '../../client';
  * Collection of typed ethers Contract instances for all bridge contracts.
  */
 export interface ContractInstances {
-    bridgehub: Contract;
-    l1AssetRouter: Contract;
-    l1Nullifier: Contract;
-    l1NativeTokenVault: Contract;
-    l2AssetRouter: Contract;
-    l2NativeTokenVault: Contract;
-    l2BaseTokenSystem: Contract;
+  bridgehub: Contract;
+  l1AssetRouter: Contract;
+  l1Nullifier: Contract;
+  l1NativeTokenVault: Contract;
+  l2AssetRouter: Contract;
+  l2NativeTokenVault: Contract;
+  l2BaseTokenSystem: Contract;
 }
 
 /**
@@ -22,197 +22,197 @@ export interface ContractInstances {
  * contract instances, and commonly-used read-only contract methods.
  */
 export interface ContractsResource {
-    // -------------------------
-    // Addresses & Instances
-    // -------------------------
+  // -------------------------
+  // Addresses & Instances
+  // -------------------------
 
+  /**
+   * Returns resolved addresses for all bridge contracts.
+   *
+   * @returns Resolved contract addresses
+   */
+  addresses(): Promise<ResolvedAddresses>;
+
+  /**
+   * Returns typed Contract instances for all bridge contracts (cached).
+   *
+   * @returns Contract instances
+   */
+  instances(): Promise<ContractInstances>;
+
+  // -------------------------
+  // Individual Contract Getters
+  // -------------------------
+
+  /**
+   * Returns the Bridgehub contract instance.
+   */
+  bridgehub(): Promise<Contract>;
+
+  /**
+   * Returns the L1 Asset Router contract instance.
+   */
+  l1AssetRouter(): Promise<Contract>;
+
+  /**
+   * Returns the L1 Native Token Vault contract instance.
+   */
+  l1NativeTokenVault(): Promise<Contract>;
+
+  /**
+   * Returns the L1 Nullifier contract instance.
+   */
+  l1Nullifier(): Promise<Contract>;
+
+  /**
+   * Returns the L2 Asset Router contract instance.
+   */
+  l2AssetRouter(): Promise<Contract>;
+
+  /**
+   * Returns the L2 Native Token Vault contract instance.
+   */
+  l2NativeTokenVault(): Promise<Contract>;
+
+  /**
+   * Returns the L2 Base Token System contract instance.
+   */
+  l2BaseTokenSystem(): Promise<Contract>;
+
+  // -------------------------
+  // L1 Native Token Vault Reads
+  // -------------------------
+
+  /**
+   * L1 Native Token Vault read-only methods.
+   */
+  l1: {
     /**
-     * Returns resolved addresses for all bridge contracts.
+     * Computes the assetId for a given L1 token.
      *
-     * @returns Resolved contract addresses
+     * @param l1Token - L1 token address
+     * @returns AssetId (bytes32)
      */
-    addresses(): Promise<ResolvedAddresses>;
+    assetId(l1Token: Address): Promise<Hex>;
 
     /**
-     * Returns typed Contract instances for all bridge contracts (cached).
+     * Retrieves the token address for a given assetId.
      *
-     * @returns Contract instances
+     * @param assetId - Asset ID (bytes32)
+     * @returns L1 token address
      */
-    instances(): Promise<ContractInstances>;
-
-    // -------------------------
-    // Individual Contract Getters
-    // -------------------------
+    tokenAddress(assetId: Hex): Promise<Address>;
 
     /**
-     * Returns the Bridgehub contract instance.
+     * Returns the WETH token address on L1 (cached).
+     *
+     * @returns WETH L1 address
      */
-    bridgehub(): Promise<Contract>;
+    weth(): Promise<Address>;
+  };
+
+  // -------------------------
+  // L2 Native Token Vault Reads
+  // -------------------------
+
+  /**
+   * L2 Native Token Vault read-only methods.
+   */
+  l2: {
+    /**
+     * Returns the L1 chain ID (cached).
+     *
+     * @returns L1 chain ID
+     */
+    l1ChainId(): Promise<bigint>;
 
     /**
-     * Returns the L1 Asset Router contract instance.
+     * Returns the base token assetId (cached).
+     *
+     * @returns Base token assetId (bytes32)
      */
-    l1AssetRouter(): Promise<Contract>;
+    baseTokenAssetId(): Promise<Hex>;
 
     /**
-     * Returns the L1 Native Token Vault contract instance.
+     * Returns the WETH token address on L2 (cached).
+     *
+     * @returns WETH L2 address
      */
-    l1NativeTokenVault(): Promise<Contract>;
+    weth(): Promise<Address>;
 
     /**
-     * Returns the L1 Nullifier contract instance.
+     * Computes the assetId for a given L2 token.
+     *
+     * @param l2Token - L2 token address
+     * @returns AssetId (bytes32)
      */
-    l1Nullifier(): Promise<Contract>;
+    assetId(l2Token: Address): Promise<Hex>;
 
     /**
-     * Returns the L2 Asset Router contract instance.
+     * Retrieves the token address for a given assetId.
+     *
+     * @param assetId - Asset ID (bytes32)
+     * @returns L2 token address
      */
-    l2AssetRouter(): Promise<Contract>;
+    tokenAddress(assetId: Hex): Promise<Address>;
 
     /**
-     * Returns the L2 Native Token Vault contract instance.
+     * Retrieves the origin chain ID for a given assetId.
+     *
+     * @param assetId - Asset ID (bytes32)
+     * @returns Origin chain ID
      */
-    l2NativeTokenVault(): Promise<Contract>;
+    originChainId(assetId: Hex): Promise<bigint>;
 
     /**
-     * Returns the L2 Base Token System contract instance.
+     * Returns the L2 token address for a given L1 token.
+     *
+     * @param l1Token - L1 token address
+     * @returns L2 token address
      */
-    l2BaseTokenSystem(): Promise<Contract>;
-
-    // -------------------------
-    // L1 Native Token Vault Reads
-    // -------------------------
+    l2TokenAddress(l1Token: Address): Promise<Address>;
 
     /**
-     * L1 Native Token Vault read-only methods.
+     * Predicts the L2 address for a bridged token given its origin chain and L1 address.
+     * This uses the CREATE2 deterministic deployment address calculation.
+     *
+     * @param args - Origin chain ID and L1 token address
+     * @returns Predicted L2 token address
      */
-    l1: {
-        /**
-         * Computes the assetId for a given L1 token.
-         *
-         * @param l1Token - L1 token address
-         * @returns AssetId (bytes32)
-         */
-        assetId(l1Token: Address): Promise<Hex>;
+    predictBridgedTokenAddress(args: { originChainId: bigint; l1Token: Address }): Promise<Address>;
+  };
 
-        /**
-         * Retrieves the token address for a given assetId.
-         *
-         * @param assetId - Asset ID (bytes32)
-         * @returns L1 token address
-         */
-        tokenAddress(assetId: Hex): Promise<Address>;
+  // -------------------------
+  // L2 Asset Router Reads
+  // -------------------------
 
-        /**
-         * Returns the WETH token address on L1 (cached).
-         *
-         * @returns WETH L1 address
-         */
-        weth(): Promise<Address>;
-    };
-
-    // -------------------------
-    // L2 Native Token Vault Reads
-    // -------------------------
+  /**
+   * L2 Asset Router read-only methods.
+   */
+  router: {
+    /**
+     * Returns the L1 token address for a given L2 token.
+     *
+     * @param l2Token - L2 token address
+     * @returns L1 token address
+     */
+    l1TokenAddress(l2Token: Address): Promise<Address>;
 
     /**
-     * L2 Native Token Vault read-only methods.
+     * Returns the L2 token address for a given L1 token.
+     *
+     * @param l1Token - L1 token address
+     * @returns L2 token address
      */
-    l2: {
-        /**
-         * Returns the L1 chain ID (cached).
-         *
-         * @returns L1 chain ID
-         */
-        l1ChainId(): Promise<bigint>;
-
-        /**
-         * Returns the base token assetId (cached).
-         *
-         * @returns Base token assetId (bytes32)
-         */
-        baseTokenAssetId(): Promise<Hex>;
-
-        /**
-         * Returns the WETH token address on L2 (cached).
-         *
-         * @returns WETH L2 address
-         */
-        weth(): Promise<Address>;
-
-        /**
-         * Computes the assetId for a given L2 token.
-         *
-         * @param l2Token - L2 token address
-         * @returns AssetId (bytes32)
-         */
-        assetId(l2Token: Address): Promise<Hex>;
-
-        /**
-         * Retrieves the token address for a given assetId.
-         *
-         * @param assetId - Asset ID (bytes32)
-         * @returns L2 token address
-         */
-        tokenAddress(assetId: Hex): Promise<Address>;
-
-        /**
-         * Retrieves the origin chain ID for a given assetId.
-         *
-         * @param assetId - Asset ID (bytes32)
-         * @returns Origin chain ID
-         */
-        originChainId(assetId: Hex): Promise<bigint>;
-
-        /**
-         * Returns the L2 token address for a given L1 token.
-         *
-         * @param l1Token - L1 token address
-         * @returns L2 token address
-         */
-        l2TokenAddress(l1Token: Address): Promise<Address>;
-
-        /**
-         * Predicts the L2 address for a bridged token given its origin chain and L1 address.
-         * This uses the CREATE2 deterministic deployment address calculation.
-         *
-         * @param args - Origin chain ID and L1 token address
-         * @returns Predicted L2 token address
-         */
-        predictBridgedTokenAddress(args: { originChainId: bigint; l1Token: Address }): Promise<Address>;
-    };
-
-    // -------------------------
-    // L2 Asset Router Reads
-    // -------------------------
+    l2TokenAddress(l1Token: Address): Promise<Address>;
 
     /**
-     * L2 Asset Router read-only methods.
+     * Returns the asset handler address for a given assetId.
+     * (Advanced/debug utility)
+     *
+     * @param assetId - Asset ID (bytes32)
+     * @returns Asset handler address
      */
-    router: {
-        /**
-         * Returns the L1 token address for a given L2 token.
-         *
-         * @param l2Token - L2 token address
-         * @returns L1 token address
-         */
-        l1TokenAddress(l2Token: Address): Promise<Address>;
-
-        /**
-         * Returns the L2 token address for a given L1 token.
-         *
-         * @param l1Token - L1 token address
-         * @returns L2 token address
-         */
-        l2TokenAddress(l1Token: Address): Promise<Address>;
-
-        /**
-         * Returns the asset handler address for a given assetId.
-         * (Advanced/debug utility)
-         *
-         * @param assetId - Asset ID (bytes32)
-         * @returns Asset handler address
-         */
-        assetHandlerAddress(assetId: Hex): Promise<Address>;
-    };
+    assetHandlerAddress(assetId: Hex): Promise<Address>;
+  };
 }

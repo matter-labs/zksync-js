@@ -60,7 +60,7 @@ async function main() {
   const me = account.address as Address;
 
   // Resolve L2 token for this L1 token
-  const l2Token = await sdk.helpers.l2TokenAddress(L1_ERC20);
+  const l2Token = await sdk.tokens.toL2Address(L1_ERC20);
 
   // Read decimals from L2 token (could also read from L1 if mirrored)
   const decimals = (await l2.readContract({

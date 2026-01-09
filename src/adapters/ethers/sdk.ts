@@ -8,14 +8,10 @@ import {
   createWithdrawalsResource,
   type WithdrawalsResource as WithdrawalsResourceType,
 } from './resources/withdrawals/index';
-import {
-  createTokensResource,
-  type TokensResource as TokensResourceType,
-} from './resources/tokens/index';
-import {
-  createContractsResource,
-  type ContractsResource as ContractsResourceType,
-} from './resources/contracts/index';
+import { createTokensResource } from './resources/tokens/index';
+import type { TokensResource as TokensResourceType } from '../../core/types/flows/token';
+import type { ContractsResource as ContractsResourceType } from './resources/contracts/index';
+import { createContractsResource } from './resources/contracts/index';
 
 // SDK interface, combining deposits, withdrawals, tokens, and contracts
 export interface EthersSdk {

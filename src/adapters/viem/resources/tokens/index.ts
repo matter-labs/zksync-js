@@ -1,3 +1,3 @@
-// src/adapters/ethers/resources/tokens/index.ts
+// src/adapters/viem/resources/tokens/index.ts
 
 export { createTokensResource } from './tokens';

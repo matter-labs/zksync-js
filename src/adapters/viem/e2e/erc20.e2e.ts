@@ -100,7 +100,7 @@ describe('e2e (viem): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
 
   it('deposits: balances reflect credit on L2', async () => {
     // resolve L2 token
-    const resolved = await sdk.helpers.l2TokenAddress(l1TokenAddr);
+    const resolved = await sdk.tokens.toL2Address(l1TokenAddr);
     expect(resolved).toMatch(/^0x[0-9a-fA-F]{40}$/);
     l2TokenAddr = resolved as Address;
 

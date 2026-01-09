@@ -1,7 +1,7 @@
-// src/adapters/ethers/resources/tokens/tokens.ts
+// src/adapters/viem/resources/tokens/tokens.ts
 
-import { AbiCoder, ethers } from 'ethers';
-import type { EthersClient } from '../../client';
+import { encodeAbiParameters, keccak256 } from 'viem';
+import type { ViemClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import type {
   TokensResource,
@@ -18,79 +18,61 @@ import {
 } from '../../../../core/constants';
 import { createNTVCodec } from '../../../../core/codec/ntv';
 
-// Error handling for tokens resource
 const { wrapAs } = createErrorHandlers('tokens');
-// Ethers ABI coder instance
-const abi = AbiCoder.defaultAbiCoder();
-// Create NTV codec
+
+// TODO: Should find a better place for this or improved approach
 const ntvCodec = createNTVCodec({
-  encode: (types, values) => abi.encode(types, values) as Hex,
-  keccak256: (data: Hex) => ethers.keccak256(data) as Hex,
+  encode: (types, values) =>
+    encodeAbiParameters(
+      types.map((t, i) => ({ type: t, name: `arg${i}` })),
+      values,
+    ),
+  keccak256: (data: Hex) => keccak256(data),
 });
 
-/**
- * Creates a tokens resource for managing token identity, L1/L2 mappings,
- * and bridge assetId primitives.
- *
- * @param client - EthersClient instance
- * @returns TokensResource instance
- */
-export function createTokensResource(client: EthersClient): TokensResource {
+export function createTokensResource(client: ViemClient): TokensResource {
   let l2NtvL1ChainIdPromise: Promise<bigint> | null = null;
   let baseTokenAssetIdPromise: Promise<Hex> | null = null;
   let wethL1Promise: Promise<Address> | null = null;
   let wethL2Promise: Promise<Address> | null = null;
 
-  /**
-   * Gets the L1 chain ID from L2 NTV
-   */
   async function getL1ChainId(): Promise<bigint> {
     if (!l2NtvL1ChainIdPromise) {
       l2NtvL1ChainIdPromise = wrapAs('INTERNAL', 'getL1ChainId', async () => {
         const { l2NativeTokenVault } = await client.contracts();
-        const chainId = (await l2NativeTokenVault.L1_CHAIN_ID()) as bigint;
-        return chainId;
+        return await l2NativeTokenVault.read.L1_CHAIN_ID();
       });
     }
     return l2NtvL1ChainIdPromise;
   }
 
-  /**
-   * Gets the base token assetId from L2 NTV
-   */
   async function getBaseTokenAssetId(): Promise<Hex> {
     if (!baseTokenAssetIdPromise) {
       baseTokenAssetIdPromise = wrapAs('INTERNAL', 'baseTokenAssetId', async () => {
         const { l2NativeTokenVault } = await client.contracts();
-        const assetId = (await l2NativeTokenVault.BASE_TOKEN_ASSET_ID()) as string;
+        const assetId = (await l2NativeTokenVault.read.BASE_TOKEN_ASSET_ID()) as string;
         return assetId as Hex;
       });
     }
     return baseTokenAssetIdPromise;
   }
 
-  /**
-   * Gets WETH address on L1
-   */
   async function getWethL1(): Promise<Address> {
     if (!wethL1Promise) {
       wethL1Promise = wrapAs('INTERNAL', 'wethL1', async () => {
         const { l1NativeTokenVault } = await client.contracts();
-        const weth = (await l1NativeTokenVault.WETH_TOKEN()) as string;
+        const weth = (await l1NativeTokenVault.read.WETH_TOKEN()) as string;
         return weth as Address;
       });
     }
     return wethL1Promise;
   }
 
-  /**
-   * Gets WETH address on L2
-   */
   async function getWethL2(): Promise<Address> {
     if (!wethL2Promise) {
       wethL2Promise = wrapAs('INTERNAL', 'wethL2', async () => {
         const { l2NativeTokenVault } = await client.contracts();
-        const weth = (await l2NativeTokenVault.WETH_TOKEN()) as string;
+        const weth = (await l2NativeTokenVault.read.WETH_TOKEN()) as string;
         return weth as Address;
       });
     }
@@ -110,36 +92,28 @@ export function createTokensResource(client: EthersClient): TokensResource {
     return wrapAs('CONTRACT', 'tokens.toL2Address', async () => {
       const normalized = normalizeL1Token(l1Token);
 
-      // If token is the chain's base token on L1, return L2_BASE_TOKEN_ADDRESS
-      const { chainId } = await client.l2.getNetwork();
-      const baseToken = await client.baseToken(BigInt(chainId));
+      const chainId = BigInt(await client.l2.getChainId());
+      const baseToken = await client.baseToken(chainId);
       if (isAddressEq(normalized, baseToken)) {
         return L2_BASE_TOKEN_ADDRESS;
       }
 
-      // Query L2 NTV for L2 token address
       const { l2NativeTokenVault } = await client.contracts();
-      const l2Token = (await l2NativeTokenVault.l2TokenAddress(normalized)) as Hex;
+      const l2Token = await l2NativeTokenVault.read.l2TokenAddress([normalized]);
       return l2Token;
     });
   }
 
   async function toL1Address(l2Token: Address): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.toL1Address', async () => {
-      // If L2 token is ETH, return canonical ETH_ADDRESS
-      if (isAddressEq(l2Token, ETH_ADDRESS)) {
-        return ETH_ADDRESS;
-      }
-
-      // If L2 token is the base token system address, return the L1 base token
+      if (isAddressEq(l2Token, ETH_ADDRESS)) return ETH_ADDRESS;
       if (isAddressEq(l2Token, L2_BASE_TOKEN_ADDRESS)) {
-        const { chainId } = await client.l2.getNetwork();
-        return await client.baseToken(BigInt(chainId));
+        const chainId = BigInt(await client.l2.getChainId());
+        return await client.baseToken(chainId);
       }
 
-      // Query L2 AssetRouter for L1 token address
       const { l2AssetRouter } = await client.contracts();
-      const l1Token = (await l2AssetRouter.l1TokenAddress(l2Token)) as Hex;
+      const l1Token = await l2AssetRouter.read.l1TokenAddress([l2Token]);
       return l1Token;
     });
   }
@@ -147,44 +121,36 @@ export function createTokensResource(client: EthersClient): TokensResource {
   async function assetIdOfL1(l1Token: Address): Promise<Hex> {
     return wrapAs('CONTRACT', 'tokens.assetIdOfL1', async () => {
       const normalized = normalizeL1Token(l1Token);
-
-      // Query L1 NTV for assetId
       const { l1NativeTokenVault } = await client.contracts();
-      const assetId = (await l1NativeTokenVault.assetId(normalized)) as Hex;
-      return assetId;
+      return await l1NativeTokenVault.read.assetId([normalized]);
     });
   }
 
   async function assetIdOfL2(l2Token: Address): Promise<Hex> {
     return wrapAs('CONTRACT', 'tokens.assetIdOfL2', async () => {
-      // Query L2 NTV for assetId
       const { l2NativeTokenVault } = await client.contracts();
-      const assetId = (await l2NativeTokenVault.assetId(l2Token)) as Hex;
-      return assetId;
+      return await l2NativeTokenVault.read.assetId([l2Token]);
     });
   }
 
   async function l2TokenFromAssetId(assetId: Hex): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.l2TokenFromAssetId', async () => {
       const { l2NativeTokenVault } = await client.contracts();
-      const tokenAddr = (await l2NativeTokenVault.tokenAddress(assetId)) as Hex;
-      return tokenAddr;
+      return await l2NativeTokenVault.read.tokenAddress([assetId]);
     });
   }
 
   async function l1TokenFromAssetId(assetId: Hex): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.l1TokenFromAssetId', async () => {
       const { l1NativeTokenVault } = await client.contracts();
-      const tokenAddr = (await l1NativeTokenVault.tokenAddress(assetId)) as Hex;
-      return tokenAddr;
+      return await l1NativeTokenVault.read.tokenAddress([assetId]);
     });
   }
 
   async function originChainId(assetId: Hex): Promise<bigint> {
     return wrapAs('CONTRACT', 'tokens.originChainId', async () => {
       const { l2NativeTokenVault } = await client.contracts();
-      const chainId = (await l2NativeTokenVault.originChainId(assetId)) as bigint;
-      return chainId;
+      return await l2NativeTokenVault.read.originChainId([assetId]);
     });
   }
 
@@ -201,7 +167,6 @@ export function createTokensResource(client: EthersClient): TokensResource {
         L2_NATIVE_TOKEN_VAULT_ADDRESS,
         ETH_ADDRESS,
       );
-
       return hexEq(baseAssetId, ethAssetId);
     });
   }
@@ -220,12 +185,11 @@ export function createTokensResource(client: EthersClient): TokensResource {
   }): Promise<Address> {
     return wrapAs('CONTRACT', 'tokens.computeL2BridgedAddress', async () => {
       const normalized = normalizeL1Token(args.l1Token);
-
       const { l2NativeTokenVault } = await client.contracts();
-      const predicted = (await l2NativeTokenVault.calculateCreate2TokenAddress(
+      const predicted = await l2NativeTokenVault.read.calculateCreate2TokenAddress([
         args.originChainId,
         normalized,
-      )) as Hex;
+      ]);
       return predicted;
     });
   }

@@ -1,14 +1,21 @@
 // src/adapters/viem/resources/deposits/context.ts
 import type { ViemClient } from '../../client';
-import type { Address } from '../../../../core/types/primitives';
-import { pickDepositRoute } from '../../../../core/resources/deposits/route';
+import type { Address, Hex } from '../../../../core/types/primitives';
 import type { DepositParams, DepositRoute } from '../../../../core/types/flows/deposits';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
+import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
 
 // Common context for building deposit (L1→L2) transactions (Viem)
 export interface BuildCtx extends CommonCtx {
   client: ViemClient;
+  tokens: TokensResource;
+
+  // Token facts
+  resolvedToken: ResolvedToken;
+  baseTokenAssetId: Hex;
+  baseTokenL1: Address;
+  baseIsEth: boolean;
 
   l1AssetRouter: Address;
 
@@ -20,7 +27,7 @@ export interface BuildCtx extends CommonCtx {
 }
 
 // Prepare a common context for deposit operations
-export async function commonCtx(p: DepositParams, client: ViemClient) {
+export async function commonCtx(p: DepositParams, client: ViemClient, tokens: TokensResource) {
   const { bridgehub, l1AssetRouter } = await client.ensureAddresses();
   const chainId = await client.l2.getChainId();
   const sender = client.account.address;
@@ -29,10 +36,28 @@ export async function commonCtx(p: DepositParams, client: ViemClient) {
   const operatorTip = p.operatorTip ?? 0n;
   const refundRecipient = p.refundRecipient ?? sender;
 
-  const route = await pickDepositRoute(client, BigInt(chainId), p.token);
+  const resolvedToken = await tokens.resolve(p.token, { chain: 'l1' });
+  const baseTokenAssetId = resolvedToken.baseTokenAssetId;
+  const baseTokenL1 = await tokens.l1TokenFromAssetId(baseTokenAssetId);
+  const baseIsEth = resolvedToken.isChainEthBased;
+
+  const route: DepositRoute = (() => {
+    if (resolvedToken.kind === 'eth') {
+      return baseIsEth ? 'eth-base' : 'eth-nonbase';
+    }
+    if (resolvedToken.kind === 'base') {
+      return baseIsEth ? 'eth-base' : 'erc20-base';
+    }
+    return 'erc20-nonbase';
+  })();
 
   return {
     client,
+    tokens,
+    resolvedToken,
+    baseTokenAssetId,
+    baseTokenL1,
+    baseIsEth,
     l1AssetRouter,
     route,
     bridgehub,
