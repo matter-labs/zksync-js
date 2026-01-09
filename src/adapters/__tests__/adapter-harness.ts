@@ -5,6 +5,14 @@ import type { Account, PublicClient, Transport, WalletClient } from 'viem';
 
 import { createEthersClient, type EthersClient } from '../ethers/client';
 import { createViemClient, type ViemClient } from '../viem/client';
+import {
+  createContractsResource as createEthersContractsResource,
+  type ContractsResource as EthersContractsResource,
+} from '../ethers/resources/contracts';
+import {
+  createContractsResource as createViemContractsResource,
+  type ContractsResource as ViemContractsResource,
+} from '../viem/resources/contracts';
 import type { ResolvedAddresses as EthersResolvedAddresses } from '../ethers/client';
 import type { ResolvedAddresses as ViemResolvedAddresses } from '../viem/client';
 import {
@@ -455,6 +463,7 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
 
 export type DepositTestContext<T extends AdapterHarness> = {
   client: T['client'];
+  contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
   sender: Address;
   chainIdL2: bigint;
   bridgehub: Address;
@@ -475,6 +484,10 @@ export function makeDepositContext<T extends AdapterHarness>(
   harness: T,
   extras: Partial<DepositTestContext<T>> = {},
 ): DepositTestContext<T> {
+  const contracts =
+    harness.kind === 'ethers'
+      ? createEthersContractsResource(harness.client)
+      : createViemContractsResource(harness.client);
   const baseFee = {
     maxFeePerGas: 1n,
     maxPriorityFeePerGas: 1n,
@@ -483,6 +496,7 @@ export function makeDepositContext<T extends AdapterHarness>(
 
   const baseCtx: DepositTestContext<T> = {
     client: harness.client as DepositTestContext<T>['client'],
+    contracts: contracts as DepositTestContext<T>['contracts'],
     sender: ADAPTER_TEST_ADDRESSES.signer,
     chainIdL2: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
@@ -508,6 +522,7 @@ export function makeDepositContext<T extends AdapterHarness>(
 
 export type WithdrawalTestContext<T extends AdapterHarness> = {
   client: T['client'];
+  contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
   sender: Address;
   chainIdL2: bigint;
   bridgehub: Address;
@@ -526,8 +541,13 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
   harness: T,
   extras: Partial<WithdrawalTestContext<T>> = {},
 ): WithdrawalTestContext<T> {
+  const contracts =
+    harness.kind === 'ethers'
+      ? createEthersContractsResource(harness.client)
+      : createViemContractsResource(harness.client);
   const baseCtx: WithdrawalTestContext<T> = {
     client: harness.client as WithdrawalTestContext<T>['client'],
+    contracts: contracts as WithdrawalTestContext<T>['contracts'],
     sender: ADAPTER_TEST_ADDRESSES.signer,
     chainIdL2: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
