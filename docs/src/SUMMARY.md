@@ -26,6 +26,7 @@
   - [Ethers]()
     - [client](sdk-reference/ethers/client.md)
     - [sdk](sdk-reference/ethers/sdk.md)
+    - [contracts](sdk-reference/ethers/contracts.md)
     - [deposits](sdk-reference/ethers/deposits.md)
     - [withdrawals](sdk-reference/ethers/withdrawals.md)
     - [finalization services](sdk-reference/ethers/finalization-services.md)

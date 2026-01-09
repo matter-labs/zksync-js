@@ -1,14 +1,14 @@
 # EthersSdk
 
-High-level SDK built on top of the **Ethers adapter** — provides deposits, withdrawals, and chain-aware helpers.
+High-level SDK built on top of the **Ethers adapter** — provides deposits, withdrawals, and token/contract resources.
 
 ---
 
 ## At a Glance
 
 * **Factory:** `createEthersSdk(client) → EthersSdk`
-* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.helpers`
-* **Client vs SDK:** The **client** wires RPC/signing, while the **SDK** adds high-level flows (`quote → prepare → create → wait`) and convenience helpers.
+* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.contracts`
+* **Client vs SDK:** The **client** wires RPC/signing, while the **SDK** adds high-level flows (`quote → prepare → create → wait`) plus token and contract resources.
 
 ## Import
 
@@ -39,7 +39,7 @@ const handle = await sdk.deposits.create({
 await sdk.deposits.wait(handle, { for: 'l2' });
 
 // Example: resolve core contracts
-const { l1NativeTokenVault } = await sdk.helpers.contracts();
+const { l1NativeTokenVault } = await sdk.contracts.instances();
 
 // Example: map a token L1 → L2
 const token = await sdk.tokens.resolve('0xYourToken');
@@ -47,7 +47,7 @@ console.log(token.l2);
 ```
 
 > [!TIP]
-> The SDK composes the client with resources: `deposits`, `withdrawals`, and convenience `helpers`.
+> The SDK composes the client with resources: `deposits`, `withdrawals`, `tokens`, and `contracts`.
 
 ## `createEthersSdk(client) → EthersSdk`
 
@@ -76,44 +76,45 @@ See [Withdrawals](./withdrawals.md).
 Token identity, L1⇄L2 mapping, bridge asset IDs, chain token facts.
 See [Tokens](./tokens.md).
 
-## `helpers`
+### `contracts: ContractsResource`
 
-Utilities for chain addresses, connected contracts, and L1↔L2 token mapping.
+Resolved addresses and connected contract instances.
+See [Contracts](./contracts.md).
+
+## `contracts`
+
+Utilities for resolved addresses and connected contracts. Token mapping lives in `sdk.tokens`.
 
 ### `addresses() → Promise<ResolvedAddresses>`
 
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.helpers.addresses();
+const a = await sdk.contracts.addresses();
 ```
 
-### `contracts() → Promise<{ ...contracts }>`
+### `instances() → Promise<{ ...contracts }>`
 
 Return connected `ethers.Contract` instances for all core contracts.
 
 ```ts
-const c = await sdk.helpers.contracts();
+const c = await sdk.contracts.instances();
 ```
 
 ### One-off Contract Getters
 
 | Method                 | Returns             | Description                         |
 | ---------------------- | ------------------- | ----------------------------------- |
+| `bridgehub()`          | `Promise<Contract>` | Connected Bridgehub contract.       |
 | `l1AssetRouter()`      | `Promise<Contract>` | Connected L1 Asset Router contract. |
 | `l1NativeTokenVault()` | `Promise<Contract>` | Connected L1 Native Token Vault.    |
 | `l1Nullifier()`        | `Promise<Contract>` | Connected L1 Nullifier contract.    |
+| `l2AssetRouter()`      | `Promise<Contract>` | Connected L2 Asset Router contract. |
+| `l2NativeTokenVault()` | `Promise<Contract>` | Connected L2 Native Token Vault.    |
+| `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const nullifier = await sdk.helpers.l1Nullifier();
-```
-
-### `baseToken(chainId?: bigint) → Promise<Address>`
-
-L1 address of the **base token** for the current (or provided) L2 chain.
-
-```ts
-const base = await sdk.helpers.baseToken(); // infers from client.l2
+const nullifier = await sdk.contracts.l1Nullifier();
 ```
 
 ## Notes & Pitfalls
@@ -122,7 +123,7 @@ const base = await sdk.helpers.baseToken(); // infers from client.l2
   Always construct the **client** with `{ l1, l2, signer }` before creating the SDK.
 
 * **Chain-derived behavior:**
-  Helper methods pull from on-chain data — results vary by network.
+  Contracts and token methods pull from on-chain data — results vary by network.
 
 * **Error model:**
   All resource methods throw typed errors. Prefer `try*` variants (e.g., `tryCreate`) for structured results.

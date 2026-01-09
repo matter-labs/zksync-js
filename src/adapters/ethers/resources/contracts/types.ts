@@ -77,5 +77,4 @@ export interface ContractsResource {
    * Returns the L2 Base Token System contract instance.
    */
   l2BaseTokenSystem(): Promise<Contract>;
-
 }
