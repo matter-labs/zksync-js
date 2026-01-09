@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.3](https://github.com/matter-labs/zksync-js/compare/v0.0.2...v0.0.3) (2026-01-08)
+
+
+### Features
+
+* add token resource for quick l1-l2 mapping, assetId querying, chain info ([#22](https://github.com/matter-labs/zksync-js/issues/22)) ([09ee772](https://github.com/matter-labs/zksync-js/commit/09ee7726dce53bf85805a414d3472d2ea9c7e8b9))
+* add token resource to viem adapter ([#26](https://github.com/matter-labs/zksync-js/issues/26)) ([ee3d99a](https://github.com/matter-labs/zksync-js/commit/ee3d99aa85290cf0c7c42911b736214da184f519))
+
 ## [0.0.2](https://github.com/matter-labs/zksync-js/compare/v0.0.1...v0.0.2) (2025-12-19)
 
 
