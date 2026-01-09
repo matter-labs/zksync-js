@@ -3,7 +3,7 @@
 import type { DepositRouteStrategy } from './types';
 import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { IBridgehubABI, IERC20ABI } from '../../../../../core/abi.ts';
+import { IERC20ABI } from '../../../../../core/abi.ts';
 import { encodeSecondBridgeEthArgs } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -146,11 +146,10 @@ export function routeEthNonBase(): DepositRouteStrategy {
         secondBridgeCalldata,
       } as const;
 
-      const data = new Contract(
-        ctx.bridgehub,
-        IBridgehubABI,
-        ctx.client.l1,
-      ).interface.encodeFunctionData('requestL2TransactionTwoBridges', [requestStruct]);
+      const bridgehub = await ctx.contracts.bridgehub();
+      const data = bridgehub.interface.encodeFunctionData('requestL2TransactionTwoBridges', [
+        requestStruct,
+      ]);
 
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,

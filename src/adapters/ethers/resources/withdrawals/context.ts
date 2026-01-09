@@ -8,11 +8,13 @@ import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
 import type { Hex } from '../../../../core/types/primitives';
 import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
+import type { ContractsResource } from '../contracts';
 
 // Common context for building withdrawal (L2 -> L1) transactions
 export interface BuildCtx extends CommonCtx {
   client: EthersClient;
   tokens: TokensResource;
+  contracts: ContractsResource;
 
   // Token facts
   resolvedToken: ResolvedToken;
@@ -36,6 +38,7 @@ export async function commonCtx(
   p: WithdrawParams,
   client: EthersClient,
   tokens: TokensResource,
+  contracts: ContractsResource,
 ): Promise<BuildCtx & { route: WithdrawRoute }> {
   const sender = (await client.signer.getAddress()) as Address;
 
@@ -46,7 +49,7 @@ export async function commonCtx(
     l2AssetRouter,
     l2NativeTokenVault,
     l2BaseTokenSystem,
-  } = await client.ensureAddresses();
+  } = await contracts.addresses();
 
   const { chainId } = await client.l2.getNetwork();
   const chainIdL2 = BigInt(chainId);
@@ -62,6 +65,7 @@ export async function commonCtx(
   return {
     client,
     tokens,
+    contracts,
     resolvedToken,
     baseTokenAssetId,
     baseTokenL1,

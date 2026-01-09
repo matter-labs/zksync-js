@@ -22,10 +22,13 @@ export interface EthersSdk {
 }
 
 export function createEthersSdk(client: EthersClient): EthersSdk {
+  const tokens = createTokensResource(client);
+  const contracts = createContractsResource(client);
+
   return {
-    deposits: createDepositsResource(client),
-    withdrawals: createWithdrawalsResource(client),
-    tokens: createTokensResource(client),
-    contracts: createContractsResource(client),
+    deposits: createDepositsResource(client, tokens, contracts),
+    withdrawals: createWithdrawalsResource(client, tokens, contracts),
+    tokens,
+    contracts,
   };
 }

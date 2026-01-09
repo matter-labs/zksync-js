@@ -6,11 +6,13 @@ import type { DepositParams, DepositRoute } from '../../../../core/types/flows/d
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { TxOverrides } from '../../../../core/types/fees';
 import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
+import type { ContractsResource } from '../contracts';
 
 // Common context for building deposit (L1-L2) transactions
 export interface BuildCtx extends CommonCtx {
   client: EthersClient;
   tokens: TokensResource;
+  contracts: ContractsResource;
 
   // Token facts
   resolvedToken: ResolvedToken;
@@ -28,8 +30,13 @@ export interface BuildCtx extends CommonCtx {
 }
 
 // Prepare a common context for deposit operations
-export async function commonCtx(p: DepositParams, client: EthersClient, tokens: TokensResource) {
-  const { bridgehub, l1AssetRouter } = await client.ensureAddresses();
+export async function commonCtx(
+  p: DepositParams,
+  client: EthersClient,
+  tokens: TokensResource,
+  contracts: ContractsResource,
+) {
+  const { bridgehub, l1AssetRouter } = await contracts.addresses();
   const { chainId } = await client.l2.getNetwork();
   const sender = (await client.signer.getAddress()) as Address;
 
@@ -55,6 +62,7 @@ export async function commonCtx(p: DepositParams, client: EthersClient, tokens: 
   return {
     client,
     tokens,
+    contracts,
     resolvedToken,
     baseTokenAssetId,
     baseTokenL1,

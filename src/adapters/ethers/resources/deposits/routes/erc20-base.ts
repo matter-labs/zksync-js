@@ -1,7 +1,7 @@
 import type { DepositRouteStrategy } from './types';
 import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { IBridgehubABI, IERC20ABI } from '../../../../../core/abi.ts';
+import { IERC20ABI } from '../../../../../core/abi.ts';
 import { buildDirectRequestStruct } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -117,11 +117,10 @@ export function routeErc20Base(): DepositRouteStrategy {
         l2Value: p.amount,
       });
 
-      const data = new Contract(
-        ctx.bridgehub,
-        IBridgehubABI,
-        ctx.client.l1,
-      ).interface.encodeFunctionData('requestL2TransactionDirect', [requestStruct]);
+      const bridgehub = await ctx.contracts.bridgehub();
+      const data = bridgehub.interface.encodeFunctionData('requestL2TransactionDirect', [
+        requestStruct,
+      ]);
 
       // --- Estimate L1 Gas ---
       const l1TxCandidate: TransactionRequest = {

@@ -83,7 +83,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
           'CONTRACT',
           OP_WITHDRAWALS.erc20.ensureRegistered,
           async () => {
-            const ntv = (await ctx.client.contracts()).l2NativeTokenVault;
+            const ntv = await ctx.contracts.l2NativeTokenVault();
             const ensured = (await ntv
               .getFunction('ensureTokenIsRegistered')
               .staticCall(p.token)) as `0x${string}`;
@@ -108,7 +108,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       );
 
       // L2AssetRouter.withdraw(assetId, assetData)
-      const l2ar = (await ctx.client.contracts()).l2AssetRouter;
+      const l2ar = await ctx.contracts.l2AssetRouter();
       const dataWithdraw = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeWithdraw,
