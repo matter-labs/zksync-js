@@ -34,7 +34,7 @@ export function routeErc20Base(): DepositRouteStrategy {
       );
 
       // Check provided token matches target chain base token
-      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId));
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.base.assertMatchesBase,
@@ -43,7 +43,7 @@ export function routeErc20Base(): DepositRouteStrategy {
             throw new Error('Provided token is not the base token for the target chain.');
           }
         },
-        { ctx: { baseToken, provided: p.token, chainIdL2: ctx.chainIdL2 } },
+        { ctx: { baseToken, provided: p.token, chainId: ctx.chainId } },
       );
 
       return;
@@ -51,7 +51,7 @@ export function routeErc20Base(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId));
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
@@ -108,7 +108,7 @@ export function routeErc20Base(): DepositRouteStrategy {
       }
 
       const requestStruct = buildDirectRequestStruct({
-        chainId: ctx.chainIdL2,
+        chainId: ctx.chainId,
         mintValue,
         l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,

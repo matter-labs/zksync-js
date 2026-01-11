@@ -194,7 +194,7 @@ export type QuoteL2BaseCostInput = {
   estimator: GasEstimator;
   encode: AbiEncoder;
   bridgehub: Address;
-  chainIdL2: bigint;
+  chainId: bigint;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
 };
@@ -202,7 +202,7 @@ export type QuoteL2BaseCostInput = {
 // Quotes L2 base cost for a deposit tx.
 // Calls L1 Bridgehub contract - l2TransactionBaseCost function.
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
-  const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata } = input;
+  const { estimator, encode, bridgehub, chainId, l2GasLimit, gasPerPubdata } = input;
 
   const market = await fetchFees(estimator);
   const l1GasPrice = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n;
@@ -212,7 +212,7 @@ export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigi
   }
 
   const data = encode(IBridgehubABI, 'l2TransactionBaseCost', [
-    chainIdL2,
+    chainId,
     l1GasPrice,
     l2GasLimit,
     gasPerPubdata,

@@ -465,7 +465,7 @@ export type DepositTestContext<T extends AdapterHarness> = {
   client: T['client'];
   contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
   sender: Address;
-  chainIdL2: bigint;
+  chainId: bigint;
   bridgehub: Address;
   l1AssetRouter: Address;
   l2GasLimit: bigint;
@@ -498,7 +498,7 @@ export function makeDepositContext<T extends AdapterHarness>(
     client: harness.client as DepositTestContext<T>['client'],
     contracts: contracts as DepositTestContext<T>['contracts'],
     sender: ADAPTER_TEST_ADDRESSES.signer,
-    chainIdL2: 324n,
+    chainId: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
     l1AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
     l2GasLimit: 600_000n,
@@ -524,7 +524,7 @@ export type WithdrawalTestContext<T extends AdapterHarness> = {
   client: T['client'];
   contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
   sender: Address;
-  chainIdL2: bigint;
+  chainId: bigint;
   bridgehub: Address;
   l1AssetRouter: Address;
   l1Nullifier: Address;
@@ -549,7 +549,7 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
     client: harness.client as WithdrawalTestContext<T>['client'],
     contracts: contracts as WithdrawalTestContext<T>['contracts'],
     sender: ADAPTER_TEST_ADDRESSES.signer,
-    chainIdL2: 324n,
+    chainId: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
     l1AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
     l1Nullifier: ADAPTER_TEST_ADDRESSES.l1Nullifier,
@@ -574,11 +574,11 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
 
 type BaseCostCtx<T extends AdapterHarness> = Pick<
   DepositTestContext<T>,
-  'chainIdL2' | 'fee' | 'l2GasLimit' | 'gasPerPubdata'
+  'chainId' | 'fee' | 'l2GasLimit' | 'gasPerPubdata'
 >;
 
 type BaseCostOverrides = Partial<{
-  chainIdL2: bigint;
+  chainId: bigint;
   gasPriceForBaseCost: bigint;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
@@ -590,7 +590,7 @@ export function setBridgehubBaseCost<T extends AdapterHarness>(
   value: bigint,
   overrides: BaseCostOverrides = {},
 ) {
-  const chainId = overrides.chainIdL2 ?? ctx.chainIdL2;
+  const chainId = overrides.chainId ?? ctx.chainId;
   const gasPrice = overrides.gasPriceForBaseCost ?? ctx.fee.gasPriceForBaseCost;
   const l2Gas = overrides.l2GasLimit ?? ctx.l2GasLimit;
   const gasPerPubdata = overrides.gasPerPubdata ?? ctx.gasPerPubdata;
@@ -606,11 +606,11 @@ export function setBridgehubBaseCost<T extends AdapterHarness>(
 
 export function setBridgehubBaseToken<T extends AdapterHarness>(
   harness: T,
-  ctx: { chainIdL2: bigint },
+  ctx: { chainId: bigint },
   value: Address,
 ) {
   harness.registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'baseToken', value, [
-    ctx.chainIdL2,
+    ctx.chainId,
   ]);
 }
 

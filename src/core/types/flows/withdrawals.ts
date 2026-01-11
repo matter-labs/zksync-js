@@ -54,7 +54,7 @@ export interface FinalizeDepositParams {
 }
 
 export type WithdrawalKey = {
-  chainIdL2: bigint;
+  chainId: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;
 };

@@ -31,9 +31,9 @@ export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigi
         address: ctx.bridgehub,
         abi: IBridgehubABI,
         functionName: 'l2TransactionBaseCost',
-        args: [ctx.chainIdL2, gasPrice, l2GasLimit, ctx.gasPerPubdata],
+        args: [ctx.chainId, gasPrice, l2GasLimit, ctx.gasPerPubdata],
       });
     },
-    { ctx: { chainIdL2: ctx.chainIdL2 } },
+    { ctx: { chainId: ctx.chainId } },
   );
 }

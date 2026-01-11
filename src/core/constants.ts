@@ -31,6 +31,15 @@ export const L1_MESSENGER_ADDRESS: Address = '0x00000000000000000000000000000000
 /** L2 Base Token System contract address. */
 export const L2_BASE_TOKEN_ADDRESS: Address = '0x000000000000000000000000000000000000800A';
 
+/** The address of the L2 InteropCenter contract.*/
+export const L2_INTEROP_CENTER_ADDRESS: Address = '0x000000000000000000000000000000000001000b';
+
+/** The address of the L2 InteropHandler contract.*/
+export const L2_INTEROP_HANDLER_ADDRESS: Address = '0x000000000000000000000000000000000001000c';
+
+/** L2 Message Verification contract address. */
+export const L2_MESSAGE_VERIFICATION_ADDRESS: Address = '0x0000000000000000000000000000000000010009';
+
 /** L1 token address (SOPH). */
 export const L1_SOPH_TOKEN_ADDRESS: Address = '0xa9544a49d4aEa4c8E074431c89C79fA9592049d8';
 

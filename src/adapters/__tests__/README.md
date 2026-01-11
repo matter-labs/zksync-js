@@ -57,7 +57,7 @@ Each returns a mutable context object with sensible defaults. Pass an `extras` o
 Use these to populate the call registry before invoking adapter logic:
 
 - `setBridgehubBaseCost(harness, ctx, value, overrides?)`
-- `setBridgehubBaseToken(harness, { chainIdL2 }, address)`
+- `setBridgehubBaseToken(harness, { chainId }, address)`
 - `setErc20Allowance(harness, token, owner, spender, amount)`
 - `setL2TokenRegistration(harness, vault, token, assetId)`
 

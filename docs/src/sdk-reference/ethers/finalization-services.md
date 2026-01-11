@@ -169,7 +169,7 @@ export interface FinalizeDepositParams {
 
 // Key that identifies a withdrawal in the Nullifier mapping
 export type WithdrawalKey = {
-  chainIdL2: bigint;
+  chainId: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;
 };

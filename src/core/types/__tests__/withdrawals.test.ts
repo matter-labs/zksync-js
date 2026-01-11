@@ -112,7 +112,7 @@ describe('types/flows/withdrawals — FinalizeDepositParams & keys', () => {
 
   it('WithdrawalKey shape', () => {
     const key: WithdrawalKey = {
-      chainIdL2: 324n,
+      chainId: 324n,
       l2BatchNumber: 555n,
       l2MessageIndex: 1n,
     };
@@ -130,7 +130,7 @@ describe('types/flows/withdrawals — WithdrawalStatus & phase union', () => {
       phase: 'FINALIZED',
       l2TxHash: ('0x' + 'cc'.repeat(32)) as Hex,
       l1FinalizeTxHash: ('0x' + 'dd'.repeat(32)) as Hex,
-      key: { chainIdL2: 324n, l2BatchNumber: 100n, l2MessageIndex: 2n },
+      key: { chainId: 324n, l2BatchNumber: 100n, l2MessageIndex: 2n },
     };
     expectType<WithdrawalStatus>(s1);
     expectType<WithdrawalStatus>(s2);

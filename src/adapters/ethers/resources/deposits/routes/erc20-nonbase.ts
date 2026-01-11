@@ -24,7 +24,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const resolved =
         ctx.resolvedToken ??
         (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l1' }) : undefined);
-      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId));
       await wrapAs(
         'VALIDATION',
         OP_DEPOSITS.nonbase.assertNonBaseToken,
@@ -39,7 +39,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
-      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId));
       const baseIsEth = ctx.baseIsEth ?? isETH(baseToken);
 
       // Estimating L2 gas for deposits
@@ -133,7 +133,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       );
 
       const requestStruct = {
-        chainId: ctx.chainIdL2,
+        chainId: ctx.chainId,
         mintValue,
         l2Value: 0n,
         l2GasLimit: l2GasParams.gasLimit,

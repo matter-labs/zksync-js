@@ -1,5 +1,5 @@
 // src/core/types/flows/interop.ts
-import type { Hex } from '../primitives';
+import type { Address, Hex } from '../primitives';
 
 export type EncodedCallAttributes = readonly Hex[];
 export type EncodedBundleAttributes = readonly Hex[];
@@ -14,4 +14,16 @@ export interface DecodedAttribute {
 export interface DecodedAttributesSummary {
   call: DecodedAttribute[];
   bundle: DecodedAttribute[];
+}
+
+export type InteropRoute = 'direct' | 'indirect';
+
+export type InteropAction = {
+  type: string;
+};
+
+export interface InteropParams {
+  dst: bigint;
+  actions: InteropAction[];
+  sender?: Address;
 }

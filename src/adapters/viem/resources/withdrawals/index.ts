@@ -343,7 +343,7 @@ export function createWithdrawalsResource(
         }
 
         const key = {
-          chainIdL2: pack.params.chainId,
+          chainId: pack.params.chainId,
           l2BatchNumber: pack.params.l2BatchNumber,
           l2MessageIndex: pack.params.l2MessageIndex,
         };
@@ -484,7 +484,7 @@ export function createWithdrawalsResource(
 
         const { params } = pack;
         const key = {
-          chainIdL2: params.chainId,
+          chainId: params.chainId,
           l2BatchNumber: params.l2BatchNumber,
           l2MessageIndex: params.l2MessageIndex,
         };

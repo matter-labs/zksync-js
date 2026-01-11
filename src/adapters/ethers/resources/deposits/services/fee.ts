@@ -34,10 +34,10 @@ export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigi
         estimator,
         encode,
         bridgehub: ctx.bridgehub,
-        chainIdL2: ctx.chainIdL2,
+        chainId: ctx.chainId,
         l2GasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
       }),
-    { ctx: { chainIdL2: ctx.chainIdL2 } },
+    { ctx: { chainId: ctx.chainId } },
   );
 }

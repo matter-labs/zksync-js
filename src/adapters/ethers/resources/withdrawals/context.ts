@@ -51,8 +51,7 @@ export async function commonCtx(
     l2BaseTokenSystem,
   } = await contracts.addresses();
 
-  const { chainId } = await client.l2.getNetwork();
-  const chainIdL2 = BigInt(chainId);
+  const chainId = BigInt((await client.l2.getNetwork()).chainId);
 
   const resolvedToken = await tokens.resolve(p.token, { chain: 'l2' });
   const baseTokenAssetId = resolvedToken.baseTokenAssetId;
@@ -70,7 +69,7 @@ export async function commonCtx(
     baseTokenAssetId,
     baseTokenL1,
     bridgehub,
-    chainIdL2,
+    chainId,
     sender,
     route,
     l1AssetRouter,

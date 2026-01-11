@@ -156,11 +156,10 @@ describe('types/flows/base — Waitable<HashKey>', () => {
 });
 
 describe('types/flows/base — CommonCtx', () => {
-  it('requires sender, chainIdL2, bridgehub', () => {
+  it('requires sender and chainId', () => {
     const ctx: CommonCtx = {
       sender: '0x9999999999999999999999999999999999999999' as Address,
-      chainIdL2: 324n,
-      bridgehub: '0x8888888888888888888888888888888888888888' as Address,
+      chainId: 324n,
     };
     expectType<CommonCtx>(ctx);
   });

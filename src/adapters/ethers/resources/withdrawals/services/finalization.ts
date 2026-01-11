@@ -248,7 +248,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
       return await wrapAs(
         'RPC',
         OP_WITHDRAWALS.finalize.isFinalized,
-        () => c.isWithdrawalFinalized(key.chainIdL2, key.l2BatchNumber, key.l2MessageIndex),
+        () => c.isWithdrawalFinalized(key.chainId, key.l2BatchNumber, key.l2MessageIndex),
         {
           ctx: { where: 'isWithdrawalFinalized', key },
           message: 'Failed to read finalization status.',
@@ -278,7 +278,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
         {
           ctx: {
             where: 'estimateGas(finalizeDeposit)',
-            chainIdL2: params.chainId,
+            chainId: params.chainId,
             l2BatchNumber: params.l2BatchNumber,
             l2MessageIndex: params.l2MessageIndex,
             l1Nullifier,
@@ -361,7 +361,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
             operation: OP_WITHDRAWALS.finalize.send,
             message: 'Failed to send finalizeDeposit transaction.',
             context: {
-              chainIdL2: params.chainId,
+              chainId: params.chainId,
               l2BatchNumber: params.l2BatchNumber,
               l2MessageIndex: params.l2MessageIndex,
               l1Nullifier,

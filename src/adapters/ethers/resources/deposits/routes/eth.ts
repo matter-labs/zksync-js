@@ -48,7 +48,7 @@ export function routeEthDirect(): DepositRouteStrategy {
       const mintValue = baseCost + ctx.operatorTip + p.amount;
 
       const req = buildDirectRequestStruct({
-        chainId: ctx.chainIdL2,
+        chainId: ctx.chainId,
         mintValue,
         l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,

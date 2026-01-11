@@ -41,7 +41,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
             throw new Error('eth-nonbase route requires target chain base token ≠ ETH.');
           }
         },
-        { ctx: { baseIsEth: ctx.baseIsEth, chainIdL2: ctx.chainIdL2 } },
+        { ctx: { baseIsEth: ctx.baseIsEth, chainId: ctx.chainId } },
       );
       // Check sufficient ETH balance to cover deposit amount
       const ethBal = await wrapAs(
@@ -66,7 +66,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
     },
 
     async build(p, ctx) {
-      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId));
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
@@ -152,7 +152,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
       );
 
       const requestStruct = {
-        chainId: ctx.chainIdL2,
+        chainId: ctx.chainId,
         mintValue,
         l2Value: p.amount,
         l2GasLimit: l2Gas.gasLimit,

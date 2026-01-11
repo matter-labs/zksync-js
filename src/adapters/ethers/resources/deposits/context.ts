@@ -20,6 +20,7 @@ export interface BuildCtx extends CommonCtx {
   baseTokenL1: Address;
   baseIsEth: boolean;
 
+  bridgehub: Address;
   l1AssetRouter: Address;
 
   gasOverrides?: TxOverrides;
@@ -70,7 +71,7 @@ export async function commonCtx(
     l1AssetRouter,
     route,
     bridgehub,
-    chainIdL2: BigInt(chainId),
+    chainId: BigInt(chainId),
     sender,
     gasOverrides: p.l1TxOverrides,
     l2GasLimit: p.l2GasLimit,

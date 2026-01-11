@@ -46,7 +46,7 @@ const { params, nullifier } = await svc.fetchFinalizeDepositParams(l2TxHash);
 
 // 2) (Optional) Check if already finalized
 const already = await svc.isWithdrawalFinalized({
-  chainIdL2: params.chainId,
+  chainId: params.chainId,
   l2BatchNumber: params.l2BatchNumber,
   l2MessageIndex: params.l2MessageIndex,
 });
@@ -166,7 +166,7 @@ export interface FinalizeDepositParams {
 
 // Key that identifies a withdrawal in the Nullifier mapping
 export type WithdrawalKey = {
-  chainIdL2: bigint;
+  chainId: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;
 };

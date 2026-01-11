@@ -14,14 +14,14 @@ export interface BaseTokenLookup {
 // ERC-20-nonbase: ERC-20 not as base token, asset transfer
 export async function pickDepositRoute(
   client: BaseTokenLookup,
-  chainIdL2: bigint,
+  chainId: bigint,
   token: Address,
 ): Promise<DepositRoute> {
   if (isETH(token)) {
-    const base = await client.baseToken(chainIdL2);
+    const base = await client.baseToken(chainId);
     return isETH(base) ? 'eth-base' : 'eth-nonbase';
   }
   // ERC-20
-  const base = await client.baseToken(chainIdL2);
+  const base = await client.baseToken(chainId);
   return normalizeAddrEq(token, base) ? 'erc20-base' : 'erc20-nonbase';
 }

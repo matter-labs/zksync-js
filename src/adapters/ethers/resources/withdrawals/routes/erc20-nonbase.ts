@@ -141,7 +141,7 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       });
 
       const fees = buildFeeBreakdown({
-        feeToken: ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2)),
+        feeToken: ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainId)),
         l2Gas: withdrawGas,
       });
 

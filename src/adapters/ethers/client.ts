@@ -8,6 +8,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 
 import {
@@ -18,6 +21,9 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
+  InteropCenterABI,
+  IInteropHandlerABI,
+  L2MessageVerificationABI,
 } from '../../core/abi';
 import { createError } from '../../core/errors/factory';
 import { OP_DEPOSITS } from '../../core/types';
@@ -34,6 +40,9 @@ export interface ResolvedAddresses {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
 }
 
 export interface EthersClient {
@@ -64,6 +73,9 @@ export interface EthersClient {
     l2AssetRouter: Contract;
     l2NativeTokenVault: Contract;
     l2BaseTokenSystem: Contract;
+    interopCenter: Contract;
+    interopHandler: Contract;
+    l2MessageVerification: Contract;
   }>;
 
   /** Clear all cached addresses/contracts. */
@@ -150,6 +162,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
         l2AssetRouter: Contract;
         l2NativeTokenVault: Contract;
         l2BaseTokenSystem: Contract;
+        interopCenter: Contract;
+        interopHandler: Contract;
+        l2MessageVerification: Contract;
       }
     | undefined;
 
@@ -184,6 +199,18 @@ export function createEthersClient(args: InitArgs): EthersClient {
     // L2BaseToken
     const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
+    // InteropCenter
+    const interopCenter =
+      args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+
+    // InteropHandler
+    const interopHandler =
+      args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+
+    // L2MessageVerification
+    const l2MessageVerification =
+      args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
+
     addrCache = {
       bridgehub,
       l1AssetRouter,
@@ -192,6 +219,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter,
       l2NativeTokenVault,
       l2BaseTokenSystem,
+      interopCenter,
+      interopHandler,
+      l2MessageVerification,
     };
     return addrCache;
   }
@@ -209,6 +239,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter: new Contract(a.l2AssetRouter, IL2AssetRouterABI, l2),
       l2NativeTokenVault: new Contract(a.l2NativeTokenVault, L2NativeTokenVaultABI, l2),
       l2BaseTokenSystem: new Contract(a.l2BaseTokenSystem, IBaseTokenABI, l2),
+      interopCenter: new Contract(a.interopCenter, InteropCenterABI, l2),
+      interopHandler: new Contract(a.interopHandler, IInteropHandlerABI, l2),
+      l2MessageVerification: new Contract(a.l2MessageVerification, L2MessageVerificationABI, l2),
     };
     return cCache;
   }
@@ -247,7 +280,7 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const bh = new Contract(bridgehub, IBridgehubABI, l1);
 
     return (await wrapAs('CONTRACT', OP_DEPOSITS.base.baseToken, () => bh.baseToken(chainId), {
-      ctx: { where: 'bridgehub.baseToken', chainIdL2: chainId },
+      ctx: { where: 'bridgehub.baseToken', chainId: chainId },
       message: 'Failed to read base token.',
     })) as Address;
   }
