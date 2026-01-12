@@ -91,15 +91,7 @@ export async function determineErc20L2Gas(input: {
   try {
     const l2TokenAddress = ctx.tokens
       ? await ctx.tokens.toL2Address(l1Token)
-      : await (async () => {
-          const l2NativeTokenVault = (await ctx.client.contracts()).l2NativeTokenVault;
-          return await ctx.client.l2.readContract({
-            address: l2NativeTokenVault.address,
-            abi: l2NativeTokenVault.abi,
-            functionName: 'l2TokenAddress',
-            args: [l1Token],
-          });
-        })();
+      : await (await ctx.contracts.l2NativeTokenVault()).read.l2TokenAddress([l1Token]);
 
     // we can assume that the token has not been deployed to L2 if
     // the l2TokenAddress is the zero address. This essentially means

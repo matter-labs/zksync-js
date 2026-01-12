@@ -1,10 +1,8 @@
 // src/adapters/ethers/resources/deposits/routes/eth.ts
 
 import type { DepositRouteStrategy } from './types';
-import { Contract } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { buildDirectRequestStruct } from '../../utils';
-import { IBridgehubABI } from '../../../../../core/abi.ts';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
@@ -16,7 +14,7 @@ import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts
 export function routeEthDirect(): DepositRouteStrategy {
   return {
     async build(p, ctx) {
-      const bh = new Contract(ctx.bridgehub, IBridgehubABI, ctx.client.l1);
+      const bh = await ctx.contracts.bridgehub();
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {

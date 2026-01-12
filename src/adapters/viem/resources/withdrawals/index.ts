@@ -34,6 +34,8 @@ import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
+import { createContractsResource } from '../contracts';
+import type { ContractsResource } from '../contracts';
 
 // --------------------
 // Withdrawal Route map
@@ -110,16 +112,18 @@ export interface WithdrawalsResource {
 export function createWithdrawalsResource(
   client: ViemClient,
   tokens?: TokensResource,
+  contracts?: ContractsResource,
 ): WithdrawalsResource {
   // Finalization services
   const svc: FinalizationServices = createFinalizationServices(client);
   // error handlers
   const { wrap, toResult } = createErrorHandlers('withdrawals');
   const tokensResource = tokens ?? createTokensResource(client);
+  const contractsResource = contracts ?? createContractsResource(client);
 
   // Build a withdrawal plan (route + steps) without executing it
   async function buildPlan(p: WithdrawParams): Promise<WithdrawPlan<ViemPlanWriteRequest>> {
-    const ctx = await commonCtx(p, client, tokensResource);
+    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
 
     await ROUTES[ctx.route].preflight?.(p, ctx);
     const { steps, approvals, fees } = await ROUTES[ctx.route].build(p, ctx);

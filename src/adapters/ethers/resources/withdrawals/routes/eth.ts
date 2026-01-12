@@ -18,7 +18,7 @@ export function routeEthBase(): WithdrawRouteStrategy {
     async build(p, ctx) {
       const steps: Array<PlanStep<TransactionRequest>> = [];
 
-      const base = (await ctx.client.contracts()).l2BaseTokenSystem;
+      const base = await ctx.contracts.l2BaseTokenSystem();
       const data = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.eth.encodeWithdraw,

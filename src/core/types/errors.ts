@@ -37,6 +37,7 @@ export type Resource =
   | 'withdrawals'
   | 'withdrawal-finalization'
   | 'tokens'
+  | 'contracts'
   | 'helpers'
   | 'zksrpc'
   | 'client';

@@ -1,14 +1,14 @@
 # ViemSdk
 
-High-level SDK built on top of the **Viem adapter** — provides deposits, withdrawals, tokens, and chain-aware helpers.
+High-level SDK built on top of the **Viem adapter** — provides deposits, withdrawals, tokens, and contract resources.
 
 ---
 
 ## At a Glance
 
 * **Factory:** `createViemSdk(client) → ViemSdk`
-* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.helpers`
-* **Client vs SDK:** The **client** wires RPC/signing; the **SDK** adds high-level flows (`quote → prepare → create → wait`) and convenience helpers.
+* **Composed resources:** `sdk.deposits`, `sdk.withdrawals`, `sdk.tokens`, `sdk.contracts`
+* **Client vs SDK:** The **client** wires RPC/signing; the **SDK** adds high-level flows (`quote → prepare → create → wait`) plus token and contract resources.
 * **Wallets by flow:**
 
   * **Deposits (L1 tx):** `l1Wallet` required
@@ -54,7 +54,7 @@ const handle = await sdk.deposits.create({
 await sdk.deposits.wait(handle, { for: 'l2' });
 
 // Example: resolve contracts and map an L1 token to its L2 address
-const { l1NativeTokenVault } = await sdk.helpers.contracts();
+const { l1NativeTokenVault } = await sdk.contracts.instances();
 const token = await sdk.tokens.resolve('0xYourToken');
 console.log(token.l2);
 ```
@@ -73,7 +73,7 @@ console.log(token.l2);
 **Returns:** `ViemSdk`
 
 > [!TIP]
-> The SDK composes the client with resources: `deposits`, `withdrawals`, `tokens`, and convenience `helpers`.
+> The SDK composes the client with resources: `deposits`, `withdrawals`, `tokens`, and `contracts`.
 
 ## ViemSdk Interface
 
@@ -92,45 +92,46 @@ See [Withdrawals](./withdrawals.md).
 Token identity, L1⇄L2 mapping, bridge asset IDs, chain token facts.
 See [Tokens](./tokens.md).
 
-## `helpers`
+### `contracts: ContractsResource`
 
-Utilities for chain addresses, connected contracts, and L1↔L2 token mapping.
+Resolved addresses and connected contract instances.
+See [Contracts](./contracts.md).
+
+## `contracts`
+
+Utilities for resolved addresses and connected contracts. Token mapping lives in `sdk.tokens`.
 
 ### `addresses() → Promise<ResolvedAddresses>`
 
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.helpers.addresses();
+const a = await sdk.contracts.addresses();
 ```
 
-### `contracts() → Promise<{ ...contracts }>`
+### `instances() → Promise<{ ...contracts }>`
 
 **Typed** Viem contracts for all core components (each exposes `.read` / `.write` / `.simulate`).
 
 ```ts
-const c = await sdk.helpers.contracts();
+const c = await sdk.contracts.instances();
 const bridgehub = c.bridgehub;
 ```
 
 ### One-off Contract Getters
 
-| Method                 | Returns             | Description                      |
-| ---------------------- | ------------------- | -------------------------------- |
-| `l1AssetRouter()`      | `Promise<Contract>` | Connected L1 Asset Router.       |
-| `l1NativeTokenVault()` | `Promise<Contract>` | Connected L1 Native Token Vault. |
-| `l1Nullifier()`        | `Promise<Contract>` | Connected L1 Nullifier contract. |
+| Method                 | Returns             | Description                         |
+| ---------------------- | ------------------- | ----------------------------------- |
+| `bridgehub()`          | `Promise<Contract>` | Connected Bridgehub contract.       |
+| `l1AssetRouter()`      | `Promise<Contract>` | Connected L1 Asset Router.          |
+| `l1NativeTokenVault()` | `Promise<Contract>` | Connected L1 Native Token Vault.    |
+| `l1Nullifier()`        | `Promise<Contract>` | Connected L1 Nullifier contract.    |
+| `l2AssetRouter()`      | `Promise<Contract>` | Connected L2 Asset Router contract. |
+| `l2NativeTokenVault()` | `Promise<Contract>` | Connected L2 Native Token Vault.    |
+| `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const nullifier = await sdk.helpers.l1Nullifier();
-```
-
-### `baseToken(chainId?: bigint) → Promise<Address>`
-
-L1 address of the **base token** for the current (or supplied) L2 chain.
-
-```ts
-const base = await sdk.helpers.baseToken(); // infers from the L2 client
+const nullifier = await sdk.contracts.l1Nullifier();
 ```
 
 ---
@@ -138,5 +139,5 @@ const base = await sdk.helpers.baseToken(); // infers from the L2 client
 ## Notes & Pitfalls
 
 * **Wallet placement matters:** Deposits sign on **L1**; withdrawals sign on **L2**; finalization signs on **L1**.
-* **Chain-derived behavior:** Helpers read from on-chain sources; results depend on connected networks.
+* **Chain-derived behavior:** Contracts and tokens read from on-chain sources; results depend on connected networks.
 * **Error model:** Resource methods throw typed errors; prefer `try*` variants on resources for result objects.

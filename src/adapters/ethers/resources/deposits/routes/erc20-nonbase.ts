@@ -144,7 +144,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         secondBridgeCalldata,
       } as const;
 
-      const bh = (await ctx.client.contracts()).bridgehub;
+      const bh = await ctx.contracts.bridgehub();
       const data = bh.interface.encodeFunctionData('requestL2TransactionTwoBridges', [
         requestStruct,
       ]);
