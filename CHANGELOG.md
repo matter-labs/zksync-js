@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/matter-labs/zksync-js/compare/v0.0.3...v0.0.4) (2026-01-13)
+
+
+### Features
+
+* adds contract resource ([#29](https://github.com/matter-labs/zksync-js/issues/29)) ([28db165](https://github.com/matter-labs/zksync-js/commit/28db16517294cd06373941908cc74420f03c51d5))
+
 ## [0.0.3](https://github.com/matter-labs/zksync-js/compare/v0.0.2...v0.0.3) (2026-01-08)
 
 
