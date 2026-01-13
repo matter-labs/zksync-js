@@ -107,7 +107,7 @@ await sdk.deposits.wait(handle, { for: 'l2' });
 console.log('Deposit complete ✅');
 ```
 
-> See [Quickstart docs](https://matter-labs.github.io/zksync-js/quickstart/) for full examples.
+> See [Quickstart docs](https://matter-labs.github.io/zksync-js/latest/quickstart/index.html) for full examples.
 
 ## 📚 Documentation
 
