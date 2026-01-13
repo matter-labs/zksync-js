@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/matter-labs/zksync-js/compare/v0.0.4...v0.0.5) (2026-01-13)
+
+
+### Features
+
+* manual release bump ([#34](https://github.com/matter-labs/zksync-js/issues/34)) ([ccb1271](https://github.com/matter-labs/zksync-js/commit/ccb1271e0aed27b6499d2144ce23ab9ca9e1d088))
+
 ## [0.0.4](https://github.com/matter-labs/zksync-js/compare/v0.0.3...v0.0.4) (2026-01-13)
 
 
