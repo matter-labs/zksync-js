@@ -107,5 +107,6 @@ describe('types/errors — operation constants', () => {
       'withdrawals.finalize.readiness:isWithdrawalFinalized',
     );
     expect(OP_WITHDRAWALS.finalize.wait).toBe('withdrawals.finalize.finalizeDeposit:wait');
+    expect(OP_WITHDRAWALS.tryWait).toBe('withdrawals.tryWait');
   });
 });
