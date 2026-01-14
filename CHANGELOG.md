@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/matter-labs/zksync-js/compare/v0.0.5...v0.0.6) (2026-01-14)
+
+
+### Bug Fixes
+
+* add tryWait to withdrawals ([#37](https://github.com/matter-labs/zksync-js/issues/37)) ([feffe06](https://github.com/matter-labs/zksync-js/commit/feffe0676f35236f026b09ec2cfdb6610bd90def))
+
 ## [0.0.5](https://github.com/matter-labs/zksync-js/compare/v0.0.4...v0.0.5) (2026-01-13)
 
 
