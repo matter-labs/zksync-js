@@ -40,3 +40,4 @@ Read in this order:
 | [`commit-and-pr.md`](./commit-and-pr.md) | Commit/PR conventions |
 | [`security-and-secrets.md`](./security-and-secrets.md) | Security requirements |
 | [`llm-behavior.md`](./llm-behavior.md) | How the assistant should respond |
+| [`sdk-consumers.md`](./sdk-consumers.md) | **For agents using this SDK** (building UIs, bots) |
