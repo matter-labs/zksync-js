@@ -8,18 +8,18 @@
 
 All commands are in `package.json`. Run with `bun run <script>`:
 
-| Script | Purpose |
-|---|---|
-| `format` | Auto-fix formatting (Prettier) |
-| `format:check` | Check formatting |
-| `lint` | Check lint (ESLint) |
-| `lint:fix` | Auto-fix lint issues |
-| `test` | Run unit tests |
-| `test:cov` | Run tests with coverage |
-| `test:core` | Run core tests only |
-| `typecheck` | Type check without emitting |
-| `build` | Clean + build types + build JS |
-| `build:types` | Build TypeScript declarations |
+| Script         | Purpose                        |
+| -------------- | ------------------------------ |
+| `format`       | Auto-fix formatting (Prettier) |
+| `format:check` | Check formatting               |
+| `lint`         | Check lint (ESLint)            |
+| `lint:fix`     | Auto-fix lint issues           |
+| `test`         | Run unit tests                 |
+| `test:cov`     | Run tests with coverage        |
+| `test:core`    | Run core tests only            |
+| `typecheck`    | Type check without emitting    |
+| `build`        | Clean + build types + build JS |
+| `build:types`  | Build TypeScript declarations  |
 
 > [!NOTE]
 > E2E tests (`test:e2e:ethers`, `test:e2e:viem`) require a local zksyncos + L1 environment.
@@ -98,12 +98,12 @@ if (result.ok) {
 
 ### Available Resources
 
-| Resource | Methods |
-|---|---|
-| `sdk.deposits` | `quote`, `prepare`, `create`, `tryCreate`, `wait`, `tryWait` |
+| Resource          | Methods                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `sdk.deposits`    | `quote`, `prepare`, `create`, `tryCreate`, `wait`, `tryWait`                       |
 | `sdk.withdrawals` | `quote`, `prepare`, `create`, `tryCreate`, `status`, `wait`, `tryWait`, `finalize` |
-| `sdk.tokens` | `toL1Address`, `toL2Address`, `isBaseToken`, etc. |
-| `sdk.contracts` | `getBridgehubAddress`, `getSharedBridgeAddress`, etc. |
+| `sdk.tokens`      | `toL1Address`, `toL2Address`, `isBaseToken`, etc.                                  |
+| `sdk.contracts`   | `getBridgehubAddress`, `getSharedBridgeAddress`, etc.                              |
 
 ### Documentation
 

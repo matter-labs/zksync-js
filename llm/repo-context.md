@@ -9,6 +9,7 @@
 **zksync-js** is the official TypeScript SDK for ZKsync OS (Elastic Network).
 
 **Features:**
+
 - Deposits (L1 → L2) – ETH and ERC-20
 - Withdrawals (L2 → L1) – full two-step flows with status tracking + finalization
 - `zks_` RPC methods – typed helpers
@@ -16,6 +17,7 @@
 - Try-methods (`tryCreate`, `tryWait`) – no-throw style for UI/services
 
 **Adapters:**
+
 - `viem` adapter – for viem users
 - `ethers` adapter – for ethers v6 users
 
@@ -74,18 +76,18 @@ resources/<resource>/
 
 ## Key Directories
 
-| Directory | Purpose |
-|---|---|
-| `src/core/` | Adapter-agnostic types, constants, utilities |
-| `src/core/types/` | Shared types (primitives, errors, flow types) |
-| `src/core/resources/` | Core resource interfaces |
-| `src/adapters/ethers/` | Ethers v6 adapter implementation |
-| `src/adapters/viem/` | Viem adapter implementation |
-| `docs/` | User documentation (mdbook) |
-| `docs/src/` | Documentation source files |
-| `examples/` | Usage examples for both adapters |
-| `tests/` | Test files |
-| `typechain/` | Generated contract types |
+| Directory              | Purpose                                       |
+| ---------------------- | --------------------------------------------- |
+| `src/core/`            | Adapter-agnostic types, constants, utilities  |
+| `src/core/types/`      | Shared types (primitives, errors, flow types) |
+| `src/core/resources/`  | Core resource interfaces                      |
+| `src/adapters/ethers/` | Ethers v6 adapter implementation              |
+| `src/adapters/viem/`   | Viem adapter implementation                   |
+| `docs/`                | User documentation (mdbook)                   |
+| `docs/src/`            | Documentation source files                    |
+| `examples/`            | Usage examples for both adapters              |
+| `tests/`               | Test files                                    |
+| `typechain/`           | Generated contract types                      |
 
 ---
 
@@ -112,10 +114,10 @@ sdk.contracts.getBridgehubAddress();
 
 ## Package Exports
 
-| Export Path | Description |
-|---|---|
-| `@matterlabs/zksync-js` | Main entry |
+| Export Path                    | Description    |
+| ------------------------------ | -------------- |
+| `@matterlabs/zksync-js`        | Main entry     |
 | `@matterlabs/zksync-js/ethers` | Ethers adapter |
-| `@matterlabs/zksync-js/viem` | Viem adapter |
-| `@matterlabs/zksync-js/core` | Core utilities |
-| `@matterlabs/zksync-js/types` | Core types |
+| `@matterlabs/zksync-js/viem`   | Viem adapter   |
+| `@matterlabs/zksync-js/core`   | Core utilities |
+| `@matterlabs/zksync-js/types`  | Core types     |

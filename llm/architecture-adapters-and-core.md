@@ -62,16 +62,17 @@ import { calculateL2GasLimit } from '../../../core/utils/gas';
 
 Adapters are **translation layers only**. They:
 
-| Do | Don't |
-|---|---|
-| Translate core types to library types | Contain business logic |
-| Call library methods (viem/ethers) | Duplicate logic across adapters |
-| Map library results to core types | Define new types (types live in core/) |
-| Handle library-specific errors | Hand-roll ABI encoding/decoding |
+| Do                                    | Don't                                  |
+| ------------------------------------- | -------------------------------------- |
+| Translate core types to library types | Contain business logic                 |
+| Call library methods (viem/ethers)    | Duplicate logic across adapters        |
+| Map library results to core types     | Define new types (types live in core/) |
+| Handle library-specific errors        | Hand-roll ABI encoding/decoding        |
 
 ### Adapter Checklist
 
 For any adapter code:
+
 - [ ] Shared, adapter-agnostic logic extracted to `core/` (business logic requiring adapter imports is fine here)
 - [ ] Uses library's native encoding/decoding
 - [ ] Returns core types
@@ -135,11 +136,11 @@ export function prepareDeposit(ctx: ViemContext, req: DepositRequest) {
 
 ## When to Add to Core vs Adapter
 
-| Scenario | Location |
-|---|---|
-| New type definition | `core/types/` |
-| New constant (address, magic value) | `core/constants.ts` |
-| Utility used by multiple adapters | `core/utils/` |
-| ABI definition | `core/internal/abis/` |
-| Library-specific call | Adapter |
-| Library-specific error handling | Adapter (wrap to `ZKsyncError`) |
+| Scenario                            | Location                        |
+| ----------------------------------- | ------------------------------- |
+| New type definition                 | `core/types/`                   |
+| New constant (address, magic value) | `core/constants.ts`             |
+| Utility used by multiple adapters   | `core/utils/`                   |
+| ABI definition                      | `core/internal/abis/`           |
+| Library-specific call               | Adapter                         |
+| Library-specific error handling     | Adapter (wrap to `ZKsyncError`) |

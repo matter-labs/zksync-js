@@ -17,12 +17,14 @@
 ### 1. Restate Objective + Constraints
 
 Before any change, clearly state:
+
 - What you're trying to accomplish
 - Any constraints (e.g., "don't change public API", "ethers only")
 
 ### 2. Identify Files to Touch
 
 List all files you expect to modify. Consider:
+
 - Core types (`core/types/`)
 - Core utilities (`core/utils/`)
 - Adapter implementations (`adapters/viem/`, `adapters/ethers/`)
@@ -61,12 +63,12 @@ If your change affects public API or behavior:
 
 ## Minimal Diff Principle
 
-| Do | Don't |
-|---|---|
-| Change only required lines | Reformat entire file |
-| Fix the specific bug | Refactor "while you're there" |
-| Add the specific feature | Add "nice to have" improvements |
-| Update affected tests | Rewrite unrelated tests |
+| Do                         | Don't                           |
+| -------------------------- | ------------------------------- |
+| Change only required lines | Reformat entire file            |
+| Fix the specific bug       | Refactor "while you're there"   |
+| Add the specific feature   | Add "nice to have" improvements |
+| Update affected tests      | Rewrite unrelated tests         |
 
 ---
 

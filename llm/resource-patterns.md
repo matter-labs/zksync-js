@@ -109,7 +109,7 @@ export interface ViemSdk {
   withdrawals: WithdrawalsResource;
   tokens: TokensResource;
   contracts: ContractsResource;
-  interop: InteropResource;  // New
+  interop: InteropResource; // New
 }
 
 export function createViemSdk(client: ViemClient): ViemSdk {
@@ -118,7 +118,7 @@ export function createViemSdk(client: ViemClient): ViemSdk {
     withdrawals: createWithdrawalsResource(client, tokens, contracts),
     tokens: createTokensResource(client),
     contracts: createContractsResource(client),
-    interop: createInteropResource(client),  // New
+    interop: createInteropResource(client), // New
   };
 }
 ```
@@ -144,18 +144,18 @@ Do the same for `adapters/ethers/sdk.ts`.
 
 **Default interface for L1-L2, L2-L1, L2-L2 transactions:**
 
-| Method | Purpose |
-|---|---|
-| `quote` | Get estimated costs/fees |
-| `tryQuote` | No-throw variant of `quote` |
-| `prepare` | Prepare transaction data without sending |
-| `tryPrepare` | No-throw variant of `prepare` |
-| `create` | Execute the operation |
-| `tryCreate` | No-throw variant of `create` |
-| `status` | Check current status |
-| `wait` | Wait for a specific state |
-| `tryWait` | No-throw variant of `wait` |
-| `finalize` | Complete a multi-step flow |
+| Method       | Purpose                                  |
+| ------------ | ---------------------------------------- |
+| `quote`      | Get estimated costs/fees                 |
+| `tryQuote`   | No-throw variant of `quote`              |
+| `prepare`    | Prepare transaction data without sending |
+| `tryPrepare` | No-throw variant of `prepare`            |
+| `create`     | Execute the operation                    |
+| `tryCreate`  | No-throw variant of `create`             |
+| `status`     | Check current status                     |
+| `wait`       | Wait for a specific state                |
+| `tryWait`    | No-throw variant of `wait`               |
+| `finalize`   | Complete a multi-step flow               |
 
 **Helper resources** (like `tokens`, `contracts`) are exceptions – use appropriate method names for their purpose (e.g., `toL1Address`, `getBridgehubAddress`).
 

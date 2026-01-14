@@ -22,6 +22,7 @@
 ### Always Check
 
 Before committing, verify:
+
 - [ ] No real private keys in code or tests
 - [ ] No API keys or tokens
 - [ ] No hardcoded URLs to internal/private services
@@ -66,6 +67,7 @@ const API_KEY = 'sk_live_1234567890abcdef';
 ## Test Data
 
 For tests, use:
+
 - Well-known test addresses (ZKsync testnet)
 - Mock providers
 - Local environment variables
@@ -80,6 +82,7 @@ const TEST_ACCOUNT = process.env.TEST_ACCOUNT || '0x0000000000000000000000000000
 ## If You Find a Secret
 
 If you discover a committed secret:
+
 1. Do NOT push any more commits
 2. Notify maintainers immediately
 3. The secret is compromised and must be rotated

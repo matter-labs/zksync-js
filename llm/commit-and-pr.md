@@ -16,14 +16,14 @@
 
 ### Types
 
-| Type | Use for |
-|---|---|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
+| Type       | Use for                                                 |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | New feature                                             |
+| `fix`      | Bug fix                                                 |
+| `docs`     | Documentation only                                      |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `test` | Adding or updating tests |
-| `chore` | Maintenance tasks |
+| `test`     | Adding or updating tests                                |
+| `chore`    | Maintenance tasks                                       |
 
 ### Examples
 
@@ -62,16 +62,20 @@ Before submitting:
 
 ```markdown
 ## Summary
+
 Brief description of what this PR does.
 
 ## Changes
+
 - Added X
 - Fixed Y
 - Updated Z
 
 ## Testing
+
 How was this tested?
 
 ## Related Issues
+
 Closes #123 (if applicable)
 ```

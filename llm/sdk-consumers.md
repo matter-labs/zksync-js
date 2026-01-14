@@ -52,12 +52,12 @@ const sdk = createEthersSdk(client);
 
 ## Available Resources
 
-| Resource | Description |
-|---|---|
-| `sdk.deposits` | L1 → L2 deposits (ETH and ERC-20) |
+| Resource          | Description                           |
+| ----------------- | ------------------------------------- |
+| `sdk.deposits`    | L1 → L2 deposits (ETH and ERC-20)     |
 | `sdk.withdrawals` | L2 → L1 withdrawals with finalization |
-| `sdk.tokens` | Token address mapping helpers |
-| `sdk.contracts` | Contract address getters |
+| `sdk.tokens`      | Token address mapping helpers         |
+| `sdk.contracts`   | Contract address getters              |
 
 ---
 
@@ -65,18 +65,18 @@ const sdk = createEthersSdk(client);
 
 Most resources follow this pattern:
 
-| Method | Purpose | Throws |
-|---|---|---|
-| `quote` | Get estimated costs/fees | Yes |
-| `tryQuote` | Same as `quote`, no-throw | No |
-| `prepare` | Prepare transaction data | Yes |
-| `tryPrepare` | Same as `prepare`, no-throw | No |
-| `create` | Execute the operation | Yes |
-| `tryCreate` | Same as `create`, no-throw | No |
-| `status` | Check current status | Yes |
-| `wait` | Wait for a specific state | Yes |
-| `tryWait` | Same as `wait`, no-throw | No |
-| `finalize` | Complete multi-step flow | Yes |
+| Method       | Purpose                     | Throws |
+| ------------ | --------------------------- | ------ |
+| `quote`      | Get estimated costs/fees    | Yes    |
+| `tryQuote`   | Same as `quote`, no-throw   | No     |
+| `prepare`    | Prepare transaction data    | Yes    |
+| `tryPrepare` | Same as `prepare`, no-throw | No     |
+| `create`     | Execute the operation       | Yes    |
+| `tryCreate`  | Same as `create`, no-throw  | No     |
+| `status`     | Check current status        | Yes    |
+| `wait`       | Wait for a specific state   | Yes    |
+| `tryWait`    | Same as `wait`, no-throw    | No     |
+| `finalize`   | Complete multi-step flow    | Yes    |
 
 ---
 

@@ -28,13 +28,13 @@ bun run lint:fix      # Auto-fix lint
 
 ### Naming
 
-| Type | Convention | Example |
-|---|---|---|
-| Files | kebab-case | `deposit-context.ts` |
-| Types/Interfaces | PascalCase | `DepositRequest`, `TransferResult` |
-| Functions | camelCase | `createDeposit`, `waitForFinalization` |
-| Constants | UPPER_SNAKE_CASE | `ETH_ADDRESS`, `BRIDGEHUB_ABI` |
-| Type parameters | Single uppercase letter | `T`, `R`, `E` |
+| Type             | Convention              | Example                                |
+| ---------------- | ----------------------- | -------------------------------------- |
+| Files            | kebab-case              | `deposit-context.ts`                   |
+| Types/Interfaces | PascalCase              | `DepositRequest`, `TransferResult`     |
+| Functions        | camelCase               | `createDeposit`, `waitForFinalization` |
+| Constants        | UPPER_SNAKE_CASE        | `ETH_ADDRESS`, `BRIDGEHUB_ABI`         |
+| Type parameters  | Single uppercase letter | `T`, `R`, `E`                          |
 
 ### Imports
 
@@ -129,10 +129,10 @@ describe('createDeposit', () => {
   it('should return a valid deposit handle for ETH deposits', async () => {
     // Arrange
     const req = { token: ETH_ADDRESS, amount: 1000n, to: '0x...' };
-    
+
     // Act
     const handle = await createDeposit(req);
-    
+
     // Assert
     expect(handle.hash).toBeDefined();
   });
