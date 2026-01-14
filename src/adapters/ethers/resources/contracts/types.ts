@@ -85,7 +85,7 @@ export interface ContractsResource {
    * Returns the Interop Center contract instance.
    */
   interopCenter(): Promise<Contract>;
-  
+
   /**
    * Returns the Interop Handler contract instance.
    */

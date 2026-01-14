@@ -200,12 +200,10 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
     // InteropCenter
-    const interopCenter =
-      args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+    const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
 
     // InteropHandler
-    const interopHandler =
-      args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+    const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
 
     // L2MessageVerification
     const l2MessageVerification =

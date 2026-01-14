@@ -44,6 +44,15 @@ export type WithdrawalFeeBreakdown = {
   l2?: L2WithdrawalFeeParams;
 };
 
+// TODO: This needs to be updated to reflect interop fees
+export type InteropFeeBreakdown = {
+  token: Address; // fee token address
+  maxTotal: bigint; // max amount that can be charged
+  mintValue?: bigint;
+  l1?: L1DepositFeeParams;
+  l2?: L2DepositFeeParams | L2WithdrawalFeeParams;
+};
+
 // transaction gas overrides
 export type TxOverrides = {
   gasLimit: bigint;
