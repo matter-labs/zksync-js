@@ -1,3 +1,5 @@
+// src/core/errors/error-ops.ts
+
 import { createError, shapeCause } from './factory';
 import {
   isZKsyncError,
