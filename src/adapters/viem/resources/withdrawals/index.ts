@@ -95,6 +95,15 @@ export interface WithdrawalsResource {
     opts: { for: 'l2' | 'ready' | 'finalized'; pollMs?: number; timeoutMs?: number },
   ): Promise<TransactionReceiptZKsyncOS | TransactionReceipt | null>;
 
+  // Try to wait for a withdraw to be completed
+  tryWait(
+    h: WithdrawalWaitable | Hex,
+    opts: { for: 'l2' | 'ready' | 'finalized'; pollMs?: number; timeoutMs?: number },
+  ): Promise<
+    | { ok: true; value: TransactionReceiptZKsyncOS | TransactionReceipt }
+    | { ok: false; error: unknown }
+  >;
+
   // Finalize a withdrawal operation on L1 (if not already finalized)
   // Returns the updated status and, if we sent the finalization tx, the L1 receipt
   // May throw if the withdrawal is not yet ready to finalize or if the finalization tx fails
@@ -553,6 +562,36 @@ export function createWithdrawalsResource(
       ctx: { l2TxHash, where: 'withdrawals.tryFinalize' },
     });
 
+  // tryWait is like wait, but returns a TryResult instead of throwing
+  const tryWait = (
+    h: WithdrawalWaitable | Hex,
+    opts: { for: 'l2' | 'ready' | 'finalized'; pollMs?: number; timeoutMs?: number },
+  ) =>
+    toResult<TransactionReceiptZKsyncOS | TransactionReceipt>(
+      OP_WITHDRAWALS.tryWait,
+      async () => {
+        const v = await wait(h, opts);
+        if (v) return v;
+        throw createError('STATE', {
+          resource: 'withdrawals',
+          operation: 'withdrawals.tryWait',
+          message:
+            opts.for === 'l2'
+              ? 'No L2 receipt yet; the withdrawal has not executed on L2.'
+              : 'No L1 receipt yet; the withdrawal has not been included on L1.',
+          context: {
+            for: opts.for,
+            l2TxHash: typeof h === 'string' ? h : 'l2TxHash' in h ? (h.l2TxHash as Hex) : undefined,
+            where: 'withdrawals.tryWait',
+          },
+        });
+      },
+      {
+        message: 'Internal error while waiting for withdrawal.',
+        ctx: { input: h, for: opts?.for, where: 'withdrawals.tryWait' },
+      },
+    );
+
   return {
     quote,
     tryQuote,
@@ -564,6 +603,7 @@ export function createWithdrawalsResource(
     wait,
     finalize,
     tryFinalize,
+    tryWait,
   };
 }
 
