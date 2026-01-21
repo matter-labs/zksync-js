@@ -61,3 +61,27 @@ export interface InteropHandle<Tx>
   /** Destination execution tx hash (if/once known) */
   dstExecTxHash?: Hex;
 }
+
+/** === Waitable === */
+export type InteropWaitable =
+  | Hex
+  | { l2SrcTxHash?: Hex; l1MsgHash?: Hex; bundleHash?: Hex; dstExecTxHash?: Hex }
+  | InteropHandle<unknown>;
+
+/** === Status & phases === */
+export type InteropPhase =
+  | 'SENT' // InteropBundleSent observed on source
+  | 'VERIFIED' // bundle verified on destination
+  | 'EXECUTED' // fully executed atomically
+  | 'UNBUNDLED' // selectively executed/cancelled
+  | 'FAILED'
+  | 'UNKNOWN';
+
+export interface InteropStatus {
+  phase: InteropPhase;
+  l2SrcTxHash?: Hex;
+  l1MsgHash?: Hex;
+  bundleHash?: Hex;
+  dstExecTxHash?: Hex;
+  dstChainId?: bigint;
+}

@@ -36,6 +36,7 @@ export async function commonCtx(
   client: EthersClient,
   tokens: TokensResource,
   contracts: ContractsResource,
+  attributes: AttributesResource,
 ): Promise<BuildCtx & { route: InteropRoute }> {
   const sender = (p.sender ?? (await client.signer.getAddress())) as Address;
   const chainId = BigInt((await client.l2.getNetwork()).chainId);
@@ -49,7 +50,6 @@ export async function commonCtx(
     client.baseToken(dstChainId),
   ]);
 
-  
   const interopCenterIface = new Interface(InteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
 
@@ -59,8 +59,6 @@ export async function commonCtx(
     bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
     bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
   };
-
-  const attributes = createEthersAttributesResource();
 
   const hasErc20 = p.actions.some((a) => a.type === 'sendErc20');
   const baseMatch = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();

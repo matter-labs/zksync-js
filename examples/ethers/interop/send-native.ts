@@ -40,9 +40,7 @@ async function main() {
     },
   });
   const sdk = createEthersSdk(client);
-
   const me = (await signer.getAddress()) as Address;
-  const recipientOnDst = me as Address;
 
   // // Route selection ('direct' vs 'indirect') will be decided automatically
   // // based on base token match & ERC20 usage.
@@ -52,7 +50,7 @@ async function main() {
   //   actions: [
   //     {
   //       type: 'sendNative' as const,
-  //       to: recipientOnDst,
+  //       to: me as Address,
   //       amount: parseEther('0.01'),
   //     },
   //   ],
@@ -60,7 +58,6 @@ async function main() {
   //   // execution: { only: someExecAddress },
   //   // unbundling: { by: someUnbundlerAddress },
   // };
-
 
   const iface = new Interface(["function f(string)"]);
   const data = iface.encodeFunctionData("f", ["hello123"]) as `0x${string}`;
@@ -98,10 +95,7 @@ async function main() {
   // 2. PREPARE
   // ---------
   const prepared = await sdk.interop.prepare(params);
-  //console.log('PREPARE:', prepared);
-  console.log('PREPARE:', JSON.stringify(prepared, (key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value
-    , 2));
+  console.log('PREPARE:', prepared);
   // {
   //   route: 'direct' | 'indirect',
   //   summary: <InteropQuote>,
@@ -128,18 +122,18 @@ async function main() {
   //   dstChainId: 260n,              // destination chain ID
   // }
 
-  // // --------------------------
-  // // 4. STATUS 
-  // // --------------------------
-  // const st0 = await sdk.interop.status(created);
-  // console.log('STATUS after create:', st0);
-  // // {
-  // //   phase: 'SENT' | 'VERIFIED' | 'EXECUTED' | ...,
-  // //   l2SrcTxHash?: '0x...',
-  // //   bundleHash?:  '0x...',
-  // //   dstChainId?:  260n,
-  // //   dstExecTxHash?: '0x...'
-  // // }
+  // --------------------------
+  // 4. STATUS 
+  // --------------------------
+  const st0 = await sdk.interop.status(created);
+  console.log('STATUS after create:', st0);
+  // {
+  //   phase: 'SENT' | 'VERIFIED' | 'EXECUTED' | ...,
+  //   l2SrcTxHash?: '0x...',
+  //   bundleHash?:  '0x...',
+  //   dstChainId?:  260n,
+  //   dstExecTxHash?: '0x...'
+  // }
 
   // // -------------------------------------------------
   // // 5. WAIT UNTIL VERIFIED ON DEST (PROVABLE / READY)

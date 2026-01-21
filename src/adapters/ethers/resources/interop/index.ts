@@ -3,7 +3,10 @@ import type { EthersClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import { createEthersAttributesResource } from './attributes';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
-import type { InteropParams, InteropRoute, InteropHandle, InteropPlan, InteropAction, InteropQuote } from '../../../../core/types/flows/interop';
+import type {
+  InteropParams, InteropRoute, InteropHandle, InteropPlan, InteropAction, InteropQuote,
+  InteropWaitable, InteropStatus
+} from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
 import { createTokensResource } from '../tokens';
 import { createContractsResource } from '../contracts';
@@ -18,6 +21,11 @@ import { isZKsyncError, isReceiptNotFound, OP_INTEROP } from '../../../../core/t
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
 import { BuildCtx, commonCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
+import {
+  status as interopStatus,
+  wait as interopWait,
+  createInteropFinalizationServices,
+} from './services/finalization';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -50,7 +58,7 @@ export interface InteropResource {
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
 
-  // status(h: InteropWaitable | Hex): Promise<InteropStatus>;
+  status(h: InteropWaitable | Hex): Promise<InteropStatus>;
 
   // wait(
   //   h: InteropWaitable | Hex,
@@ -94,15 +102,10 @@ export function createInteropResource(
   // It does not execute any transactions.
   async function buildPlan(p: InteropParams): Promise<InteropPlan<TransactionRequest>> {
     // 1) Build adapter context (providers, signer, addresses, ABIs, topics, base tokens)
-    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
+    const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
 
-    // const ethCtx = await wrap(OP_INTEROP.prepare, () => makeInteropContext(client, p.dst), {
-    //   message: 'Failed to build interop context.',
-    //   ctx: { where: 'interop.context', dst: p.dst },
-    // });
-
-    // 2) Compute sender and select route
-    const sender = (p.sender ?? client.signer) as Address;
+    // // 2) Compute sender and select route
+    // const sender = (p.sender ?? client.signer) as Address;
 
     const route = pickInteropRoute({
       actions: p.actions,
@@ -155,17 +158,18 @@ export function createInteropResource(
   const tryQuote = (p: InteropParams) =>
     toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(p));
 
+  // prepare → build plan without executing
   const prepare = (p: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(p), {
       message: 'Internal error while preparing a deposit plan.',
       ctx: { where: 'interop.prepare', dst: p.dst },
     });
 
-
   const tryPrepare = (p: InteropParams) =>
     toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(p));
 
-  // quote, tryQuote, prepare, tryPrepare, create, tryCreate, status, wait, finalize, tryFinalize implementations go here
+  // create → execute the source-chain step(s)
+  // waits for each tx receipt to confirm (status != 0)
   const create = (p: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
     wrap(
       OP_INTEROP.create,
@@ -174,7 +178,7 @@ export function createInteropResource(
         const plan = await prepare(p);
 
         // Build the SAME interop context we used to build that plan
-        const ctx = await commonCtx(p, client, tokensResource, contractsResource);
+        const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
         // source signer MUST be bound to ctx.srcChainId
         const signer = ctx.client.signerFor(ctx.chainId);
         const srcProvider = ctx.client.getProvider(ctx.chainId)!;
@@ -211,12 +215,6 @@ export function createInteropResource(
 
           let hash: Hex | undefined;
           try {
-            // const sent = await signer.sendTransaction({
-            //   ...step.tx,
-            //   gasLimit: 5_000_000n,  // Use a high gas limit
-            //   maxFeePerGas: 1_000_000_000n,
-            //   maxPriorityFeePerGas: 0n,
-            // });
             const sent = await signer.sendTransaction(step.tx);
             hash = sent.hash as Hex;
             stepHashes[step.key] = hash;
@@ -264,6 +262,13 @@ export function createInteropResource(
   const tryCreate = (p: InteropParams) =>
     toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(p));
 
+  // status → non-blocking lifecycle inspection
+  const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>
+    wrap(OP_INTEROP.status, () => interopStatus(client, h), {
+      message: 'Internal error while checking interop status.',
+      ctx: { where: 'interop.status' },
+    });
+
   return {
     quote,
     tryQuote,
@@ -271,5 +276,6 @@ export function createInteropResource(
     tryPrepare,
     create,
     tryCreate,
+    status,
   }
 }

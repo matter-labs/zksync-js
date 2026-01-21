@@ -280,14 +280,14 @@ export const OP_WITHDRAWALS = {
 
 // Operation constants for Interop error contexts
 export const OP_INTEROP = {
-  // // high-level flow ops (match resource methods)
+  // high-level flow ops (match resource methods)
   quote: 'interop.quote',
   tryQuote: 'interop.tryQuote',
   prepare: 'interop.prepare',
   tryPrepare: 'interop.tryPrepare',
   create: 'interop.create',
   tryCreate: 'interop.tryCreate',
-  // status: 'interop.status',
+  status: 'interop.status',
   // wait: 'interop.wait',
   // tryWait: 'interop.tryWait',
   // finalize: 'interop.finalize',
@@ -325,20 +325,20 @@ export const OP_INTEROP = {
   //   waitStep: 'interop.exec:waitStep',
   // },
 
-  // // status service (logs & derivation)
-  // svc: {
-  //   status: {
-  //     sourceReceipt: 'interop.svc.status:sourceReceipt',
-  //     ensureAddresses: 'interop.svc.status:ensureAddresses',
-  //     buildTopics: 'interop.svc.status:buildTopics',
-  //     parseSentLog: 'interop.svc.status:parseSentLog',
-  //     requireDstProvider: 'interop.svc.status:requireDstProvider',
-  //     dstLogs: 'interop.svc.status:dstLogs',
-  //     derive: 'interop.svc.status:derive',
-  //   },
-  //   wait: {
-  //     poll: 'interop.svc.wait:poll',
-  //     timeout: 'interop.svc.wait:timeout',
-  //   },
-  // },
+  // status service (logs & derivation)
+  svc: {
+    status: {
+      sourceReceipt: 'interop.svc.status:sourceReceipt',
+      ensureAddresses: 'interop.svc.status:ensureAddresses',
+      // buildTopics: 'interop.svc.status:buildTopics',
+      parseSentLog: 'interop.svc.status:parseSentLog',
+      requireDstProvider: 'interop.svc.status:requireDstProvider',
+      dstLogs: 'interop.svc.status:dstLogs',
+      derive: 'interop.svc.status:derive',
+    },
+    wait: {
+      //poll: 'interop.svc.wait:poll',
+      //timeout: 'interop.svc.wait:timeout',
+    },
+  },
 } as const;
