@@ -1,55 +1,55 @@
 const IERC7786AttributesABI = [
   {
-    type: 'function',
-    name: 'executionAddress',
     inputs: [
       {
+        internalType: 'bytes',
         name: '_executionAddress',
         type: 'bytes',
-        internalType: 'bytes',
       },
     ],
+    name: 'executionAddress',
     outputs: [],
     stateMutability: 'pure',
+    type: 'function',
   },
   {
-    type: 'function',
-    name: 'indirectCall',
     inputs: [
       {
+        internalType: 'uint256',
         name: '_indirectCallMessageValue',
         type: 'uint256',
-        internalType: 'uint256',
       },
     ],
+    name: 'indirectCall',
     outputs: [],
     stateMutability: 'pure',
+    type: 'function',
   },
   {
-    type: 'function',
-    name: 'interopCallValue',
     inputs: [
       {
+        internalType: 'uint256',
         name: '_interopCallValue',
         type: 'uint256',
-        internalType: 'uint256',
       },
     ],
+    name: 'interopCallValue',
     outputs: [],
     stateMutability: 'pure',
+    type: 'function',
   },
   {
-    type: 'function',
-    name: 'unbundlerAddress',
     inputs: [
       {
+        internalType: 'bytes',
         name: '_unbundlerAddress',
         type: 'bytes',
-        internalType: 'bytes',
       },
     ],
+    name: 'unbundlerAddress',
     outputs: [],
     stateMutability: 'pure',
+    type: 'function',
   },
 ] as const;
 

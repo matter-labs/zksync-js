@@ -23,7 +23,7 @@ import { ETH_ADDRESS } from '../../../src/core/constants';
 // Replace with your own endpoints or load from .env
 const L1_RPC = process.env.L1_RPC_URL ?? 'http://localhost:8545';
 const L2_RPC = process.env.L2_RPC_URL ?? 'http://localhost:3050';
-const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '';
+const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110';
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('⚠️ Set your PRIVATE_KEY in the .env file');
@@ -46,7 +46,7 @@ async function main() {
 
   // --- DEPOSIT PARAMS ---
   const params = {
-    amount: parseEther('0.01'),
+    amount: parseEther('100'),
     token: ETH_ADDRESS, // ETH Address
     to: me,
     // optional advanced params:
