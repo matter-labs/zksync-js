@@ -85,3 +85,9 @@ export interface InteropStatus {
   dstExecTxHash?: Hex;
   dstChainId?: bigint;
 }
+
+export interface InteropFinalizationResult {
+  bundleHash: Hex;
+  dstChainId: bigint;
+  dstExecTxHash: Hex;
+}

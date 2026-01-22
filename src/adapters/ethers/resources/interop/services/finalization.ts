@@ -264,16 +264,16 @@ async function queryDstBundleLifecycle(args: {
 export interface InteropFinalizationServices {
     deriveStatus(input: InteropWaitable): Promise<InteropStatus>;
 
-    //   waitForPhase(
-    //     input: InteropWaitable,
-    //     target: 'verified' | 'executed',
-    //     opts?: { pollMs?: number; timeoutMs?: number },
-    //   ): Promise<void>;
+    waitForPhase(
+        input: InteropWaitable,
+        target: 'verified' | 'executed',
+        opts?: { pollMs?: number; timeoutMs?: number },
+    ): Promise<void>;
 
-    //   executeBundle(
-    //     bundleHash: Hex,
-    //     dstChainId: bigint,
-    //   ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
+    executeBundle(
+        bundleHash: Hex,
+        dstChainId: bigint,
+    ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
 }
 
 export function createInteropFinalizationServices(
@@ -342,112 +342,111 @@ export function createInteropFinalizationServices(
             return out;
         },
 
-        // async waitForPhase(input, target, opts) {
-        //   const pollMs = opts?.pollMs ?? 3_000;
-        //   const timeoutMs = opts?.timeoutMs ?? 120_000;
-        //   const start = Date.now();
+        async waitForPhase(input, target, opts) {
+            const pollMs = opts?.pollMs ?? 3_000;
+            const timeoutMs = opts?.timeoutMs ?? 120_000;
+            const start = Date.now();
 
-        //   function phaseSatisfied(phase: InteropPhase): boolean {
-        //     if (target === 'verified') {
-        //       return phase === 'VERIFIED' || phase === 'EXECUTED' || phase === 'UNBUNDLED';
-        //     }
-        //     // target === 'executed'
-        //     return phase === 'EXECUTED' || phase === 'UNBUNDLED';
-        //   }
+            function phaseSatisfied(phase: InteropPhase): boolean {
+                if (target === 'verified') {
+                    return phase === 'VERIFIED' || phase === 'EXECUTED' || phase === 'UNBUNDLED';
+                }
+                // target === 'executed'
+                return phase === 'EXECUTED' || phase === 'UNBUNDLED';
+            }
 
-        //   // poll loop
+            // poll loop
+            while (true) {
+                // timeout check
+                if (Date.now() - start > timeoutMs) {
+                    throw toZKsyncError(
+                        'TIMEOUT',
+                        {
+                            resource: 'interop',
+                            operation: OP_INTEROP.svc.wait.timeout,
+                            message: `Timed out waiting for interop bundle to reach ${target}.`,
+                            context: { target, timeoutMs },
+                        },
+                        new Error('timeout'),
+                    );
+                }
 
-        //   while (true) {
-        //     // timeout check
-        //     if (Date.now() - start > timeoutMs) {
-        //       throw toZKsyncError(
-        //         'TIMEOUT',
-        //         {
-        //           resource: 'interop',
-        //           operation: OP_INTEROP.svc.wait.timeout,
-        //           message: `Timed out waiting for interop bundle to reach ${target}.`,
-        //           context: { target, timeoutMs },
-        //         },
-        //         new Error('timeout'),
-        //       );
-        //     }
+                const status = await wrap(OP_INTEROP.svc.wait.poll, () => this.deriveStatus(input), {
+                    ctx: { target },
+                    message: 'Failed while polling interop bundle status.',
+                });
 
-        //     const status = await wrap(OP_INTEROP.svc.wait.poll, () => this.deriveStatus(input), {
-        //       ctx: { target },
-        //       message: 'Failed while polling interop bundle status.',
-        //     });
+                if (phaseSatisfied(status.phase)) {
+                    return;
+                }
 
-        //     if (phaseSatisfied(status.phase)) {
-        //       return;
-        //     }
+                await new Promise((r) => setTimeout(r, pollMs));
+            }
+        },
 
-        //     await new Promise((r) => setTimeout(r, pollMs));
-        //   }
-        // },
+        async executeBundle(bundleHash, dstChainId) {
+            // 1. get signer for destination chain
+            const signer = await wrap(
+                OP_INTEROP.exec.sendStep,
+                () => client.signerFor(dstChainId),
+                {
+                    ctx: { dstChainId, bundleHash },
+                    message: 'Failed to resolve destination signer.',
+                },
+            );
 
-        // async executeBundle(bundleHash, dstChainId) {
-        //   // 1. get signer for destination chain
-        //   const signer = await wrap(
-        //     OP_INTEROP.exec.sendStep,
-        //     () => client.signerFor(dstChainId),
-        //     {
-        //       ctx: { dstChainId, bundleHash },
-        //       message: 'Failed to resolve destination signer.',
-        //     },
-        //   );
+            // 2. get interopHandler address
+            const { interopHandler } = await wrap(
+                OP_INTEROP.svc.status.ensureAddresses,
+                () => client.ensureAddresses(),
+                {
+                    ctx: { where: 'ensureAddresses' },
+                    message: 'Failed to ensure interop handler address.',
+                },
+            );
 
-        //   // 2. get interopHandler address
-        //   const { interopHandler } = await wrap(
-        //     OP_INTEROP.svc.status.ensureAddresses,
-        //     () => client.ensureAddresses(),
-        //     {
-        //       ctx: { where: 'ensureAddresses' },
-        //       message: 'Failed to ensure interop handler address.',
-        //     },
-        //   );
+            // 3. send executeBundle(bundleHash)
+            const handler = new Contract(interopHandler, IInteropHandlerAbi, signer) as Contract & {
+                executeBundle: (bundleHash: Hex) => Promise<ContractTransactionResponse>;
+            };
 
-        //   // 3. send executeBundle(bundleHash)
-        //   const handler = new Contract(interopHandler, IInteropHandlerAbi, signer) as Contract & {
-        //     executeBundle: (bundleHash: Hex) => Promise<ContractTransactionResponse>;
-        //   };
+            try {
+                const txResp: ContractTransactionResponse = await handler.executeBundle(bundleHash);
 
-        //   try {
-        //     const txResp: ContractTransactionResponse = await handler.executeBundle(bundleHash);
+                const hash = txResp.hash as Hex;
 
-        //     const hash = txResp.hash as Hex;
-
-        //     return {
-        //       hash,
-        //       wait: async () => {
-        //         try {
-        //           return (await txResp.wait()) as TransactionReceipt;
-        //         } catch (e) {
-        //           throw toZKsyncError(
-        //             'EXECUTION',
-        //             {
-        //               resource: 'interop',
-        //               operation: OP_INTEROP.exec.waitStep,
-        //               message: 'Failed while waiting for executeBundle transaction on destination.',
-        //               context: { bundleHash, dstChainId, txHash: hash },
-        //             },
-        //             e,
-        //           );
-        //         }
-        //       },
-        //     };
-        //   } catch (e) {
-        //     throw toZKsyncError(
-        //       'EXECUTION',
-        //       {
-        //         resource: 'interop',
-        //         operation: OP_INTEROP.exec.sendStep,
-        //         message: 'Failed to send executeBundle transaction on destination chain.',
-        //         context: { bundleHash, dstChainId },
-        //       },
-        //       e,
-        //     );
-        //   }
-        // },
+                return {
+                    hash,
+                    wait: async () => {
+                        try {
+                            return (await txResp.wait()) as TransactionReceipt;
+                        } catch (e) {
+                            throw toZKsyncError(
+                                'EXECUTION',
+                                {
+                                    resource: 'interop',
+                                    operation: OP_INTEROP.exec.waitStep,
+                                    message: 'Failed while waiting for executeBundle transaction on destination.',
+                                    context: { bundleHash, dstChainId, txHash: hash },
+                                },
+                                e,
+                            );
+                        }
+                    },
+                };
+            } catch (e) {
+                throw toZKsyncError(
+                    'EXECUTION',
+                    {
+                        resource: 'interop',
+                        operation: OP_INTEROP.exec.sendStep,
+                        message: 'Failed to send executeBundle transaction on destination chain.',
+                        context: { bundleHash, dstChainId },
+                    },
+                    e,
+                );
+            }
+        },
     };
 }
 
@@ -459,17 +458,17 @@ export async function status(client: EthersClient, h: InteropWaitable): Promise<
     return svc.deriveStatus(h);
 }
 
-// export async function wait(
-//     client: EthersClient,
-//     h: InteropWaitable,
-//     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-// ): Promise<null> {
-//     const svc = createInteropFinalizationServices(client);
+export async function wait(
+    client: EthersClient,
+    h: InteropWaitable,
+    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+): Promise<null> {
+    const svc = createInteropFinalizationServices(client);
 
-//     await svc.waitForPhase(h, opts.for, {
-//         pollMs: opts.pollMs,
-//         timeoutMs: opts.timeoutMs,
-//     });
+    await svc.waitForPhase(h, opts.for, {
+        pollMs: opts.pollMs,
+        timeoutMs: opts.timeoutMs,
+    });
 
-//     return null;
-// }
+    return null;
+}

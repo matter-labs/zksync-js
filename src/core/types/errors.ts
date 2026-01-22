@@ -29,7 +29,8 @@ export type ErrorType =
   | 'RPC'
   | 'INTERNAL'
   | 'VERIFICATION'
-  | 'CONTRACT';
+  | 'CONTRACT'
+  | 'TIMEOUT';
 
 /** Resource surface */
 export type Resource =
@@ -288,10 +289,10 @@ export const OP_INTEROP = {
   create: 'interop.create',
   tryCreate: 'interop.tryCreate',
   status: 'interop.status',
-  // wait: 'interop.wait',
-  // tryWait: 'interop.tryWait',
-  // finalize: 'interop.finalize',
-  // tryFinalize: 'interop.tryFinalize',
+  wait: 'interop.wait',
+  tryWait: 'interop.tryWait',
+  finalize: 'interop.finalize',
+  tryFinalize: 'interop.tryFinalize',
 
   // route-specific ops (keep names aligned with files)
   routes: {
@@ -318,12 +319,11 @@ export const OP_INTEROP = {
   //   unbundlerAddress: 'interop.attrs:unbundlerAddress',
   // },
 
-  // // execution path (nonce, gas, send, wait) – mirrors deposits’ style
-  // exec: {
-  //   estimateGas: 'interop.exec:estimateGas',
-  //   sendStep: 'interop.exec:sendStep',
-  //   waitStep: 'interop.exec:waitStep',
-  // },
+  // execution path (nonce, gas, send, wait) – mirrors deposits’ style
+  exec: {
+    sendStep: 'interop.exec:sendStep',
+    waitStep: 'interop.exec:waitStep',
+  },
 
   // status service (logs & derivation)
   svc: {
@@ -337,8 +337,8 @@ export const OP_INTEROP = {
       derive: 'interop.svc.status:derive',
     },
     wait: {
-      //poll: 'interop.svc.wait:poll',
-      //timeout: 'interop.svc.wait:timeout',
+      poll: 'interop.svc.wait:poll',
+      timeout: 'interop.svc.wait:timeout',
     },
   },
 } as const;

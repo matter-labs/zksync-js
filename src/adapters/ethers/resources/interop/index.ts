@@ -1,11 +1,11 @@
 // src/adapters/ethers/resources/interop/index.ts
 import type { EthersClient } from '../../client';
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Hex } from '../../../../core/types/primitives';
 import { createEthersAttributesResource } from './attributes';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type {
   InteropParams, InteropRoute, InteropHandle, InteropPlan, InteropAction, InteropQuote,
-  InteropWaitable, InteropStatus
+  InteropWaitable, InteropStatus, InteropFinalizationResult
 } from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
 import { createTokensResource } from '../tokens';
@@ -14,11 +14,9 @@ import type { TokensResource } from '../../../../core/types/flows/token';
 import { routeIndirect } from './routes/indirect';
 import { routeDirect } from './routes/direct';
 import type { InteropRouteStrategy } from './routes/types';
-import type { TransactionReceiptZKsyncOS } from '../withdrawals/routes/types';
-import type { TransactionReceipt } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { isZKsyncError, isReceiptNotFound, OP_INTEROP } from '../../../../core/types/errors';
-import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
+import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
+import { createErrorHandlers } from '../../errors/error-ops';
 import { BuildCtx, commonCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import {
@@ -60,19 +58,20 @@ export interface InteropResource {
 
   status(h: InteropWaitable | Hex): Promise<InteropStatus>;
 
-  // wait(
-  //   h: InteropWaitable | Hex,
-  //   opts: { for: 'l2' | 'ready' | 'finalized'; pollMs?: number; timeoutMs?: number },
-  // ): Promise<TransactionReceiptZKsyncOS | TransactionReceipt | null>;
+  wait(
+    h: InteropWaitable | Hex,
+    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<null>;
 
-  // finalize(l2TxHash: Hex): Promise<{ status: InteropStatus; receipt?: TransactionReceipt }>;
+  tryWait(
+    h: InteropWaitable | Hex,
+    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<{ ok: true; value: null } | { ok: false; error: unknown }>;
 
-  // tryFinalize(
-  //   l2TxHash: Hex,
-  // ): Promise<
-  //   | { ok: true; value: { status: InteropStatus; receipt?: TransactionReceipt } }
-  //   | { ok: false; error: unknown }
-  // >;
+  finalize(h: InteropWaitable | Hex): Promise<InteropFinalizationResult>;
+  tryFinalize(
+    h: InteropWaitable | Hex,
+  ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
 function pickInteropRoute(args: {
@@ -106,7 +105,6 @@ export function createInteropResource(
 
     // // 2) Compute sender and select route
     // const sender = (p.sender ?? client.signer) as Address;
-
     const route = pickInteropRoute({
       actions: p.actions,
       ctx,
@@ -269,6 +267,66 @@ export function createInteropResource(
       ctx: { where: 'interop.status' },
     });
 
+  // wait → block until "verified" or "executed"
+  const wait = (
+    h: InteropWaitable | Hex,
+    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<null> =>
+    wrap(OP_INTEROP.wait, () => interopWait(client, h, opts), {
+      message: 'Internal error while waiting for interop execution.',
+      ctx: { where: 'interop.wait', for: opts.for },
+    });
+
+  const tryWait = (
+    h: InteropWaitable | Hex,
+    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ) => toResult<null>(OP_INTEROP.tryWait, () => wait(h, opts));
+
+  // finalize → executeBundle on destination chain,
+  // waits until that destination tx is mined,
+  // returns finalization metadata for UI / explorers.
+  const finalize = (h: InteropWaitable | Hex): Promise<InteropFinalizationResult> =>
+    wrap(
+      OP_INTEROP.finalize,
+      async () => {
+        const svc = createInteropFinalizationServices(client);
+
+        // deriveStatus resolves bundleHash, dstChainId, etc
+        const st = await svc.deriveStatus(h);
+        const { bundleHash, dstChainId } = st;
+
+        if (!bundleHash || dstChainId == null) {
+          throw createError('STATE', {
+            resource: 'interop',
+            operation: 'interop.finalize',
+            message: 'Cannot finalize: bundleHash or dstChainId not yet known / not proven.',
+            context: { status: st },
+          });
+        }
+
+        // submit executeBundle on destination
+        const execResult = await svc.executeBundle(bundleHash, dstChainId);
+
+        // wait for inclusion / revert surfaced as EXECUTION error
+        await execResult.wait();
+
+        const dstExecTxHash = execResult.hash;
+
+        return {
+          bundleHash,
+          dstChainId,
+          dstExecTxHash,
+        };
+      },
+      {
+        message: 'Failed to finalize/execute interop bundle on destination.',
+        ctx: { where: 'interop.finalize' },
+      },
+    );
+
+  const tryFinalize = (h: InteropWaitable | Hex) =>
+    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h));
+
   return {
     quote,
     tryQuote,
@@ -277,5 +335,9 @@ export function createInteropResource(
     create,
     tryCreate,
     status,
-  }
+    wait,
+    tryWait,
+    finalize,
+    tryFinalize,
+  };
 }

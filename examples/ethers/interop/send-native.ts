@@ -42,8 +42,8 @@ async function main() {
   const sdk = createEthersSdk(client);
   const me = (await signer.getAddress()) as Address;
 
-  // // Route selection ('direct' vs 'indirect') will be decided automatically
-  // // based on base token match & ERC20 usage.
+  // Route selection ('direct' vs 'indirect') will be decided automatically
+  // based on base token match & ERC20 usage.
   // const params = {
   //   sender: me,
   //   dst: DST_CHAIN_ID,
@@ -135,41 +135,41 @@ async function main() {
   //   dstExecTxHash?: '0x...'
   // }
 
-  // // -------------------------------------------------
-  // // 5. WAIT UNTIL VERIFIED ON DEST (PROVABLE / READY)
-  // // -------------------------------------------------
-  // // This polls until the destination chain marks the bundle as verified
-  // await sdk.interop.wait(created, { for: 'verified', pollMs: 5_000 });
-  // console.log('Bundle is VERIFIED / ready to execute on destination.');
+  // -------------------------------------------------
+  // 5. WAIT UNTIL VERIFIED ON DEST (PROVABLE / READY)
+  // -------------------------------------------------
+  // This polls until the destination chain marks the bundle as verified
+  await sdk.interop.wait(created, { for: 'verified', pollMs: 5_000 });
+  console.log('Bundle is VERIFIED / ready to execute on destination.');
 
-  // // You can inspect updated status again here if you want:
-  // const st1 = await sdk.interop.status(created);
-  // console.log('STATUS after verified:', st1);
-  // // phase should now be 'VERIFIED'
-  // // st1.bundleHash should be known
-  // // st1.dstChainId should be known
+  // You can inspect updated status again here if you want:
+  const st1 = await sdk.interop.status(created);
+  console.log('STATUS after verified:', st1);
+  // phase should now be 'VERIFIED'
+  // st1.bundleHash should be known
+  // st1.dstChainId should be known
 
-  // // -----------------------------------------------------
-  // // 6. FINALIZE (EXECUTE ON DESTINATION AND BLOCK UNTIL DONE)
-  // // -----------------------------------------------------
-  // // finalize() calls executeBundle(...) on the destination chain,
-  // // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
-  // const fin = await sdk.interop.finalize(created);
-  // console.log('FINALIZE RESULT:', fin);
-  // // {
-  // //   bundleHash: '0x...',
-  // //   dstChainId: 260n,
-  // //   dstExecTxHash: '0x...'
-  // // }
+  // -----------------------------------------------------
+  // 6. FINALIZE (EXECUTE ON DESTINATION AND BLOCK UNTIL DONE)
+  // -----------------------------------------------------
+  // finalize() calls executeBundle(...) on the destination chain,
+  // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
+  const fin = await sdk.interop.finalize(created);
+  console.log('FINALIZE RESULT:', fin);
+  // {
+  //   bundleHash: '0x...',
+  //   dstChainId: 260n,
+  //   dstExecTxHash: '0x...'
+  // }
 
-  // // After this point, the value should be delivered / available on dst.
+  // After this point, the value should be delivered / available on dst.
 
-  // // --------------------------------
-  // // 7. STATUS (terminal: EXECUTED)
-  // // --------------------------------
-  // const st2 = await sdk.interop.status(created);
-  // console.log('STATUS after finalize:', st2);
-  // // phase should now be 'EXECUTED' (or 'UNBUNDLED' in partial-exec flows)
+  // --------------------------------
+  // 7. STATUS (terminal: EXECUTED)
+  // --------------------------------
+  const st2 = await sdk.interop.status(created);
+  console.log('STATUS after finalize:', st2);
+  // phase should now be 'EXECUTED' (or 'UNBUNDLED' in partial-exec flows)
 }
 
 main().catch((e) => {
