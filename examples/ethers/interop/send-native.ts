@@ -5,6 +5,7 @@ import {
   createEthersSdk,
 } from '../../../src/adapters/ethers';
 import { type Address } from '../../../src/core';
+import { AbiCoder } from "ethers";
 import { InteropCenterABI } from '../../../src/core/abi';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
@@ -26,6 +27,7 @@ async function main() {
   // - l1: still required by client
   const l1 = new JsonRpcProvider(L1_RPC);
   const l2 = new JsonRpcProvider(SRC_L2_RPC);
+  const abi = AbiCoder.defaultAbiCoder();
 
   // Signer must be funded on source L2 (client.l2)
   const signer = new Wallet(PRIVATE_KEY, l2);
@@ -40,17 +42,19 @@ async function main() {
     },
   });
   const sdk = createEthersSdk(client);
-  const me = (await signer.getAddress()) as Address;
 
-  // Route selection ('direct' vs 'indirect') will be decided automatically
-  // based on base token match & ERC20 usage.
+  const me = (await signer.getAddress()) as Address;
+  const recipientOnDst = me as Address;
+
+  // // Route selection ('direct' vs 'indirect') will be decided automatically
+  // // based on base token match & ERC20 usage.
   // const params = {
   //   sender: me,
   //   dst: DST_CHAIN_ID,
   //   actions: [
   //     {
   //       type: 'sendNative' as const,
-  //       to: me as Address,
+  //       to: recipientOnDst,
   //       amount: parseEther('0.01'),
   //     },
   //   ],
@@ -59,8 +63,8 @@ async function main() {
   //   // unbundling: { by: someUnbundlerAddress },
   // };
 
-  const iface = new Interface(["function f(string)"]);
-  const data = iface.encodeFunctionData("f", ["hello123"]) as `0x${string}`;
+
+  const data = abi.encode(["string"], ["hello new test 123!"]) as `0x${string}`;
 
   const params = {
     sender: me,
@@ -136,16 +140,21 @@ async function main() {
   // }
 
   // -------------------------------------------------
-  // 5. WAIT UNTIL VERIFIED ON DEST (PROVABLE / READY)
+  // 5. WAIT FOR SOURCE FINALIZATION + DEST ROOT AVAILABILITY
   // -------------------------------------------------
-  // This polls until the destination chain marks the bundle as verified
-  await sdk.interop.wait(created, { for: 'verified', pollMs: 5_000 });
-  console.log('Bundle is VERIFIED / ready to execute on destination.');
+  // This waits until the L2->L1 proof is available on source and the interop root
+  // becomes available on the destination chain. It returns the proof payload needed
+  // to execute the bundle later.
+  const finalizationInfo = await sdk.interop.wait(created, {
+    pollMs: 5_000,
+    timeoutMs: 30 * 60 * 1_000,
+  });
+  console.log('Bundle is finalized on source; root available on destination.');
 
   // You can inspect updated status again here if you want:
   const st1 = await sdk.interop.status(created);
-  console.log('STATUS after verified:', st1);
-  // phase should now be 'VERIFIED'
+  console.log('STATUS after wait:', st1);
+  // phase should be at least 'SENT' (execution depends on someone submitting the bundle)
   // st1.bundleHash should be known
   // st1.dstChainId should be known
 
@@ -154,7 +163,7 @@ async function main() {
   // -----------------------------------------------------
   // finalize() calls executeBundle(...) on the destination chain,
   // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
-  const fin = await sdk.interop.finalize(created);
+  const fin = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', fin);
   // {
   //   bundleHash: '0x...',

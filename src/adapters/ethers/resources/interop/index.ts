@@ -5,7 +5,7 @@ import { createEthersAttributesResource } from './attributes';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type {
   InteropParams, InteropRoute, InteropHandle, InteropPlan, InteropAction, InteropQuote,
-  InteropWaitable, InteropStatus, InteropFinalizationResult
+  InteropWaitable, InteropStatus, InteropFinalizationInfo, InteropFinalizationResult
 } from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
 import { createTokensResource } from '../tokens';
@@ -60,13 +60,13 @@ export interface InteropResource {
 
   wait(
     h: InteropWaitable | Hex,
-    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-  ): Promise<null>;
+    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<InteropFinalizationInfo>;
 
   tryWait(
     h: InteropWaitable | Hex,
-    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-  ): Promise<{ ok: true; value: null } | { ok: false; error: unknown }>;
+    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
   finalize(h: InteropWaitable | Hex): Promise<InteropFinalizationResult>;
   tryFinalize(
@@ -267,20 +267,20 @@ export function createInteropResource(
       ctx: { where: 'interop.status' },
     });
 
-  // wait → block until "verified" or "executed"
+  // wait → block until source finalization + destination root availability
   const wait = (
     h: InteropWaitable | Hex,
-    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-  ): Promise<null> =>
+    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+  ): Promise<InteropFinalizationInfo> =>
     wrap(OP_INTEROP.wait, () => interopWait(client, h, opts), {
-      message: 'Internal error while waiting for interop execution.',
-      ctx: { where: 'interop.wait', for: opts.for },
+      message: 'Internal error while waiting for interop finalization.',
+      ctx: { where: 'interop.wait', for: opts?.for },
     });
 
   const tryWait = (
     h: InteropWaitable | Hex,
     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-  ) => toResult<null>(OP_INTEROP.tryWait, () => wait(h, opts));
+  ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,
@@ -290,22 +290,10 @@ export function createInteropResource(
       OP_INTEROP.finalize,
       async () => {
         const svc = createInteropFinalizationServices(client);
-
-        // deriveStatus resolves bundleHash, dstChainId, etc
-        const st = await svc.deriveStatus(h);
-        const { bundleHash, dstChainId } = st;
-
-        if (!bundleHash || dstChainId == null) {
-          throw createError('STATE', {
-            resource: 'interop',
-            operation: 'interop.finalize',
-            message: 'Cannot finalize: bundleHash or dstChainId not yet known / not proven.',
-            context: { status: st },
-          });
-        }
+        const info = await svc.waitForFinalization(h);
 
         // submit executeBundle on destination
-        const execResult = await svc.executeBundle(bundleHash, dstChainId);
+        const execResult = await svc.executeBundle(info);
 
         // wait for inclusion / revert surfaced as EXECUTION error
         await execResult.wait();
@@ -313,8 +301,8 @@ export function createInteropResource(
         const dstExecTxHash = execResult.hash;
 
         return {
-          bundleHash,
-          dstChainId,
+          bundleHash: info.bundleHash,
+          dstChainId: info.dstChainId,
           dstExecTxHash,
         };
       },

@@ -65,7 +65,7 @@ export interface InteropHandle<Tx>
 /** === Waitable === */
 export type InteropWaitable =
   | Hex
-  | { l2SrcTxHash?: Hex; l1MsgHash?: Hex; bundleHash?: Hex; dstExecTxHash?: Hex }
+  | { l2SrcTxHash?: Hex; l1MsgHash?: Hex; bundleHash?: Hex; dstChainId?: bigint; dstExecTxHash?: Hex }
   | InteropHandle<unknown>;
 
 /** === Status & phases === */
@@ -84,6 +84,33 @@ export interface InteropStatus {
   bundleHash?: Hex;
   dstExecTxHash?: Hex;
   dstChainId?: bigint;
+}
+
+export interface InteropExpectedRoot {
+  rootChainId: bigint;
+  batchNumber: bigint;
+  expectedRoot: Hex;
+}
+
+export interface InteropMessageProof {
+  chainId: bigint;
+  l1BatchNumber: bigint;
+  l2MessageIndex: bigint;
+  message: {
+    txNumberInBatch: number;
+    sender: Address;
+    data: Hex;
+  };
+  proof: Hex[];
+}
+
+export interface InteropFinalizationInfo {
+  l2SrcTxHash: Hex;
+  bundleHash: Hex;
+  dstChainId: bigint;
+  expectedRoot: InteropExpectedRoot;
+  proof: InteropMessageProof;
+  encodedData: Hex;
 }
 
 export interface InteropFinalizationResult {

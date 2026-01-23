@@ -26,6 +26,7 @@ export type ProofNormalized = {
   id: bigint;
   batchNumber: bigint;
   proof: Hex[];
+  root?: Hex;
 };
 
 export type GenesisContractDeployment = {

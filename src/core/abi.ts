@@ -12,4 +12,5 @@ export { default as IERC7786AttributesABI } from './internal/abis/IERC7786Attrib
 export { default as MailboxABI } from './internal/abis/Mailbox';
 export { default as InteropCenterABI } from './internal/abis/InteropCenter';
 export { default as IInteropHandlerABI } from './internal/abis/IInteropHandler';
+export { default as InteropRootStorageABI } from './internal/abis/InteropRootStorage';
 export { default as L2MessageVerificationABI } from './internal/abis/L2MessageVerification';

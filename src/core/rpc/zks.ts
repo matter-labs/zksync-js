@@ -74,10 +74,26 @@ export function normalizeProof(p: unknown): ProofNormalized {
                 });
               })();
 
+    const rootRaw = raw?.root ?? raw?.root_hash;
+    const root =
+      rootRaw == null
+        ? undefined
+        : typeof rootRaw === 'string' && rootRaw.startsWith('0x')
+          ? (rootRaw as Hex)
+          : (() => {
+              throw createError('RPC', {
+                resource: 'zksrpc' as Resource,
+                operation: 'zksrpc.normalizeProof',
+                message: 'Malformed proof: invalid root field.',
+                context: { valueType: typeof rootRaw },
+              });
+            })();
+
     return {
       id: toBig(idRaw),
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
+      ...(root ? { root } : {}),
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;
