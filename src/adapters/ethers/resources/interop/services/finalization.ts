@@ -40,6 +40,8 @@ import IInteropHandlerAbi from '../../../../../core/internal/abis/IInteropHandle
 // error handling
 const { wrap } = createErrorHandlers('interop');
 
+const ABI = AbiCoder.defaultAbiCoder();
+
 /**
  * Internal: normalized identifiers we carry through status lookups.
  */
@@ -68,7 +70,9 @@ function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropIds {
     };
 }
 
-function isFinalizationInfo(input: InteropWaitable | Hex | InteropFinalizationInfo): input is InteropFinalizationInfo {
+function isFinalizationInfo(
+    input: InteropWaitable | Hex | InteropFinalizationInfo,
+): input is InteropFinalizationInfo {
     return (
         typeof input === 'object' &&
         input !== null &&
@@ -81,27 +85,19 @@ function isFinalizationInfo(input: InteropWaitable | Hex | InteropFinalizationIn
 const DEFAULT_POLL_MS = 1_000;
 const DEFAULT_TIMEOUT_MS = 300_000;
 
-function isL1MessageSentLog(log: { address?: string; topics?: readonly Hex[] }): boolean {
-    const logAddr = (log.address ?? '').toLowerCase();
-    if (logAddr !== L1_MESSENGER_ADDRESS.toLowerCase()) return false;
-    const t0 = (log.topics?.[0] ?? '').toLowerCase();
-    return t0 === TOPIC_L1_MESSAGE_SENT_NEW.toLowerCase() || t0 === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase();
+const L1_MESSENGER_ADDRESS_LOWER = L1_MESSENGER_ADDRESS.toLowerCase();
+const L1_MESSAGE_SENT_TOPICS = new Set([
+    TOPIC_L1_MESSAGE_SENT_NEW.toLowerCase(),
+    TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase(),
+]);
+
+function isL1MessageSentLog(log: { address: string; topics: readonly Hex[] }): boolean {
+    return log.address.toLowerCase() === L1_MESSENGER_ADDRESS_LOWER &&
+        L1_MESSAGE_SENT_TOPICS.has(log.topics[0].toLowerCase());
 }
 
-function decodeL1MessageData(log: { data?: Hex; topics?: readonly Hex[] }): Hex {
-    const data = log.data;
-    if (!data) {
-        throw new Error('Missing L1MessageSent log data.');
-    }
-
-    const topics = log.topics ?? [];
-    const abi = AbiCoder.defaultAbiCoder();
-
-    if (topics.length > 1) {
-        return abi.decode(['bytes'], data)[0] as Hex;
-    }
-
-    return abi.decode(['uint256', 'bytes32', 'bytes'], data)[2] as Hex;
+function decodeL1MessageData(log: { data: Hex; topics: readonly Hex[] }): Hex {
+    return ABI.decode(['bytes'], log.data)[0] as Hex;
 }
 
 function resolveTxIndex(raw: ReceiptWithL2ToL1): number {
@@ -235,7 +231,6 @@ interface BundleReceiptInfo {
     bundleHash: Hex;
     dstChainId: bigint;
     sourceChainId: bigint;
-    interopBundle: unknown;
     l1MessageData: Hex;
     l1MessageIndex: number;
     l2ToL1LogIndex: number;
@@ -285,21 +280,20 @@ async function parseBundleReceiptInfo(args: {
     const sentTopic = centerIface.getEvent('InteropBundleSent')!.topicHash as Hex;
 
     let l1MessageIndex = -1;
-    let lastMessageData: Hex | null = null;
+    let l1MessageData: Hex | null = null;
     let found:
         | {
-              bundleHash: Hex;
-              dstChainId: bigint;
-              sourceChainId: bigint;
-              interopBundle: unknown;
-          }
+            bundleHash: Hex;
+            dstChainId: bigint;
+            sourceChainId: bigint;
+        }
         | undefined;
 
     for (const log of rawReceipt.logs ?? []) {
         if (isL1MessageSentLog(log)) {
             l1MessageIndex += 1;
             try {
-                lastMessageData = decodeL1MessageData(log);
+                l1MessageData = decodeL1MessageData(log);
             } catch (e) {
                 throw toZKsyncError(
                     'STATE',
@@ -346,7 +340,6 @@ async function parseBundleReceiptInfo(args: {
             bundleHash: decodedBundleHash,
             dstChainId: decoded.interopBundle.destinationChainId,
             sourceChainId: decoded.interopBundle.sourceChainId,
-            interopBundle: decoded.interopBundle,
         };
         break;
     }
@@ -364,7 +357,7 @@ async function parseBundleReceiptInfo(args: {
         );
     }
 
-    if (!lastMessageData) {
+    if (!l1MessageData) {
         throw toZKsyncError(
             'STATE',
             {
@@ -411,8 +404,7 @@ async function parseBundleReceiptInfo(args: {
         bundleHash: found.bundleHash,
         dstChainId: found.dstChainId,
         sourceChainId: found.sourceChainId,
-        interopBundle: found.interopBundle,
-        l1MessageData: lastMessageData,
+        l1MessageData,
         l1MessageIndex,
         l2ToL1LogIndex,
         txNumberInBatch,
@@ -678,12 +670,6 @@ async function queryDstBundleLifecycle(args: {
 export interface InteropFinalizationServices {
     deriveStatus(input: InteropWaitable): Promise<InteropStatus>;
 
-    waitForPhase(
-        input: InteropWaitable,
-        target: 'verified' | 'executed',
-        opts?: { pollMs?: number; timeoutMs?: number },
-    ): Promise<void>;
-
     waitForFinalization(
         input: InteropWaitable | Hex | InteropFinalizationInfo,
         opts?: { pollMs?: number; timeoutMs?: number },
@@ -758,48 +744,6 @@ export function createInteropFinalizationServices(
                 dstChainId: enrichedIds.dstChainId,
             };
             return out;
-        },
-
-        async waitForPhase(input, target, opts) {
-            const pollMs = opts?.pollMs ?? 3_000;
-            const timeoutMs = opts?.timeoutMs ?? 120_000;
-            const start = Date.now();
-
-            function phaseSatisfied(phase: InteropPhase): boolean {
-                if (target === 'verified') {
-                    return phase === 'VERIFIED' || phase === 'EXECUTED' || phase === 'UNBUNDLED';
-                }
-                // target === 'executed'
-                return phase === 'EXECUTED' || phase === 'UNBUNDLED';
-            }
-
-            // poll loop
-            while (true) {
-                // timeout check
-                if (Date.now() - start > timeoutMs) {
-                    throw toZKsyncError(
-                        'TIMEOUT',
-                        {
-                            resource: 'interop',
-                            operation: OP_INTEROP.svc.wait.timeout,
-                            message: `Timed out waiting for interop bundle to reach ${target}.`,
-                            context: { target, timeoutMs },
-                        },
-                        new Error('timeout'),
-                    );
-                }
-
-                const status = await wrap(OP_INTEROP.svc.wait.poll, () => this.deriveStatus(input), {
-                    ctx: { target },
-                    message: 'Failed while polling interop bundle status.',
-                });
-
-                if (phaseSatisfied(status.phase)) {
-                    return;
-                }
-
-                await new Promise((r) => setTimeout(r, pollMs));
-            }
         },
 
         async waitForFinalization(input, opts) {

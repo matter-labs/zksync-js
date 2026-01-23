@@ -46,40 +46,40 @@ async function main() {
   const me = (await signer.getAddress()) as Address;
   const recipientOnDst = me as Address;
 
-  // // Route selection ('direct' vs 'indirect') will be decided automatically
-  // // based on base token match & ERC20 usage.
-  // const params = {
-  //   sender: me,
-  //   dst: DST_CHAIN_ID,
-  //   actions: [
-  //     {
-  //       type: 'sendNative' as const,
-  //       to: recipientOnDst,
-  //       amount: parseEther('0.01'),
-  //     },
-  //   ],
-  //   // Optional bundle-level execution constraints:
-  //   // execution: { only: someExecAddress },
-  //   // unbundling: { by: someUnbundlerAddress },
-  // };
-
-
-  const data = abi.encode(["string"], ["hello new test 123!"]) as `0x${string}`;
-
+  // Route selection ('direct' vs 'indirect') will be decided automatically
+  // based on base token match & ERC20 usage.
   const params = {
     sender: me,
     dst: DST_CHAIN_ID,
     actions: [
       {
-        type: 'call' as const,
-        to: '0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d' as `0x${string}`,
-        data: data,
+        type: 'sendNative' as const,
+        to: recipientOnDst,
+        amount: parseEther('1'),
       },
     ],
     // Optional bundle-level execution constraints:
     // execution: { only: someExecAddress },
     // unbundling: { by: someUnbundlerAddress },
   };
+
+
+  // const data = abi.encode(["string"], ["hello from example!"]) as `0x${string}`;
+
+  // const params = {
+  //   sender: me,
+  //   dst: DST_CHAIN_ID,
+  //   actions: [
+  //     {
+  //       type: 'call' as const,
+  //       to: '0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d' as `0x${string}`,
+  //       data: data,
+  //     },
+  //   ],
+  //   // Optional bundle-level execution constraints:
+  //   // execution: { only: someExecAddress },
+  //   // unbundling: { by: someUnbundlerAddress },
+  // };
 
   // --------
   // 1. QUOTE
