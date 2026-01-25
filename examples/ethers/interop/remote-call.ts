@@ -6,12 +6,10 @@ import {
 } from '../../../src/adapters/ethers';
 import { type Address } from '../../../src/core';
 import { AbiCoder } from "ethers";
-import { InteropCenterABI } from '../../../src/core/abi';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
-const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3150';
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY ?? '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110';
 
@@ -55,7 +53,7 @@ async function main() {
       {
         type: 'sendNative' as const,
         to: recipientOnDst,
-        amount: parseEther('1'),
+        amount: parseEther('0'),
       },
     ],
     // Optional bundle-level execution constraints:
