@@ -1,8 +1,5 @@
-// src/adapters/ethers/resources/interop/index.ts
-import type { EthersClient } from '../../client';
+import type { ViemClient } from '../../client';
 import type { Hex } from '../../../../core/types/primitives';
-import { createEthersAttributesResource } from './attributes';
-import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type {
   InteropParams,
   InteropRoute,
@@ -14,20 +11,19 @@ import type {
   InteropFinalizationInfo,
   InteropFinalizationResult,
 } from '../../../../core/types/flows/interop';
-import type { ContractsResource } from '../contracts';
-import { createTokensResource } from '../tokens';
-import { createContractsResource } from '../contracts';
 import type { TokensResource } from '../../../../core/types/flows/token';
+import type { ContractsResource } from '../contracts';
+import type { WriteContractParameters } from 'viem';
+
+import { commonCtx } from './context';
 import { routeIndirect } from './routes/indirect';
 import { routeDirect } from './routes/direct';
-import type { InteropRouteStrategy } from './routes/types';
-import type { TransactionRequest } from 'ethers';
+import type { InteropRouteStrategy, ViemPlanWriteRequest } from './routes/types';
+import { createTokensResource } from '../tokens';
+import { createContractsResource } from '../contracts';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
-import { createErrorHandlers } from '../../errors/error-ops';
-import { commonCtx } from './context';
-import type { BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
-import { pickInteropRoute } from '../../../../core/resources/interop/route';
+import { createErrorHandlers } from '../../errors/error-ops';
 import {
   status as interopStatus,
   wait as interopWait,
@@ -36,9 +32,6 @@ import {
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
-// --------------------
-// Interop Route map
-// --------------------
 export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
   direct: routeDirect(),
   indirect: routeIndirect(),
@@ -51,18 +44,18 @@ export interface InteropResource {
     p: InteropParams,
   ): Promise<{ ok: true; value: InteropQuote } | { ok: false; error: unknown }>;
 
-  prepare(p: InteropParams): Promise<InteropPlan<TransactionRequest>>;
+  prepare(p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>>;
 
   tryPrepare(
     p: InteropParams,
-  ): Promise<{ ok: true; value: InteropPlan<TransactionRequest> } | { ok: false; error: unknown }>;
+  ): Promise<{ ok: true; value: InteropPlan<ViemPlanWriteRequest> } | { ok: false; error: unknown }>;
 
-  create(p: InteropParams): Promise<InteropHandle<TransactionRequest>>;
+  create(p: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>>;
 
   tryCreate(
     p: InteropParams,
   ): Promise<
-    { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
+    { ok: true; value: InteropHandle<ViemPlanWriteRequest> } | { ok: false; error: unknown }
   >;
 
   status(h: InteropWaitable | Hex): Promise<InteropStatus>;
@@ -84,38 +77,17 @@ export interface InteropResource {
 }
 
 export function createInteropResource(
-  client: EthersClient,
+  client: ViemClient,
   tokens?: TokensResource,
   contracts?: ContractsResource,
-  attributes?: AttributesResource,
 ): InteropResource {
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
-  const attributesResource = attributes ?? createEthersAttributesResource();
 
-  // Internal helper: buildPlan constructs an InteropPlan for the given params.
-  // It does not execute any transactions.
-  async function buildPlan(p: InteropParams): Promise<InteropPlan<TransactionRequest>> {
-    // 1) Build adapter context (providers, signer, addresses, ABIs, topics, base tokens)
-    const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
+  async function buildPlan(p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> {
+    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
+    const route = ctx.route;
 
-    // // 2) Compute sender and select route
-    // const sender = (p.sender ?? client.signer) as Address;
-    const route = pickInteropRoute({
-      actions: p.actions,
-      ctx: {
-        sender: ctx.sender,
-        srcChainId: ctx.chainId,
-        dstChainId: ctx.dstChainId,
-        baseTokenSrc: ctx.baseTokens.src,
-        baseTokenDst: ctx.baseTokens.dst,
-      },
-    });
-
-    // 3) Extend context so indirect route can embed sender into payloads
-    //const ctx = { ...ethCtx, route, sender } as const;
-
-    // 4) Route-level preflight
     await wrap(
       route === 'direct'
         ? OP_INTEROP.routes.direct.preflight
@@ -127,7 +99,6 @@ export function createInteropResource(
       },
     );
 
-    // 5) Build concrete steps, approvals, and quote extras
     const { steps, approvals, quoteExtras } = await wrap(
       route === 'direct' ? OP_INTEROP.routes.direct.build : OP_INTEROP.routes.indirect.build,
       () => ROUTES[route].build(p, ctx),
@@ -137,7 +108,6 @@ export function createInteropResource(
       },
     );
 
-    // 6) Assemble plan summary
     const summary: InteropQuote = {
       route,
       approvalsNeeded: approvals,
@@ -148,7 +118,6 @@ export function createInteropResource(
     return { route, summary, steps };
   }
 
-  // quote → build and return the summary
   const quote = (p: InteropParams): Promise<InteropQuote> =>
     wrap(OP_INTEROP.quote, async () => {
       const plan = await buildPlan(p);
@@ -158,87 +127,72 @@ export function createInteropResource(
   const tryQuote = (p: InteropParams) =>
     toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(p));
 
-  // prepare → build plan without executing
-  const prepare = (p: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
+  const prepare = (p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(p), {
-      message: 'Internal error while preparing a deposit plan.',
+      message: 'Internal error while preparing an interop plan.',
       ctx: { where: 'interop.prepare', dst: p.dst },
     });
 
   const tryPrepare = (p: InteropParams) =>
-    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(p));
+    toResult<InteropPlan<ViemPlanWriteRequest>>(OP_INTEROP.tryPrepare, () => prepare(p));
 
-  // create → execute the source-chain step(s)
-  // waits for each tx receipt to confirm (status != 0)
-  const create = (p: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
+  const create = (p: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
-        // Build plan (like before)
         const plan = await prepare(p);
 
-        // Build the SAME interop context we used to build that plan
-        const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
-        // source signer MUST be bound to ctx.srcChainId
-        const signer = ctx.client.signerFor(ctx.chainId);
-        const srcProvider = ctx.client.getProvider(ctx.chainId)!;
-
-        const from = await signer.getAddress();
-        let next = await srcProvider.getTransactionCount(from, 'latest');
+        const wallet = await client.walletFor();
+        const from = client.account.address;
+        let next = await client.l2.getTransactionCount({ address: from, blockTag: 'latest' });
 
         const stepHashes: Record<string, Hex> = {};
 
         for (const step of plan.steps) {
-          // lock in nonce
-          step.tx.nonce = step.tx.nonce ?? next++;
+          const nonce = next++;
 
-          // lock in chainId so ethers doesn't guess
-          if (!step.tx.chainId) {
-            step.tx.chainId = Number(ctx.chainId);
-          }
+          const baseReq = {
+            address: step.tx.address,
+            abi: step.tx.abi,
+            functionName: step.tx.functionName,
+            args: step.tx.args,
+            account: step.tx.account ?? client.account,
+            gas: step.tx.gas,
+            nonce,
+            ...(step.tx.maxFeePerGas != null ? { maxFeePerGas: step.tx.maxFeePerGas } : {}),
+            ...(step.tx.maxPriorityFeePerGas != null
+              ? { maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas }
+              : {}),
+            ...(step.tx.dataSuffix ? { dataSuffix: step.tx.dataSuffix } : {}),
+            ...(step.tx.chain ? { chain: step.tx.chain } : {}),
+          } as Omit<WriteContractParameters, 'value'>;
 
-          // best-effort gasLimit with buffer
-          if (!step.tx.gasLimit) {
-            try {
-              try {
-                await srcProvider.call(step.tx); // 'call' gives better revert data than 'estimateGas'
-              } catch (e) {
-                console.log("REAL ERROR:", (e as any).data); // This hex string can be decoded
-              }
-
-              const est = await srcProvider.estimateGas(step.tx);
-              step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-            } catch {
-              // ignore; signer can still populate
-            }
-          }
+          const req: WriteContractParameters =
+            step.tx.value != null
+              ? ({ ...baseReq, value: step.tx.value } as WriteContractParameters)
+              : (baseReq as WriteContractParameters);
 
           let hash: Hex | undefined;
           try {
-            const sent = await signer.sendTransaction(step.tx);
-            hash = sent.hash as Hex;
+            hash = await wallet.writeContract(req);
             stepHashes[step.key] = hash;
 
-            const rcpt = await sent.wait();
-            if (rcpt?.status === 0) {
+            const rcpt = await client.l2.waitForTransactionReceipt({ hash });
+            if (!rcpt || rcpt.status !== 'success') {
               throw createError('EXECUTION', {
                 resource: 'interop',
-                operation: 'interop.create.sendTransaction',
+                operation: 'interop.create.writeContract',
                 message: 'Interop transaction reverted on source L2.',
-                context: { step: step.key, txHash: hash },
+                context: { step: step.key, txHash: hash, status: rcpt?.status },
               });
             }
           } catch (e) {
             if (isZKsyncError(e)) throw e;
             throw createError('EXECUTION', {
               resource: 'interop',
-              operation: 'interop.create.sendTransaction',
+              operation: 'interop.create.writeContract',
               message: 'Failed to send or confirm an interop transaction step.',
-              context: {
-                step: step.key,
-                txHash: hash,
-                nonce: Number(step.tx.nonce ?? -1),
-              },
+              context: { step: step.key, txHash: hash, nonce },
               cause: e as Error,
             });
           }
@@ -260,16 +214,14 @@ export function createInteropResource(
     );
 
   const tryCreate = (p: InteropParams) =>
-    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(p));
+    toResult<InteropHandle<ViemPlanWriteRequest>>(OP_INTEROP.tryCreate, () => create(p));
 
-  // status → non-blocking lifecycle inspection
   const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>
     wrap(OP_INTEROP.status, () => interopStatus(client, h), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
 
-  // wait → block until source finalization + destination root availability
   const wait = (
     h: InteropWaitable | Hex,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
@@ -284,9 +236,6 @@ export function createInteropResource(
     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
-  // finalize → executeBundle on destination chain,
-  // waits until that destination tx is mined,
-  // returns finalization metadata for UI / explorers.
   const finalize = (h: InteropWaitable | Hex): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
@@ -294,18 +243,13 @@ export function createInteropResource(
         const svc = createInteropFinalizationServices(client);
         const info = await svc.waitForFinalization(h);
 
-        // submit executeBundle on destination
         const execResult = await svc.executeBundle(info);
-
-        // wait for inclusion / revert surfaced as EXECUTION error
         await execResult.wait();
-
-        const dstExecTxHash = execResult.hash;
 
         return {
           bundleHash: info.bundleHash,
           dstChainId: info.dstChainId,
-          dstExecTxHash,
+          dstExecTxHash: execResult.hash,
         };
       },
       {

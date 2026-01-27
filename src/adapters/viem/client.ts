@@ -8,7 +8,7 @@ import type {
   GetContractReturnType,
   Abi,
 } from 'viem';
-import { getContract, createWalletClient } from 'viem';
+import { getContract, createPublicClient, createWalletClient, http, custom } from 'viem';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromViem } from './rpc';
 
@@ -17,6 +17,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 
 // ABIs from internal snapshot (same as ethers adapter)
@@ -28,6 +31,9 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
+  InteropCenterABI,
+  IInteropHandlerABI,
+  L2MessageVerificationABI,
 } from '../../core/abi';
 
 export interface ResolvedAddresses {
@@ -38,19 +44,22 @@ export interface ResolvedAddresses {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
 }
 
 export interface ViemClient {
   readonly kind: 'viem';
   readonly l1: PublicClient;
   readonly l2: PublicClient;
-  readonly l1Wallet: WalletClient<Transport, Chain, Account>;
-  readonly l2Wallet?: WalletClient<Transport, Chain, Account>;
+  readonly l1Wallet: WalletClient<Transport, Chain | undefined, Account>;
+  readonly l2Wallet?: WalletClient<Transport, Chain | undefined, Account>;
   readonly account: Account;
   readonly zks: ZksRpc;
 
   ensureAddresses(): Promise<ResolvedAddresses>;
-  getL2Wallet(): WalletClient<Transport, Chain, Account>;
+  getL2Wallet(): WalletClient<Transport, Chain | undefined, Account>;
   contracts(): Promise<{
     bridgehub: GetContractReturnType<typeof IBridgehubABI, PublicClient>;
     l1AssetRouter: GetContractReturnType<typeof IL1AssetRouterABI, PublicClient>;
@@ -59,16 +68,28 @@ export interface ViemClient {
     l2AssetRouter: GetContractReturnType<typeof IL2AssetRouterABI, PublicClient>;
     l2NativeTokenVault: GetContractReturnType<typeof L2NativeTokenVaultABI, PublicClient>;
     l2BaseTokenSystem: GetContractReturnType<typeof IBaseTokenABI, PublicClient>;
+    interopCenter: GetContractReturnType<typeof InteropCenterABI, PublicClient>;
+    interopHandler: GetContractReturnType<typeof IInteropHandlerABI, PublicClient>;
+    l2MessageVerification: GetContractReturnType<typeof L2MessageVerificationABI, PublicClient>;
   }>;
   refresh(): void;
   baseToken(chainId: bigint): Promise<Address>;
+
+  registerChain(chainId: bigint, clientOrUrl: PublicClient | string): void;
+  registerChains(map: Record<string, PublicClient | string>): void;
+  getPublicClient(chainId: bigint): PublicClient | undefined;
+  requirePublicClient(chainId: bigint): PublicClient;
+  listChains(): bigint[];
+
+  walletFor(target?: 'l1' | bigint): Promise<WalletClient<Transport, Chain | undefined, Account>>;
 }
 
 type InitArgs = {
   l1: PublicClient;
   l2: PublicClient;
-  l1Wallet: WalletClient<Transport, Chain, Account>;
-  l2Wallet?: WalletClient<Transport, Chain, Account>;
+  l1Wallet: WalletClient<Transport, Chain | undefined, Account>;
+  l2Wallet?: WalletClient<Transport, Chain | undefined, Account>;
+  chains?: Record<string, PublicClient | string>;
   overrides?: Partial<ResolvedAddresses>;
 };
 
@@ -82,6 +103,14 @@ export function createViemClient(args: InitArgs): ViemClient {
   const zks = zksRpcFromViem(l2);
 
   let addrCache: ResolvedAddresses | undefined;
+  const chainMap = new Map<bigint, PublicClient>();
+  if (args.chains) {
+    for (const [k, p] of Object.entries(args.chains)) {
+      const id = BigInt(k);
+      const client = typeof p === 'string' ? createPublicClient({ transport: http(p) }) : p;
+      chainMap.set(id, client);
+    }
+  }
   let cCache:
     | {
         bridgehub: GetContractReturnType<typeof IBridgehubABI, PublicClient>;
@@ -91,6 +120,9 @@ export function createViemClient(args: InitArgs): ViemClient {
         l2AssetRouter: GetContractReturnType<typeof IL2AssetRouterABI, PublicClient>;
         l2NativeTokenVault: GetContractReturnType<typeof L2NativeTokenVaultABI, PublicClient>;
         l2BaseTokenSystem: GetContractReturnType<typeof IBaseTokenABI, PublicClient>;
+        interopCenter: GetContractReturnType<typeof InteropCenterABI, PublicClient>;
+        interopHandler: GetContractReturnType<typeof IInteropHandlerABI, PublicClient>;
+        l2MessageVerification: GetContractReturnType<typeof L2MessageVerificationABI, PublicClient>;
       }
     | undefined;
 
@@ -131,6 +163,10 @@ export function createViemClient(args: InitArgs): ViemClient {
     const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
     const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
     const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
+    const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+    const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+    const l2MessageVerification =
+      args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
 
     addrCache = {
       bridgehub,
@@ -140,6 +176,9 @@ export function createViemClient(args: InitArgs): ViemClient {
       l2AssetRouter,
       l2NativeTokenVault,
       l2BaseTokenSystem,
+      interopCenter,
+      interopHandler,
+      l2MessageVerification,
     };
     return addrCache;
   }
@@ -168,6 +207,13 @@ export function createViemClient(args: InitArgs): ViemClient {
         abi: IBaseTokenABI,
         client: l2,
       }),
+      interopCenter: getContract({ address: a.interopCenter, abi: InteropCenterABI, client: l2 }),
+      interopHandler: getContract({ address: a.interopHandler, abi: IInteropHandlerABI, client: l2 }),
+      l2MessageVerification: getContract({
+        address: a.l2MessageVerification,
+        abi: L2MessageVerificationABI,
+        client: l2,
+      }),
     };
     return cCache;
   }
@@ -188,16 +234,59 @@ export function createViemClient(args: InitArgs): ViemClient {
     return token;
   }
 
-  let lazyL2: WalletClient<Transport, Chain, Account> | undefined;
-  function getL2Wallet(): WalletClient<Transport, Chain, Account> {
+  let lazyL2: WalletClient<Transport, Chain | undefined, Account> | undefined;
+  function getL2Wallet(): WalletClient<Transport, Chain | undefined, Account> {
     if (l2Wallet) return l2Wallet;
     if (!lazyL2) {
       lazyL2 = createWalletClient({
         account: l1Wallet.account,
-        transport: l2.transport as unknown as Transport,
+        transport: custom({ request: l2.request }),
+        chain: l2.chain,
       });
     }
     return lazyL2;
+  }
+
+  function registerChain(chainId: bigint, clientOrUrl: PublicClient | string) {
+    const client =
+      typeof clientOrUrl === 'string' ? createPublicClient({ transport: http(clientOrUrl) }) : clientOrUrl;
+    chainMap.set(chainId, client);
+  }
+
+  function registerChains(map: Record<string, PublicClient | string>) {
+    for (const [k, p] of Object.entries(map)) {
+      registerChain(BigInt(k), p);
+    }
+  }
+
+  function getPublicClient(chainId: bigint): PublicClient | undefined {
+    return chainMap.get(chainId);
+  }
+
+  function requirePublicClient(chainId: bigint): PublicClient {
+    const client = chainMap.get(chainId);
+    if (!client) {
+      throw new Error(`No PublicClient registered for chainId ${chainId}.`);
+    }
+    return client;
+  }
+
+  const walletCache = new Map<bigint, WalletClient<Transport, Chain | undefined, Account>>();
+  async function walletFor(target?: 'l1' | bigint) {
+    if (target === 'l1') return l1Wallet;
+    if (target == null) return getL2Wallet();
+
+    const chainId = target;
+    if (walletCache.has(chainId)) return walletCache.get(chainId)!;
+
+    const pub = requirePublicClient(chainId);
+    const wallet = createWalletClient({
+      account: l1Wallet.account,
+      transport: custom({ request: pub.request }),
+      chain: pub.chain,
+    });
+    walletCache.set(chainId, wallet);
+    return wallet;
   }
 
   return {
@@ -213,6 +302,12 @@ export function createViemClient(args: InitArgs): ViemClient {
     refresh,
     baseToken,
     getL2Wallet,
+    registerChain,
+    registerChains,
+    getPublicClient,
+    requirePublicClient,
+    listChains: () => Array.from(chainMap.keys()),
+    walletFor,
   };
 }
 

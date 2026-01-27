@@ -11,6 +11,9 @@ export type { WithdrawalsResource, FinalizationServices } from './resources/with
 export { createTokensResource } from './resources/tokens';
 export { createContractsResource } from './resources/contracts';
 export type { ContractsResource, ContractInstances } from './resources/contracts';
+export { createInteropResource } from './resources/interop';
+export { createViemAttributesResource } from './resources/interop/attributes';
+export type { InteropResource } from './resources/interop';
 
 export * from './errors/error-ops';
 export * from './errors/revert';

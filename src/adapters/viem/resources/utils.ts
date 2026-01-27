@@ -1,12 +1,22 @@
 // src/adapters/viem/resources/utils.ts
-import { encodeAbiParameters, concat, type Hex } from 'viem';
+import { encodeAbiParameters, type Hex } from 'viem';
 import type { Address } from '../../../core/types';
 import { ETH_ADDRESS } from '../../../core/constants';
+import { createBridgeCodec } from '../../../core/codec/bridge';
+import { buildDirectRequestStruct as buildDirectRequestStructCore } from '../../../core/resources/deposits/structs';
 
 /* -----------------------------------------------------------------------------
  * Encoding utilities for deposit/withdrawal data
  * Note: AssetId encoding is now handled via sdk.tokens or core/codec/ntv.ts
  * ---------------------------------------------------------------------------*/
+
+const bridgeCodec = createBridgeCodec({
+  encode: (types: string[], values: unknown[]) =>
+    encodeAbiParameters(
+      types.map((t: string, i: number) => ({ type: t, name: `arg${i}` })),
+      values,
+    ),
+});
 
 // Encodes the data for a transfer of a token through the Native Token Vault
 export function encodeNativeTokenVaultTransferData(
@@ -14,40 +24,19 @@ export function encodeNativeTokenVaultTransferData(
   receiver: Address,
   token: Address,
 ): Hex {
-  return encodeAbiParameters(
-    [
-      { type: 'uint256', name: 'amount' },
-      { type: 'address', name: 'receiver' },
-      { type: 'address', name: 'token' },
-    ],
-    [amount, receiver, token],
-  );
+  return bridgeCodec.encodeNativeTokenVaultTransferData(amount, receiver, token);
 }
 
 // Encodes the data for a second bridge transfer (V1)
 export function encodeSecondBridgeDataV1(assetId: Hex, transferData: Hex): Hex {
-  const data = encodeAbiParameters(
-    [
-      { type: 'bytes32', name: 'assetId' },
-      { type: 'bytes', name: 'transferData' },
-    ],
-    [assetId, transferData],
-  );
-  return concat(['0x01', data]);
+  return bridgeCodec.encodeSecondBridgeDataV1(assetId, transferData);
 }
 
 /* -----------------------------------------------------------------------------
  * Two-bridges encoding: generic tuple (token, amount, l2Receiver)
  * ---------------------------------------------------------------------------*/
 export function encodeSecondBridgeArgs(token: Address, amount: bigint, l2Receiver: Address): Hex {
-  return encodeAbiParameters(
-    [
-      { type: 'address', name: 'token' },
-      { type: 'uint256', name: 'amount' },
-      { type: 'address', name: 'l2Receiver' },
-    ],
-    [token, amount, l2Receiver],
-  );
+  return bridgeCodec.encodeSecondBridgeArgs(token, amount, l2Receiver);
 }
 
 /* -----------------------------------------------------------------------------
@@ -69,7 +58,7 @@ export function encodeSecondBridgeEthArgs(
   l2Receiver: Address,
   ethToken: Address = ETH_ADDRESS,
 ): Hex {
-  return encodeSecondBridgeArgs(ethToken, amount, l2Receiver);
+  return bridgeCodec.encodeSecondBridgeEthArgs(amount, l2Receiver, ethToken);
 }
 
 /* -----------------------------------------------------------------------------
@@ -85,15 +74,5 @@ export function buildDirectRequestStruct(args: {
   l2Contract: Address;
   l2Value: bigint;
 }) {
-  return {
-    chainId: args.chainId,
-    l2Contract: args.l2Contract,
-    mintValue: args.mintValue,
-    l2Value: args.l2Value,
-    l2Calldata: '0x' as Hex,
-    l2GasLimit: args.l2GasLimit,
-    l2GasPerPubdataByteLimit: args.gasPerPubdata,
-    factoryDeps: [] as Hex[],
-    refundRecipient: args.refundRecipient,
-  };
+  return buildDirectRequestStructCore(args);
 }

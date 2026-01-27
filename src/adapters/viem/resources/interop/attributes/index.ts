@@ -1,0 +1,1 @@
+export { createViemAttributesResource } from './resource';

@@ -1,7 +1,5 @@
-// src/adapters/ethers/resources/interop/context.ts
-
-import { Interface } from 'ethers';
-import type { EthersClient } from '../../client';
+import { getAbiItem, getEventSelector } from 'viem';
+import type { ViemClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams, InteropRoute } from '../../../../core/types/flows/interop';
@@ -10,11 +8,11 @@ import type { AttributesResource } from '../../../../core/resources/interop/attr
 import type { InteropTopics } from '../../../../core/resources/interop/events';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
-import { createEthersAttributesResource } from './attributes';
+import { createViemAttributesResource } from './attributes';
+import { pickInteropRoute } from '../../../../core/resources/interop/route';
 
-// Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {
-  client: EthersClient;
+  client: ViemClient;
   tokens: TokensResource;
   contracts: ContractsResource;
 
@@ -27,20 +25,24 @@ export interface BuildCtx extends CommonCtx {
   l2NativeTokenVault: Address;
 
   baseTokens: { src: Address; dst: Address };
-  ifaces: { interopCenter: Interface; interopHandler: Interface };
   topics: InteropTopics;
   attributes: AttributesResource;
 }
 
+function eventTopic(abi: unknown, name: string): Hex {
+  const item = getAbiItem({ abi: abi as any, name });
+  return getEventSelector(item as any) as Hex;
+}
+
 export async function commonCtx(
   p: InteropParams,
-  client: EthersClient,
+  client: ViemClient,
   tokens: TokensResource,
   contracts: ContractsResource,
-  attributes: AttributesResource,
+  attributes: AttributesResource = createViemAttributesResource(),
 ): Promise<BuildCtx & { route: InteropRoute }> {
-  const sender = (p.sender ?? (await client.signer.getAddress())) as Address;
-  const chainId = BigInt((await client.l2.getNetwork()).chainId);
+  const sender = client.account.address as Address;
+  const chainId = BigInt(await client.l2.getChainId());
   const dstChainId = p.dst;
 
   const {
@@ -57,19 +59,23 @@ export async function commonCtx(
     client.baseToken(dstChainId),
   ]);
 
-  const interopCenterIface = new Interface(InteropCenterABI);
-  const interopHandlerIface = new Interface(IInteropHandlerABI);
-
   const topics: InteropTopics = {
-    interopBundleSent: interopCenterIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: interopHandlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
+    interopBundleSent: eventTopic(InteropCenterABI, 'InteropBundleSent'),
+    bundleVerified: eventTopic(IInteropHandlerABI, 'BundleVerified'),
+    bundleExecuted: eventTopic(IInteropHandlerABI, 'BundleExecuted'),
+    bundleUnbundled: eventTopic(IInteropHandlerABI, 'BundleUnbundled'),
   };
 
-  const hasErc20 = p.actions.some((a) => a.type === 'sendErc20');
-  const baseMatch = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
-  const route: InteropRoute = !hasErc20 && baseMatch ? 'direct' : 'indirect';
+  const route = pickInteropRoute({
+    actions: p.actions,
+    ctx: {
+      sender,
+      srcChainId: chainId,
+      dstChainId,
+      baseTokenSrc: srcBaseToken,
+      baseTokenDst: dstBaseToken,
+    },
+  });
 
   return {
     client,
@@ -85,7 +91,6 @@ export async function commonCtx(
     l2AssetRouter,
     l2NativeTokenVault,
     baseTokens: { src: srcBaseToken, dst: dstBaseToken },
-    ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
     topics,
     attributes,
     route,

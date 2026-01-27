@@ -2,7 +2,7 @@
 
 import type { Address } from '../../types/primitives';
 import type { DepositFeeBreakdown, L1DepositFeeParams, L2DepositFeeParams } from '../../types/fees';
-import type { GasQuote } from './gas';
+import type { GasQuote } from '../deposits/gas';
 
 export type BuildFeeBreakdownInput = {
   feeToken: Address;

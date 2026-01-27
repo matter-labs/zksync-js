@@ -50,7 +50,7 @@ async function main() {
   console.log('L2 destination balance:', (await l2Destination.getBalance(me)).toString());
 
   // ---- Deploy Greeter on destination ----
-  console.log('\n=== DEPLOYING GREETER ON DESTINATION ===');
+  console.log('=== DEPLOYING GREETER ON DESTINATION ===');
   const initialGreeting = 'hello from destination';
   const greeterAddress = await getGreetingTokenAddress({
     signer: dstSigner,

@@ -10,6 +10,9 @@ import type {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
+  InteropCenterABI,
+  IInteropHandlerABI,
+  L2MessageVerificationABI,
 } from '../../../../core/abi';
 
 /**
@@ -23,6 +26,9 @@ export interface ContractInstances {
   l2AssetRouter: GetContractReturnType<typeof IL2AssetRouterABI, PublicClient>;
   l2NativeTokenVault: GetContractReturnType<typeof L2NativeTokenVaultABI, PublicClient>;
   l2BaseTokenSystem: GetContractReturnType<typeof IBaseTokenABI, PublicClient>;
+  interopCenter: GetContractReturnType<typeof InteropCenterABI, PublicClient>;
+  interopHandler: GetContractReturnType<typeof IInteropHandlerABI, PublicClient>;
+  l2MessageVerification: GetContractReturnType<typeof L2MessageVerificationABI, PublicClient>;
 }
 
 /**
@@ -78,4 +84,19 @@ export interface ContractsResource {
    * Returns the L2 Base Token System contract instance.
    */
   l2BaseTokenSystem(): Promise<ContractInstances['l2BaseTokenSystem']>;
+
+  /**
+   * Returns the Interop Center contract instance.
+   */
+  interopCenter(): Promise<ContractInstances['interopCenter']>;
+
+  /**
+   * Returns the Interop Handler contract instance.
+   */
+  interopHandler(): Promise<ContractInstances['interopHandler']>;
+
+  /**
+   * Returns the L2 Message Verification contract instance.
+   */
+  l2MessageVerification(): Promise<ContractInstances['l2MessageVerification']>;
 }

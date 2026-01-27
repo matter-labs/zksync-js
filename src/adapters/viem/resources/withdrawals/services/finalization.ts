@@ -373,6 +373,7 @@ export function createFinalizationServices(client: ViemClient): FinalizationServ
           abi: IL1NullifierABI as Abi,
           functionName: 'finalizeDeposit',
           args: [params],
+          chain: client.l1.chain ?? null,
           account: client.account,
         });
 

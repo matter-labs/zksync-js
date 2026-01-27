@@ -1,7 +1,7 @@
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
-import type { TransactionRequest } from 'ethers';
 import type { InteropRouteStrategy } from './types';
+import { InteropCenterABI } from '../../../../../core/abi';
 import {
   buildDirectBundle,
   preflightDirect,
@@ -18,15 +18,8 @@ export function routeDirect(): InteropRouteStrategy {
         attributes: ctx.attributes,
       });
     },
-    // eslint-disable-next-line @typescript-eslint/require-await
-    async build(p: InteropParams, ctx: BuildCtx) {
-      const steps: Array<{
-        key: string;
-        kind: string;
-        description: string;
-        tx: TransactionRequest;
-      }> = [];
 
+    async build(p: InteropParams, ctx: BuildCtx) {
       const built = buildDirectBundle(p, {
         dstChainId: ctx.dstChainId,
         baseTokens: ctx.baseTokens,
@@ -35,30 +28,22 @@ export function routeDirect(): InteropRouteStrategy {
         attributes: ctx.attributes,
       });
 
-      const data = ctx.ifaces.interopCenter.encodeFunctionData('sendBundle', [
-        built.dstChain,
-        built.starters,
-        built.bundleAttrs,
-      ]);
-
-      steps.push({
-        key: 'sendBundle',
-        kind: 'interop.center',
-        description: `Send interop bundle (direct route; ${p.actions.length} actions)`,
-        // In direct route, msg.value equals the total forwarded value across
-        // all calls (sendNative.amount + call.value).
-        tx: {
-          to: ctx.interopCenter,
-          data,
-          value: built.quoteExtras.totalActionValue,
-        },
-      });
-
-      //
-      // Return route plan
-      //
       return {
-        steps,
+        steps: [
+          {
+            key: 'sendBundle',
+            kind: 'interop.center',
+            description: `Send interop bundle (direct route; ${p.actions.length} actions)`,
+            tx: {
+              address: ctx.interopCenter,
+              abi: InteropCenterABI,
+              functionName: 'sendBundle',
+              args: [built.dstChain, built.starters, built.bundleAttrs],
+              value: built.quoteExtras.totalActionValue,
+              account: ctx.client.account,
+            },
+          },
+        ],
         approvals: built.approvals,
         quoteExtras: built.quoteExtras,
       };

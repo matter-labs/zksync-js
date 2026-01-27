@@ -1,7 +1,8 @@
-import { Contract, Interface, type TransactionReceipt } from 'ethers';
+import type { TransactionReceipt, Abi, AbiEvent } from 'viem';
+import { decodeEventLog, getAbiItem, getEventSelector } from 'viem';
 
 import type { Address, Hex } from '../../../../../core/types/primitives';
-import type { EthersClient } from '../../../client';
+import type { ViemClient } from '../../../client';
 import type {
   InteropStatus,
   InteropWaitable,
@@ -10,16 +11,16 @@ import type {
 
 import { createErrorHandlers, toZKsyncError } from '../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../core/types';
-import { InteropRootStorageABI } from '../../../../../core/abi';
-import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../core/constants';
 import { createError } from '../../../../../core/errors/factory';
-import { isZKsyncError } from '../../../../../core/types/errors';
+import { isZKsyncError, isReceiptNotFound } from '../../../../../core/types/errors';
 import type { InteropFinalizationDeps } from '../../../../../core/resources/interop/finalization';
 import {
   deriveInteropStatus,
   waitForInteropFinalization,
   executeInteropBundle,
 } from '../../../../../core/resources/interop/finalization';
+import { InteropRootStorageABI } from '../../../../../core/abi';
+import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../core/constants';
 
 // ABIs we need to decode events / send executeBundle()
 import InteropCenterAbi from '../../../../../core/internal/abis/InteropCenter';
@@ -28,15 +29,17 @@ import IInteropHandlerAbi from '../../../../../core/internal/abis/IInteropHandle
 // error handling
 const { wrap } = createErrorHandlers('interop');
 
-function createDeps(client: EthersClient): InteropFinalizationDeps {
-  const centerIface = new Interface(InteropCenterAbi);
-  const handlerIface = new Interface(IInteropHandlerAbi);
+function eventTopic(abi: unknown, name: string): Hex {
+  const item = getAbiItem({ abi: abi as any, name });
+  return getEventSelector(item as any) as Hex;
+}
 
+function createDeps(client: ViemClient): InteropFinalizationDeps {
   const topics = {
-    interopBundleSent: centerIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: handlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: handlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: handlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
+    interopBundleSent: eventTopic(InteropCenterAbi, 'InteropBundleSent'),
+    bundleVerified: eventTopic(IInteropHandlerAbi, 'BundleVerified'),
+    bundleExecuted: eventTopic(IInteropHandlerAbi, 'BundleExecuted'),
+    bundleUnbundled: eventTopic(IInteropHandlerAbi, 'BundleUnbundled'),
   } as const;
 
   return {
@@ -54,23 +57,21 @@ function createDeps(client: EthersClient): InteropFinalizationDeps {
     },
 
     async getSourceReceipt(txHash) {
-      const receipt = await wrap(
-        OP_INTEROP.svc.status.sourceReceipt,
-        () => client.l2.getTransactionReceipt(txHash),
-        {
-          ctx: { where: 'l2.getTransactionReceipt', l2SrcTxHash: txHash },
-          message: 'Failed to fetch source L2 receipt for interop tx.',
-        },
-      );
-      if (!receipt) return null;
-      return {
-        logs: receipt.logs?.map((log) => ({
-          address: log.address as Address,
-          topics: [...log.topics] as Hex[],
-          data: log.data as Hex,
-          transactionHash: log.transactionHash as Hex,
-        })),
-      };
+      try {
+        return await client.l2.getTransactionReceipt({ hash: txHash });
+      } catch (e) {
+        if (isReceiptNotFound(e)) return null;
+        throw toZKsyncError(
+          'RPC',
+          {
+            resource: 'interop',
+            operation: OP_INTEROP.svc.status.sourceReceipt,
+            message: 'Failed to fetch source L2 receipt for interop tx.',
+            context: { where: 'l2.getTransactionReceipt', l2SrcTxHash: txHash },
+          },
+          e,
+        );
+      }
     },
 
     async getReceiptWithL2ToL1(txHash) {
@@ -92,13 +93,38 @@ function createDeps(client: EthersClient): InteropFinalizationDeps {
       return await wrap(
         OP_INTEROP.svc.status.dstLogs,
         async () => {
-          const dstProvider = await client.requireProvider(args.dstChainId);
-          const rawLogs = await dstProvider.getLogs({
-            address: args.address,
-            fromBlock: 0n,
-            toBlock: 'latest',
-            topics: args.topics,
-          });
+          const dstClient = client.requirePublicClient(args.dstChainId);
+          const topic0 = args.topics?.[0]?.toLowerCase();
+          const bundleHash = args.topics?.[1] as Hex | undefined;
+          const eventByTopic: Record<string, AbiEvent> = {
+            [topics.bundleUnbundled.toLowerCase()]: getAbiItem({
+              abi: IInteropHandlerAbi,
+              name: 'BundleUnbundled',
+            }) as AbiEvent,
+            [topics.bundleExecuted.toLowerCase()]: getAbiItem({
+              abi: IInteropHandlerAbi,
+              name: 'BundleExecuted',
+            }) as AbiEvent,
+            [topics.bundleVerified.toLowerCase()]: getAbiItem({
+              abi: IInteropHandlerAbi,
+              name: 'BundleVerified',
+            }) as AbiEvent,
+          };
+
+          const event = topic0 ? eventByTopic[topic0] : undefined;
+          const rawLogs = event && bundleHash
+            ? await dstClient.getLogs({
+                address: args.address,
+                fromBlock: 0n,
+                toBlock: 'latest',
+                event,
+                args: { bundleHash },
+              })
+            : await dstClient.getLogs({
+                address: args.address,
+                fromBlock: 0n,
+                toBlock: 'latest',
+              });
 
           return rawLogs.map((log) => ({
             address: log.address as Address,
@@ -115,33 +141,39 @@ function createDeps(client: EthersClient): InteropFinalizationDeps {
     },
 
     async readInteropRoot(args) {
-      const dstProvider = await wrap(
+      const dstClient = await wrap(
         OP_INTEROP.svc.status.requireDstProvider,
-        () => client.requireProvider(args.dstChainId),
+        () => client.requirePublicClient(args.dstChainId),
         {
-          ctx: { where: 'requireProvider', dstChainId: args.dstChainId },
+          ctx: { where: 'requirePublicClient', dstChainId: args.dstChainId },
           message: 'Failed to acquire destination provider.',
         },
       );
 
-      const rootStorage = new Contract(
-        L2_INTEROP_ROOT_STORAGE_ADDRESS,
-        InteropRootStorageABI,
-        dstProvider,
-      ) as Contract & {
-        interopRoots: (chainId: bigint, batchNumber: bigint) => Promise<Hex>;
-      };
-
-      return await rootStorage.interopRoots(args.rootChainId, args.batchNumber);
+      return (await dstClient.readContract({
+        address: L2_INTEROP_ROOT_STORAGE_ADDRESS,
+        abi: InteropRootStorageABI,
+        functionName: 'interopRoots',
+        args: [args.rootChainId, args.batchNumber],
+      })) as Hex;
     },
 
     async executeBundle(args) {
-      const signer = await wrap(
+      const wallet = await wrap(
         OP_INTEROP.exec.sendStep,
-        () => client.signerFor(args.dstChainId),
+        () => client.walletFor(args.dstChainId),
         {
           ctx: { dstChainId: args.dstChainId },
-          message: 'Failed to resolve destination signer.',
+          message: 'Failed to resolve destination wallet.',
+        },
+      );
+
+      const dstClient = await wrap(
+        OP_INTEROP.svc.status.requireDstProvider,
+        () => client.requirePublicClient(args.dstChainId),
+        {
+          ctx: { where: 'requirePublicClient', dstChainId: args.dstChainId },
+          message: 'Failed to acquire destination provider.',
         },
       );
 
@@ -154,23 +186,25 @@ function createDeps(client: EthersClient): InteropFinalizationDeps {
         },
       );
 
-      const handler = new Contract(interopHandler, IInteropHandlerAbi, signer) as Contract & {
-        executeBundle: (
-          bundle: Hex,
-          proof: InteropFinalizationInfo['proof'],
-        ) => Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
-      };
-
       try {
-        const txResp = await handler.executeBundle(args.encodedData, args.proof);
-        const hash = txResp.hash as Hex;
+        const hash = await wallet.writeContract({
+          address: interopHandler,
+          abi: IInteropHandlerAbi as Abi,
+          functionName: 'executeBundle',
+          args: [args.encodedData, args.proof] as readonly unknown[],
+          chain: dstClient.chain ?? null,
+          account: client.account,
+        });
 
         return {
           hash,
           wait: async () => {
             try {
-              const receipt = (await txResp.wait()) as TransactionReceipt | null;
-              if (!receipt || receipt.status !== 1) {
+              const receipt = (await dstClient.waitForTransactionReceipt({
+                hash,
+              })) as TransactionReceipt | null;
+
+              if (!receipt || receipt.status !== 'success') {
                 throw createError('EXECUTION', {
                   resource: 'interop',
                   operation: OP_INTEROP.exec.waitStep,
@@ -210,22 +244,25 @@ function createDeps(client: EthersClient): InteropFinalizationDeps {
     },
 
     decodeInteropBundleSent(log) {
-      const decoded = centerIface.decodeEventLog(
-        'InteropBundleSent',
-        log.data,
-        log.topics,
-      ) as unknown as {
-        interopBundleHash: Hex;
-        interopBundle: {
-          sourceChainId: bigint;
-          destinationChainId: bigint;
+      const decoded = decodeEventLog({
+        abi: InteropCenterAbi,
+        data: log.data,
+        topics: log.topics as [Hex, ...Hex[]],
+      }) as {
+        eventName: 'InteropBundleSent';
+        args: {
+          interopBundleHash: Hex;
+          interopBundle: {
+            sourceChainId: bigint;
+            destinationChainId: bigint;
+          };
         };
       };
 
       return {
-        bundleHash: decoded.interopBundleHash,
-        sourceChainId: decoded.interopBundle.sourceChainId,
-        destinationChainId: decoded.interopBundle.destinationChainId,
+        bundleHash: decoded.args.interopBundleHash,
+        sourceChainId: decoded.args.interopBundle.sourceChainId,
+        destinationChainId: decoded.args.interopBundle.destinationChainId,
       };
     },
   };
@@ -245,7 +282,7 @@ export interface InteropFinalizationServices {
 }
 
 export function createInteropFinalizationServices(
-  client: EthersClient,
+  client: ViemClient,
 ): InteropFinalizationServices {
   const deps = createDeps(client);
 
@@ -271,10 +308,7 @@ export function createInteropFinalizationServices(
   };
 }
 
-// -----------------------------
-// Thin wrappers that the resource factory calls
-// -----------------------------
-export async function status(client: EthersClient, h: InteropWaitable): Promise<InteropStatus> {
+export async function status(client: ViemClient, h: InteropWaitable): Promise<InteropStatus> {
   const svc = createInteropFinalizationServices(client);
   return wrap(OP_INTEROP.status, () => svc.deriveStatus(h), {
     message: 'Internal error while checking interop status.',
@@ -283,7 +317,7 @@ export async function status(client: EthersClient, h: InteropWaitable): Promise<
 }
 
 export async function wait(
-  client: EthersClient,
+  client: ViemClient,
   h: InteropWaitable,
   opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {

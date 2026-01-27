@@ -2,7 +2,7 @@ import { AbiCoder, Contract, Wallet, parseUnits } from 'ethers';
 import type { Address } from '../../../src/core';
 import { L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
 import { L2NativeTokenVaultABI } from '../../../src/core/abi';
-import { ERC20_BYTECODE, GREETING_BYTECODE } from './constants';
+import { ERC20_BYTECODE, GREETING_BYTECODE } from '../../interop/constants';
 
 export async function getGreetingTokenAddress(args: {
   signer: Wallet;

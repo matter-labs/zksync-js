@@ -43,7 +43,7 @@ async function main() {
   console.log('Sender address:', me);
 
   // ---- Deploy & register ERC20 token on source chain ----
-  console.log('\n=== DEPLOYING ERC20 TOKEN ===');
+  console.log('=== DEPLOYING ERC20 TOKEN ===');
   const tokenAAddress = await getErc20TokenAddress({ signer: walletA });
   console.log('Token deployed at:', tokenAAddress);
   console.log('Token registered in Native Token Vault');
