@@ -42,18 +42,15 @@ async function main() {
   console.log('Destination chain ID:', dstNet.chainId);
   console.log('Sender address:', me);
 
-  // ---- Deploy & register ERC20 token on source chain ----
+  // ---- Deploy ERC20 token on source chain ----
   console.log('=== DEPLOYING ERC20 TOKEN ===');
   const tokenAAddress = await getErc20TokenAddress({ signer: walletA });
   console.log('Token deployed at:', tokenAAddress);
-  console.log('Token registered in Native Token Vault');
+  console.log('Token registration will be handled by the SDK');
 
   const tokenA = new Contract(tokenAAddress, IERC20ABI, l2Source);
   const balanceA = await tokenA.balanceOf(walletA.address);
   console.log('WalletA token balance:', formatUnits(balanceA, 18), 'TEST');
-
-  const assetId = (await sdk.tokens.assetIdOfL2(tokenAAddress)) as Hex;
-  console.log('Asset ID:', assetId);
 
   const params = {
     sender: me,
@@ -109,6 +106,9 @@ async function main() {
   // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
   const finalizationResult = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
+
+  const assetId = (await sdk.tokens.assetIdOfL2(tokenAAddress)) as Hex;
+  console.log('Asset ID:', assetId);
 
   const ntvDst = new Contract(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NativeTokenVaultABI, l2Destination);
   const tokenBAddress = (await ntvDst.tokenAddress(assetId)) as Address;

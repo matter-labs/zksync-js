@@ -2,7 +2,7 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep } from '../../../../../core/types/flows/base';
-import { IERC20ABI, InteropCenterABI } from '../../../../../core/abi';
+import { IERC20ABI, InteropCenterABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 import {
   buildIndirectBundle,
   preflightIndirect,
@@ -22,6 +22,28 @@ export function routeIndirect(): InteropRouteStrategy {
     },
 
     async build(p: InteropParams, ctx: BuildCtx) {
+      const steps: Array<PlanStep<ViemPlanWriteRequest>> = [];
+
+      const erc20Tokens = new Map<string, string>();
+      for (const action of p.actions) {
+        if (action.type !== 'sendErc20') continue;
+        erc20Tokens.set(action.token.toLowerCase(), action.token);
+      }
+
+      if (erc20Tokens.size > 0) {
+        const wallet = await ctx.client.walletFor();
+        for (const token of erc20Tokens.values()) {
+          const hash = await wallet.writeContract({
+            address: ctx.l2NativeTokenVault,
+            abi: L2NativeTokenVaultABI,
+            functionName: 'ensureTokenIsRegistered',
+            args: [token],
+            account: ctx.client.account,
+          });
+          await ctx.client.l2.waitForTransactionReceipt({ hash });
+        }
+      }
+
       const built = await buildIndirectBundle(
         p,
         {
@@ -38,18 +60,20 @@ export function routeIndirect(): InteropRouteStrategy {
         },
       );
 
-      const steps: Array<PlanStep<ViemPlanWriteRequest>> = built.approvals.map((approval) => ({
-        key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
-        kind: 'approve',
-        description: `Approve ${ctx.l2NativeTokenVault} to spend ${approval.amount} of ${approval.token}`,
-        tx: {
-          address: approval.token,
-          abi: IERC20ABI,
-          functionName: 'approve',
-          args: [ctx.l2NativeTokenVault, approval.amount],
-          account: ctx.client.account,
-        },
-      }));
+      steps.push(
+        ...built.approvals.map((approval) => ({
+          key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
+          kind: 'approve',
+          description: `Approve ${ctx.l2NativeTokenVault} to spend ${approval.amount} of ${approval.token}`,
+          tx: {
+            address: approval.token,
+            abi: IERC20ABI,
+            functionName: 'approve',
+            args: [ctx.l2NativeTokenVault, approval.amount],
+            account: ctx.client.account,
+          },
+        })),
+      );
 
       steps.push({
         key: 'sendBundle',

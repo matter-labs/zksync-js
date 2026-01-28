@@ -6,8 +6,6 @@ import {
   type WalletClient,
 } from 'viem';
 import type { Address } from '../../../src/core/types/primitives';
-import { L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
-import { L2NativeTokenVaultABI } from '../../../src/core/abi';
 import { ERC20_BYTECODE, GREETING_BYTECODE } from '../../interop/constants';
 
 function requireAccount(
@@ -48,7 +46,6 @@ export async function getErc20TokenAddress(args: {
   wallet: WalletClient;
   publicClient: PublicClient;
   initialSupply?: bigint;
-  register?: boolean;
 }): Promise<Address> {
   requireAccount(args.wallet);
 
@@ -69,17 +66,6 @@ export async function getErc20TokenAddress(args: {
     throw new Error('ERC20 deployment failed: missing contract address.');
   }
   const tokenAddress = receipt.contractAddress as Address;
-
-  if (args.register !== false) {
-    const registerHash = await args.wallet.writeContract({
-      address: L2_NATIVE_TOKEN_VAULT_ADDRESS,
-      abi: L2NativeTokenVaultABI,
-      functionName: 'ensureTokenIsRegistered',
-      args: [tokenAddress],
-      account: args.wallet.account,
-    });
-    await args.publicClient.waitForTransactionReceipt({ hash: registerHash });
-  }
 
   return tokenAddress;
 }

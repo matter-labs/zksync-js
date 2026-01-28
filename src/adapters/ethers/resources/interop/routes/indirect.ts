@@ -1,9 +1,8 @@
 import { Contract, type TransactionRequest } from 'ethers';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
-import type { Hex } from '../../../../../core/types/primitives';
 import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy } from './types';
-import { IERC20ABI } from '../../../../../core/abi';
+import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import {
   buildIndirectBundle,
@@ -28,6 +27,25 @@ export function routeIndirect(): InteropRouteStrategy {
         description: string;
         tx: TransactionRequest;
       }> = [];
+
+      const erc20Tokens = new Map<string, string>();
+      for (const action of p.actions) {
+        if (action.type !== 'sendErc20') continue;
+        erc20Tokens.set(action.token.toLowerCase(), action.token);
+      }
+
+      if (erc20Tokens.size > 0) {
+        const ntv = new Contract(
+          ctx.l2NativeTokenVault,
+          L2NativeTokenVaultABI,
+          ctx.client.getL2Signer(),
+        );
+
+        for (const token of erc20Tokens.values()) {
+          const ensureTx = await ntv.ensureTokenIsRegistered(token);
+          await ensureTx.wait();
+        }
+      }
 
       const built = await buildIndirectBundle(
         p,

@@ -54,14 +54,14 @@ async function main() {
   console.log('Destination chain ID:', dstChainId);
   console.log('Sender address:', me);
 
-  // ---- Deploy & register ERC20 token on source chain ----
+  // ---- Deploy ERC20 token on source chain ----
   console.log('=== DEPLOYING ERC20 TOKEN ===');
   const tokenAAddress = await getErc20TokenAddress({
     wallet: l2Wallet,
     publicClient: l2Source,
   });
   console.log('Token deployed at:', tokenAAddress);
-  console.log('Token registered in Native Token Vault');
+  console.log('Token registration will be handled by the SDK');
 
   const balanceA = (await l2Source.readContract({
     address: tokenAAddress,
@@ -70,9 +70,6 @@ async function main() {
     args: [me],
   })) as bigint;
   console.log('WalletA token balance:', formatUnits(balanceA, 18), 'TEST');
-
-  const assetId = (await sdk.tokens.assetIdOfL2(tokenAAddress)) as Hex;
-  console.log('Asset ID:', assetId);
 
   const params = {
     sender: me,
@@ -107,6 +104,9 @@ async function main() {
 
   const finalizationResult = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
+
+  const assetId = (await sdk.tokens.assetIdOfL2(tokenAAddress)) as Hex;
+  console.log('Asset ID:', assetId);
 
   const tokenBAddress = (await l2Destination.readContract({
     address: L2_NATIVE_TOKEN_VAULT_ADDRESS,
