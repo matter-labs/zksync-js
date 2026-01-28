@@ -61,7 +61,7 @@ jobs:
       - name: Install Foundry (anvil)
         uses: foundry-rs/foundry-toolchain@8b0419c685ef46cb79ec93fbdc131174afceb730 # v1.6.0
         with:
-          version: v1.3.4
+          version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
         uses: dutterbutter/zksync-server-action@0ccaf62628692bf7dbb6a0832b1f0a9c2a7c08ee # v0.1.0
