@@ -19,7 +19,7 @@ contract Greeting {
     ) external payable returns (bytes4) {
         // Check that it is coming from a trusted caller - interop handler.
         require(
-            msg.sender == address(0x000000000000000000000000000000000001000d),
+            msg.sender == address(0x000000000000000000000000000000000001000E),
             "message must come from interop handler"
         );
 
