@@ -25,7 +25,6 @@ import type { TransactionRequest } from 'ethers';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
 import { createErrorHandlers } from '../../errors/error-ops';
 import { commonCtx } from './context';
-import type { BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
 import {
