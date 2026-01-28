@@ -39,8 +39,10 @@ Supports ETH, Custom Base Token, and ERC-20.
 ### ZKsync RPC Extensions
 
 * **`getBridgehubAddress`** (`zks_getBridgehubContract`) — resolve the canonical Bridgehub contract address.
+* **`getBytecodeSupplierAddress`** (`zks_getBytecodeSupplierContract`) — resolve the Bytecode Supplier contract address.
 * **`getL2ToL1LogProof`** (`zks_getL2ToL1LogProof`) — retrieve the log proof for an L2 → L1 transaction.
 * **`getReceiptWithL2ToL1`** — returns a standard Ethereum `TransactionReceipt` **augmented** with `l2ToL1Logs`.
+* **`getBlockMetadataByNumber`** (`zks_getBlockMetadataByNumber`) — fetch block metadata (pubdata price, native price, execution version).
 * **`getGenesis`** (`zks_getGenesis`) - returns Genesis json.
 
 ## What You’ll Find Here

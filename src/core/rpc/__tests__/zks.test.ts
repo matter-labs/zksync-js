@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'bun:test';
-import { createZksRpc, normalizeProof, normalizeGenesis } from '../zks';
+import { createZksRpc, normalizeProof, normalizeGenesis, normalizeBlockMetadata } from '../zks';
 import type { RpcTransport } from '../types';
 import { isZKsyncError } from '../../types/errors';
 
@@ -101,6 +101,33 @@ describe('rpc/zks.normalizeGenesis', () => {
   });
 });
 
+describe('rpc/zks.normalizeBlockMetadata', () => {
+  const sample = {
+    pubdata_price_per_byte: '0x7ea8ed4bb',
+    native_price: '0xf4240',
+    execution_version: 1,
+  };
+
+  it('normalizes snake-cased fields', () => {
+    const normalized = normalizeBlockMetadata(sample);
+    expect(normalized).toEqual({
+      pubdataPricePerByte: 0x7ea8ed4bbn,
+      nativePrice: 0xf4240n,
+      executionVersion: 1,
+    });
+  });
+
+  it('throws ZKsyncError on malformed response', () => {
+    try {
+      normalizeBlockMetadata(null);
+      throw new Error('expected to throw');
+    } catch (e) {
+      expect(isZKsyncError(e)).toBe(true);
+      expect(String(e)).toContain('Malformed block metadata response');
+    }
+  });
+});
+
 describe('rpc/zks.getBridgehubAddress', () => {
   it('returns a hex address when RPC responds with a 0x-prefixed string', async () => {
     const rpc = createZksRpc(
@@ -114,6 +141,25 @@ describe('rpc/zks.getBridgehubAddress', () => {
     const rpc = createZksRpc(fakeTransport({ zks_getBridgehubContract: 42 }));
     return expect(rpc.getBridgehubAddress()).rejects.toThrow(
       /Unexpected Bridgehub address response/,
+    );
+  });
+});
+
+describe('rpc/zks.getBytecodeSupplierAddress', () => {
+  it('returns a hex address when RPC responds with a 0x-prefixed string', async () => {
+    const rpc = createZksRpc(
+      fakeTransport({
+        zks_getBytecodeSupplierContract: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      }),
+    );
+    const addr = await rpc.getBytecodeSupplierAddress();
+    expect(addr).toBe('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd');
+  });
+
+  it('wraps unexpected response shape into ZKsyncError', () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getBytecodeSupplierContract: 123 }));
+    return expect(rpc.getBytecodeSupplierAddress()).rejects.toThrow(
+      /Unexpected Bytecode Supplier address response/,
     );
   });
 });
@@ -194,6 +240,29 @@ describe('rpc/zks.getGenesis', () => {
       ],
       executionVersion: raw.execution_version,
       genesisRoot: raw.genesis_root,
+    });
+  });
+});
+
+describe('rpc/zks.getBlockMetadataByNumber', () => {
+  it('returns null when RPC returns null', async () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getBlockMetadataByNumber: null }));
+    const out = await rpc.getBlockMetadataByNumber(123);
+    expect(out).toBeNull();
+  });
+
+  it('returns normalized block metadata', async () => {
+    const raw = {
+      pubdata_price_per_byte: '0x2a',
+      native_price: '0x2b',
+      execution_version: 3,
+    };
+    const rpc = createZksRpc(fakeTransport({ zks_getBlockMetadataByNumber: raw }));
+    const out = await rpc.getBlockMetadataByNumber(456);
+    expect(out).toEqual({
+      pubdataPricePerByte: 0x2an,
+      nativePrice: 0x2bn,
+      executionVersion: 3,
     });
   });
 });
