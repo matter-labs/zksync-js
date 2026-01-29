@@ -10,6 +10,7 @@ export type L2ToL1Log = {
 };
 
 export type ReceiptWithL2ToL1 = {
+  transactionIndex: Hex;
   transactionHash?: Hex;
   status?: string | number;
   blockNumber?: string | number;
@@ -17,6 +18,7 @@ export type ReceiptWithL2ToL1 = {
     address: Address;
     topics: Hex[];
     data: Hex;
+    transactionHash: Hex;
   }>;
   // ZKsync-specific field
   l2ToL1Logs?: L2ToL1Log[];
@@ -26,6 +28,7 @@ export type ProofNormalized = {
   id: bigint;
   batchNumber: bigint;
   proof: Hex[];
+  root: Hex;
 };
 
 export type GenesisContractDeployment = {
