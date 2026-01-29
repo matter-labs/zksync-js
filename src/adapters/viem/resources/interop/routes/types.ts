@@ -13,10 +13,10 @@ export interface QuoteExtras {
 }
 
 export interface InteropRouteStrategy {
-  preflight?(p: InteropParams, ctx: BuildCtx): Promise<void> | void;
+  preflight?(params: InteropParams, ctx: BuildCtx): Promise<void> | void;
 
   build(
-    p: InteropParams,
+    params: InteropParams,
     ctx: BuildCtx,
   ): Promise<{
     steps: Array<PlanStep<ViemPlanWriteRequest>>;

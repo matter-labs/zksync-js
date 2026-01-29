@@ -17,7 +17,6 @@ import { createError } from '../../../../../core/errors/factory';
 import { isZKsyncError } from '../../../../../core/types/errors';
 import {
   resolveIdsFromWaitable,
-  isFinalizationInfo,
   parseBundleSentFromReceipt,
   parseBundleReceiptInfo,
   buildFinalizationInfo,
@@ -360,18 +359,13 @@ async function deriveInteropStatus(
 
 async function waitForInteropFinalization(
   client: EthersClient,
-  input: InteropWaitable | Hex | InteropFinalizationInfo,
+  input: InteropWaitable | Hex,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
   const { topics, centerIface } = getTopics();
   const pollMs = opts?.pollMs ?? DEFAULT_POLL_MS;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const deadlineMs = Date.now() + timeoutMs;
-
-  if (isFinalizationInfo(input)) {
-    await waitUntilRootAvailable(client, input.dstChainId, input.expectedRoot, pollMs, deadlineMs);
-    return input;
-  }
 
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {
@@ -559,7 +553,7 @@ export interface InteropFinalizationServices {
   deriveStatus(input: InteropWaitable): Promise<InteropStatus>;
 
   waitForFinalization(
-    input: InteropWaitable | Hex | InteropFinalizationInfo,
+    input: InteropWaitable | Hex,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 

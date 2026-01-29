@@ -44,22 +44,22 @@ export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
 };
 
 export interface InteropResource {
-  quote(p: InteropParams): Promise<InteropQuote>;
+  quote(params: InteropParams): Promise<InteropQuote>;
 
   tryQuote(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<{ ok: true; value: InteropQuote } | { ok: false; error: unknown }>;
 
-  prepare(p: InteropParams): Promise<InteropPlan<TransactionRequest>>;
+  prepare(params: InteropParams): Promise<InteropPlan<TransactionRequest>>;
 
   tryPrepare(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<{ ok: true; value: InteropPlan<TransactionRequest> } | { ok: false; error: unknown }>;
 
-  create(p: InteropParams): Promise<InteropHandle<TransactionRequest>>;
+  create(params: InteropParams): Promise<InteropHandle<TransactionRequest>>;
 
   tryCreate(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
@@ -94,14 +94,14 @@ export function createInteropResource(
 
   // Internal helper: buildPlan constructs an InteropPlan for the given params.
   // It does not execute any transactions.
-  async function buildPlan(p: InteropParams): Promise<InteropPlan<TransactionRequest>> {
+  async function buildPlan(params: InteropParams): Promise<InteropPlan<TransactionRequest>> {
     // 1) Build adapter context (providers, signer, addresses, ABIs, topics, base tokens)
-    const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
+    const ctx = await commonCtx(params, client, tokensResource, contractsResource, attributesResource);
 
     // // 2) Compute sender and select route
     // const sender = (p.sender ?? client.signer) as Address;
     const route = pickInteropRoute({
-      actions: p.actions,
+      actions: params.actions,
       ctx: {
         sender: ctx.sender,
         srcChainId: ctx.chainId,
@@ -119,20 +119,20 @@ export function createInteropResource(
       route === 'direct'
         ? OP_INTEROP.routes.direct.preflight
         : OP_INTEROP.routes.indirect.preflight,
-      () => ROUTES[route].preflight?.(p, ctx),
+      () => ROUTES[route].preflight?.(params, ctx),
       {
         message: 'Interop preflight failed.',
-        ctx: { where: `routes.${route}.preflight`, dst: p.dst },
+        ctx: { where: `routes.${route}.preflight`, dst: params.dst },
       },
     );
 
     // 5) Build concrete steps, approvals, and quote extras
     const { steps, approvals, quoteExtras } = await wrap(
       route === 'direct' ? OP_INTEROP.routes.direct.build : OP_INTEROP.routes.indirect.build,
-      () => ROUTES[route].build(p, ctx),
+      () => ROUTES[route].build(params, ctx),
       {
         message: 'Failed to build interop route plan.',
-        ctx: { where: `routes.${route}.build`, dst: p.dst },
+        ctx: { where: `routes.${route}.build`, dst: params.dst },
       },
     );
 
@@ -148,36 +148,35 @@ export function createInteropResource(
   }
 
   // quote → build and return the summary
-  const quote = (p: InteropParams): Promise<InteropQuote> =>
+  const quote = (params: InteropParams): Promise<InteropQuote> =>
     wrap(OP_INTEROP.quote, async () => {
-      const plan = await buildPlan(p);
+      const plan = await buildPlan(params);
       return plan.summary;
     });
 
-  const tryQuote = (p: InteropParams) =>
-    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(p));
+  const tryQuote = (params: InteropParams) =>
+    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(params));
 
   // prepare → build plan without executing
-  const prepare = (p: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
-    wrap(OP_INTEROP.prepare, () => buildPlan(p), {
+  const prepare = (params: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
+    wrap(OP_INTEROP.prepare, () => buildPlan(params), {
       message: 'Internal error while preparing a deposit plan.',
-      ctx: { where: 'interop.prepare', dst: p.dst },
+      ctx: { where: 'interop.prepare', dst: params.dst },
     });
 
-  const tryPrepare = (p: InteropParams) =>
-    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(p));
+  const tryPrepare = (params: InteropParams) =>
+    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(params));
 
   // create → execute the source-chain step(s)
   // waits for each tx receipt to confirm (status != 0)
-  const create = (p: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
+  const create = (params: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
         // Build plan (like before)
-        const plan = await prepare(p);
-
+        const plan = await prepare(params);
         // Build the SAME interop context we used to build that plan
-        const ctx = await commonCtx(p, client, tokensResource, contractsResource, attributesResource);
+        const ctx = await commonCtx(params, client, tokensResource, contractsResource, attributesResource);
         // source signer MUST be bound to ctx.srcChainId
         const signer = ctx.client.signerFor(ctx.chainId);
         const srcProvider = ctx.client.getProvider(ctx.chainId)!;
@@ -249,17 +248,17 @@ export function createInteropResource(
           stepHashes,
           plan,
           l2SrcTxHash: last ?? ('0x' as Hex),
-          dstChainId: p.dst,
+          dstChainId: params.dst,
         };
       },
       {
         message: 'Internal error while creating interop bundle.',
-        ctx: { where: 'interop.create', dst: p.dst },
+        ctx: { where: 'interop.create', dst: params.dst },
       },
     );
 
-  const tryCreate = (p: InteropParams) =>
-    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(p));
+  const tryCreate = (params: InteropParams) =>
+    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
   // status → non-blocking lifecycle inspection
   const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>

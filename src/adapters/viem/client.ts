@@ -272,7 +272,8 @@ export function createViemClient(args: InitArgs): ViemClient {
   }
 
   const walletCache = new Map<bigint, WalletClient<Transport, Chain | undefined, Account>>();
-  function walletFor(target?: 'l1' | bigint) {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async function walletFor(target?: 'l1' | bigint) {
     if (target === 'l1') return l1Wallet;
     if (target == null) return getL2Wallet();
 

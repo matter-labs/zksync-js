@@ -15,7 +15,6 @@ import { OP_INTEROP } from '../../../../../core/types';
 import { isZKsyncError, isReceiptNotFound } from '../../../../../core/types/errors';
 import {
   resolveIdsFromWaitable,
-  isFinalizationInfo,
   parseBundleSentFromReceipt,
   parseBundleReceiptInfo,
   buildFinalizationInfo,
@@ -144,17 +143,17 @@ async function getDstLogs(
       const rawLogs =
         event && bundleHash
           ? await dstClient.getLogs({
-              address: args.address,
-              fromBlock: 0n,
-              toBlock: 'latest',
-              event,
-              args: { bundleHash },
-            })
+            address: args.address,
+            fromBlock: 0n,
+            toBlock: 'latest',
+            event,
+            args: { bundleHash },
+          })
           : await dstClient.getLogs({
-              address: args.address,
-              fromBlock: 0n,
-              toBlock: 'latest',
-            });
+            address: args.address,
+            fromBlock: 0n,
+            toBlock: 'latest',
+          });
 
       return rawLogs.map((log) => ({
         address: log.address,
@@ -382,18 +381,13 @@ async function deriveInteropStatus(
 
 async function waitForInteropFinalization(
   client: ViemClient,
-  input: InteropWaitable | Hex | InteropFinalizationInfo,
+  input: InteropWaitable | Hex,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
   const topics = getTopics();
   const pollMs = opts?.pollMs ?? DEFAULT_POLL_MS;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const deadlineMs = Date.now() + timeoutMs;
-
-  if (isFinalizationInfo(input)) {
-    await waitUntilRootAvailable(client, input.dstChainId, input.expectedRoot, pollMs, deadlineMs);
-    return input;
-  }
 
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {

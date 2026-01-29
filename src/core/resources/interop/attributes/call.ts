@@ -8,14 +8,8 @@ export function createCallAttributes(codec: AttributesCodec) {
   const interopCallValue = (bridgedAmount: bigint): Hex =>
     codec.encode('interopCallValue', [bridgedAmount]);
 
-  const nativeBridge = (messageValue: bigint, bridgedAmount: bigint): readonly Hex[] => [
-    indirectCall(messageValue),
-    interopCallValue(bridgedAmount),
-  ];
-
   return {
     indirectCall,
     interopCallValue,
-    nativeBridge,
   };
 }

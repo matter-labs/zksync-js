@@ -38,22 +38,22 @@ export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
 };
 
 export interface InteropResource {
-  quote(p: InteropParams): Promise<InteropQuote>;
+  quote(params: InteropParams): Promise<InteropQuote>;
 
   tryQuote(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<{ ok: true; value: InteropQuote } | { ok: false; error: unknown }>;
 
-  prepare(p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>>;
+  prepare(params: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>>;
 
   tryPrepare(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<{ ok: true; value: InteropPlan<ViemPlanWriteRequest> } | { ok: false; error: unknown }>;
 
-  create(p: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>>;
+  create(params: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>>;
 
   tryCreate(
-    p: InteropParams,
+    params: InteropParams,
   ): Promise<
     { ok: true; value: InteropHandle<ViemPlanWriteRequest> } | { ok: false; error: unknown }
   >;
@@ -84,27 +84,27 @@ export function createInteropResource(
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
 
-  async function buildPlan(p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> {
-    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
+  async function buildPlan(params: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> {
+    const ctx = await commonCtx(params, client, tokensResource, contractsResource);
     const route = ctx.route;
 
     await wrap(
       route === 'direct'
         ? OP_INTEROP.routes.direct.preflight
         : OP_INTEROP.routes.indirect.preflight,
-      () => ROUTES[route].preflight?.(p, ctx),
+      () => ROUTES[route].preflight?.(params, ctx),
       {
         message: 'Interop preflight failed.',
-        ctx: { where: `routes.${route}.preflight`, dst: p.dst },
+        ctx: { where: `routes.${route}.preflight`, dst: params.dst },
       },
     );
 
     const { steps, approvals, quoteExtras } = await wrap(
       route === 'direct' ? OP_INTEROP.routes.direct.build : OP_INTEROP.routes.indirect.build,
-      () => ROUTES[route].build(p, ctx),
+      () => ROUTES[route].build(params, ctx),
       {
         message: 'Failed to build interop route plan.',
-        ctx: { where: `routes.${route}.build`, dst: p.dst },
+        ctx: { where: `routes.${route}.build`, dst: params.dst },
       },
     );
 
@@ -118,29 +118,28 @@ export function createInteropResource(
     return { route, summary, steps };
   }
 
-  const quote = (p: InteropParams): Promise<InteropQuote> =>
+  const quote = (params: InteropParams): Promise<InteropQuote> =>
     wrap(OP_INTEROP.quote, async () => {
-      const plan = await buildPlan(p);
+      const plan = await buildPlan(params);
       return plan.summary;
     });
 
-  const tryQuote = (p: InteropParams) =>
-    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(p));
+  const tryQuote = (params: InteropParams) =>
+    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(params));
 
-  const prepare = (p: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> =>
-    wrap(OP_INTEROP.prepare, () => buildPlan(p), {
+  const prepare = (params: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> =>
+    wrap(OP_INTEROP.prepare, () => buildPlan(params), {
       message: 'Internal error while preparing an interop plan.',
-      ctx: { where: 'interop.prepare', dst: p.dst },
+      ctx: { where: 'interop.prepare', dst: params.dst },
     });
 
-  const tryPrepare = (p: InteropParams) =>
-    toResult<InteropPlan<ViemPlanWriteRequest>>(OP_INTEROP.tryPrepare, () => prepare(p));
-
-  const create = (p: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>> =>
+  const tryPrepare = (params: InteropParams) =>
+    toResult<InteropPlan<ViemPlanWriteRequest>>(OP_INTEROP.tryPrepare, () => prepare(params));
+  const create = (params: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
-        const plan = await prepare(p);
+        const plan = await prepare(params);
 
         const wallet = await client.walletFor();
         const from = client.account.address;
@@ -204,17 +203,17 @@ export function createInteropResource(
           stepHashes,
           plan,
           l2SrcTxHash: last ?? ('0x' as Hex),
-          dstChainId: p.dst,
+          dstChainId: params.dst,
         };
       },
       {
         message: 'Internal error while creating interop bundle.',
-        ctx: { where: 'interop.create', dst: p.dst },
+        ctx: { where: 'interop.create', dst: params.dst },
       },
     );
 
-  const tryCreate = (p: InteropParams) =>
-    toResult<InteropHandle<ViemPlanWriteRequest>>(OP_INTEROP.tryCreate, () => create(p));
+  const tryCreate = (params: InteropParams) =>
+    toResult<InteropHandle<ViemPlanWriteRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
   const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>
     wrap(OP_INTEROP.status, () => interopStatus(client, h), {

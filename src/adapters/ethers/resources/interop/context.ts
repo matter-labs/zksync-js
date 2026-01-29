@@ -32,15 +32,15 @@ export interface BuildCtx extends CommonCtx {
 }
 
 export async function commonCtx(
-  p: InteropParams,
+  params: InteropParams,
   client: EthersClient,
   tokens: TokensResource,
   contracts: ContractsResource,
   attributes: AttributesResource,
 ): Promise<BuildCtx & { route: InteropRoute }> {
-  const sender = (p.sender ?? (await client.signer.getAddress())) as Address;
+  const sender = (params.sender ?? (await client.signer.getAddress())) as Address;
   const chainId = BigInt((await client.l2.getNetwork()).chainId);
-  const dstChainId = p.dst;
+  const dstChainId = params.dst;
 
   const {
     bridgehub,
@@ -66,7 +66,7 @@ export async function commonCtx(
     bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
   };
 
-  const hasErc20 = p.actions.some((a) => a.type === 'sendErc20');
+  const hasErc20 = params.actions.some((action) => action.type === 'sendErc20');
   const baseMatch = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
   const route: InteropRoute = !hasErc20 && baseMatch ? 'direct' : 'indirect';
 

@@ -80,18 +80,6 @@ export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropI
   };
 }
 
-export function isFinalizationInfo(
-  input: InteropWaitable | Hex | InteropFinalizationInfo,
-): input is InteropFinalizationInfo {
-  return (
-    typeof input === 'object' &&
-    input !== null &&
-    'encodedData' in input &&
-    'proof' in input &&
-    'expectedRoot' in input
-  );
-}
-
 export function isL1MessageSentLog(log: InteropLog): boolean {
   const addr = log.address?.toLowerCase();
   const t0 = log.topics?.[0]?.toLowerCase();

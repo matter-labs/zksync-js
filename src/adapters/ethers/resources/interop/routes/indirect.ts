@@ -4,8 +4,8 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy } from './types';
 import type {
-  PrecomputedActionData,
-  PrecomputedAttributes,
+  InteropStarterData,
+  InteropAttributes,
 } from '../../../../../core/resources/interop/plan';
 import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants';
@@ -21,58 +21,58 @@ const interopCodec = {
   formatAddress: formatInteropEvmAddress,
 };
 
-async function precomputeIndirectData(
-  p: InteropParams,
+async function getInteropData(
+  params: InteropParams,
   ctx: BuildCtx,
-): Promise<{ attrs: PrecomputedAttributes; precomputed: PrecomputedActionData[] }> {
+): Promise<{ attrs: InteropAttributes; precomputed: InteropStarterData[] }> {
   const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
 
   // Pre-compute bundle attributes
-  const bundleAttrs: Hex[] = [];
-  if (p.execution?.only) {
-    bundleAttrs.push(ctx.attributes.bundle.executionAddress(p.execution.only));
+  const bundleAttributes: Hex[] = [];
+  if (params.execution?.only) {
+    bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
   }
-  if (p.unbundling?.by) {
-    bundleAttrs.push(ctx.attributes.bundle.unbundlerAddress(p.unbundling.by));
+  if (params.unbundling?.by) {
+    bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
   }
 
   // Pre-compute per-action data and call attributes
-  const precomputed: PrecomputedActionData[] = [];
-  const callAttrs: Hex[][] = [];
+  const precomputed: InteropStarterData[] = [];
+  const callAttributes: Hex[][] = [];
 
-  for (const a of p.actions) {
-    if (a.type === 'sendErc20') {
-      const assetId = await ctx.tokens.assetIdOfL2(a.token);
-      const transferData = encodeNativeTokenVaultTransferData(a.amount, a.to, FORMAL_ETH_ADDRESS);
-      const encodedPayload = encodeSecondBridgeDataV1(assetId, transferData);
-      precomputed.push({ encodedPayload });
-      callAttrs.push([ctx.attributes.call.indirectCall(0n)]);
-    } else if (a.type === 'sendNative' && !baseMatches) {
+  for (const action of params.actions) {
+    if (action.type === 'sendErc20') {
+      const assetId = await ctx.tokens.assetIdOfL2(action.token);
+      const transferData = encodeNativeTokenVaultTransferData(action.amount, action.to, FORMAL_ETH_ADDRESS);
+      const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData);
+      precomputed.push({ assetRouterPayload });
+      callAttributes.push([ctx.attributes.call.indirectCall(0n)]);
+    } else if (action.type === 'sendNative' && !baseMatches) {
       const assetId = await ctx.tokens.baseTokenAssetId();
-      const transferData = encodeNativeTokenVaultTransferData(a.amount, a.to, FORMAL_ETH_ADDRESS);
-      const encodedPayload = encodeSecondBridgeDataV1(assetId, transferData);
-      precomputed.push({ encodedPayload });
-      callAttrs.push([ctx.attributes.call.indirectCall(a.amount)]);
-    } else if (a.type === 'sendNative') {
+      const transferData = encodeNativeTokenVaultTransferData(action.amount, action.to, FORMAL_ETH_ADDRESS);
+      const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData);
+      precomputed.push({ assetRouterPayload });
+      callAttributes.push([ctx.attributes.call.indirectCall(action.amount)]);
+    } else if (action.type === 'sendNative') {
       precomputed.push({});
-      callAttrs.push([ctx.attributes.call.interopCallValue(a.amount)]);
-    } else if (a.type === 'call') {
+      callAttributes.push([ctx.attributes.call.interopCallValue(action.amount)]);
+    } else if (action.type === 'call') {
       precomputed.push({});
-      callAttrs.push(a.value && a.value > 0n ? [ctx.attributes.call.interopCallValue(a.value)] : []);
+      callAttributes.push(action.value && action.value > 0n ? [ctx.attributes.call.interopCallValue(action.value)] : []);
     } else {
       precomputed.push({});
-      callAttrs.push([]);
+      callAttributes.push([]);
     }
   }
 
-  return { attrs: { bundleAttrs, callAttrs }, precomputed };
+  return { attrs: { bundleAttributes, callAttributes }, precomputed };
 }
 
 export function routeIndirect(): InteropRouteStrategy {
   return {
     // eslint-disable-next-line @typescript-eslint/require-await
-    async preflight(p: InteropParams, ctx: BuildCtx) {
-      preflightIndirect(p, {
+    async preflight(params: InteropParams, ctx: BuildCtx) {
+      preflightIndirect(params, {
         dstChainId: ctx.dstChainId,
         baseTokens: ctx.baseTokens,
         l2AssetRouter: ctx.l2AssetRouter,
@@ -80,7 +80,7 @@ export function routeIndirect(): InteropRouteStrategy {
         codec: interopCodec,
       });
     },
-    async build(p: InteropParams, ctx: BuildCtx) {
+    async build(params: InteropParams, ctx: BuildCtx) {
       const steps: Array<{
         key: string;
         kind: string;
@@ -89,7 +89,7 @@ export function routeIndirect(): InteropRouteStrategy {
       }> = [];
 
       const erc20Tokens = new Map<string, string>();
-      for (const action of p.actions) {
+      for (const action of params.actions) {
         if (action.type !== 'sendErc20') continue;
         erc20Tokens.set(action.token.toLowerCase(), action.token);
       }
@@ -110,10 +110,10 @@ export function routeIndirect(): InteropRouteStrategy {
       }
 
       // Pre-compute all data in adapter before calling core
-      const { attrs, precomputed } = await precomputeIndirectData(p, ctx);
+      const { attrs, precomputed } = await getInteropData(params, ctx);
 
       const built = buildIndirectBundle(
-        p,
+        params,
         {
           dstChainId: ctx.dstChainId,
           baseTokens: ctx.baseTokens,
@@ -149,7 +149,7 @@ export function routeIndirect(): InteropRouteStrategy {
       const data = ctx.ifaces.interopCenter.encodeFunctionData('sendBundle', [
         built.dstChain,
         built.starters,
-        built.bundleAttrs,
+        built.bundleAttributes,
       ]) as Hex;
 
       steps.push({

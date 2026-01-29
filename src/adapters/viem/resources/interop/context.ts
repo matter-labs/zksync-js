@@ -36,7 +36,7 @@ function eventTopic(abi: Abi, name: string): Hex {
 }
 
 export async function commonCtx(
-  p: InteropParams,
+  params: InteropParams,
   client: ViemClient,
   tokens: TokensResource,
   contracts: ContractsResource,
@@ -44,7 +44,7 @@ export async function commonCtx(
 ): Promise<BuildCtx & { route: InteropRoute }> {
   const sender = client.account.address;
   const chainId = BigInt(await client.l2.getChainId());
-  const dstChainId = p.dst;
+  const dstChainId = params.dst;
 
   const {
     bridgehub,
@@ -68,7 +68,7 @@ export async function commonCtx(
   };
 
   const route = pickInteropRoute({
-    actions: p.actions,
+    actions: params.actions,
     ctx: {
       sender,
       srcChainId: chainId,

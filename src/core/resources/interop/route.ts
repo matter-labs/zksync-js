@@ -6,29 +6,29 @@ export interface InteropCtx {
   sender: Address;
   srcChainId: bigint;
   dstChainId: bigint;
-  /** canonical base token addresses for src/dst */
+  // canonical base token addresses for src/dst
   baseTokenSrc: Address;
   baseTokenDst: Address;
 }
 
-/** Sums action-level native value (sendNative + call.value) */
+// Sums action-level native value (sendNative + call.value)
 export function sumActionMsgValue(actions: readonly InteropAction[]): bigint {
-  let v = 0n;
+  let sum = 0n;
   for (const a of actions) {
-    if (a.type === 'sendNative') v += a.amount;
-    else if (a.type === 'call' && a.value) v += a.value;
+    if (a.type === 'sendNative') sum += a.amount;
+    else if (a.type === 'call' && a.value) sum += a.value;
   }
-  return v;
+  return sum;
 }
 
-/** Sums ERC-20 amounts (for bridge planning & approvals) */
+// Sums ERC-20 amounts (for bridge planning & approvals)
 export function sumErc20Amounts(actions: readonly InteropAction[]): bigint {
-  let v = 0n;
-  for (const a of actions) if (a.type === 'sendErc20') v += a.amount;
-  return v;
+  let sum = 0n;
+  for (const a of actions) if (a.type === 'sendErc20') sum += a.amount;
+  return sum;
 }
 
-/** Picks the high-level route. Keep simple & deterministic. */
+// Picks the high-level route.
 export function pickInteropRoute(args: {
   actions: readonly InteropAction[];
   ctx: InteropCtx;

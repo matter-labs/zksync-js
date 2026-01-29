@@ -3,7 +3,7 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { TransactionRequest } from 'ethers';
 import type { InteropRouteStrategy } from './types';
-import type { PrecomputedAttributes } from '../../../../../core/resources/interop/plan';
+import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import {
   buildDirectBundle,
   preflightDirect,
@@ -15,26 +15,26 @@ const interopCodec = {
   formatAddress: formatInteropEvmAddress,
 };
 
-function precomputeDirectAttrs(p: InteropParams, ctx: BuildCtx): PrecomputedAttributes {
-  const bundleAttrs: Hex[] = [];
-  if (p.execution?.only) {
-    bundleAttrs.push(ctx.attributes.bundle.executionAddress(p.execution.only));
+function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {
+  const bundleAttributes: Hex[] = [];
+  if (params.execution?.only) { 
+    bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
   }
-  if (p.unbundling?.by) {
-    bundleAttrs.push(ctx.attributes.bundle.unbundlerAddress(p.unbundling.by));
+  if (params.unbundling?.by) {
+    bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
   }
 
-  const callAttrs = p.actions.map((a) => {
-    if (a.type === 'sendNative') {
-      return [ctx.attributes.call.interopCallValue(a.amount)];
+  const callAttributes = params.actions.map((action) => {
+    if (action.type === 'sendNative') {
+      return [ctx.attributes.call.interopCallValue(action.amount)];
     }
-    if (a.type === 'call' && a.value && a.value > 0n) {
-      return [ctx.attributes.call.interopCallValue(a.value)];
+    if (action.type === 'call' && action.value && action.value > 0n) {
+      return [ctx.attributes.call.interopCallValue(action.value)];
     }
     return [];
-  });
+});
 
-  return { bundleAttrs, callAttrs };
+  return { bundleAttributes, callAttributes };
 }
 
 export function routeDirect(): InteropRouteStrategy {
@@ -50,7 +50,7 @@ export function routeDirect(): InteropRouteStrategy {
       });
     },
     // eslint-disable-next-line @typescript-eslint/require-await
-    async build(p: InteropParams, ctx: BuildCtx) {
+    async build(params: InteropParams, ctx: BuildCtx) {
       const steps: Array<{
         key: string;
         kind: string;
@@ -58,9 +58,9 @@ export function routeDirect(): InteropRouteStrategy {
         tx: TransactionRequest;
       }> = [];
 
-      const attrs = precomputeDirectAttrs(p, ctx);
+      const attrs = getInteropAttributes(params, ctx);
       const built = buildDirectBundle(
-        p,
+        params,
         {
           dstChainId: ctx.dstChainId,
           baseTokens: ctx.baseTokens,
@@ -74,13 +74,13 @@ export function routeDirect(): InteropRouteStrategy {
       const data = ctx.ifaces.interopCenter.encodeFunctionData('sendBundle', [
         built.dstChain,
         built.starters,
-        built.bundleAttrs,
+        built.bundleAttributes,
       ]);
 
       steps.push({
         key: 'sendBundle',
         kind: 'interop.center',
-        description: `Send interop bundle (direct route; ${p.actions.length} actions)`,
+        description: `Send interop bundle (direct route; ${params.actions.length} actions)`,
         // In direct route, msg.value equals the total forwarded value across
         // all calls (sendNative.amount + call.value).
         tx: {

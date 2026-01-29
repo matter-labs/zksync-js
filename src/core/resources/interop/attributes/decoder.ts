@@ -15,11 +15,11 @@ export function createAttributesDecoder(codec: AttributesCodec) {
     attrs.map((attr) => codec.decode(attr));
 
   const summarize = (
-    callAttrs: EncodedCallAttributes,
-    bundleAttrs: EncodedBundleAttributes,
+    callAttributes: EncodedCallAttributes,
+    bundleAttributes: EncodedBundleAttributes,
   ): DecodedAttributesSummary => ({
-    call: call(callAttrs),
-    bundle: bundle(bundleAttrs),
+    call: call(callAttributes),
+    bundle: bundle(bundleAttributes),
   });
 
   return {
