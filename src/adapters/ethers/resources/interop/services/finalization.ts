@@ -1,4 +1,4 @@
-import { Contract, Interface, type TransactionReceipt } from 'ethers';
+import { AbiCoder, Contract, Interface, type TransactionReceipt } from 'ethers';
 
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import type { EthersClient } from '../../../client';
@@ -69,7 +69,7 @@ function decodeInteropBundleSent(
   log: { data: Hex; topics: Hex[] },
 ): {
   bundleHash: Hex;
-  sourceChainId?: bigint;
+  sourceChainId: bigint;
   destinationChainId: bigint;
 } {
   const decoded = centerIface.decodeEventLog(
@@ -89,6 +89,11 @@ function decodeInteropBundleSent(
     sourceChainId: decoded.interopBundle.sourceChainId,
     destinationChainId: decoded.interopBundle.destinationChainId,
   };
+}
+
+function decodeL1MessageData(log: InteropLog): Hex {
+  const decoded = AbiCoder.defaultAbiCoder().decode(['bytes'], log.data);
+  return decoded[0] as Hex;
 }
 
 // ---------------------------------------------------------------------------
@@ -416,9 +421,10 @@ async function waitForInteropFinalization(
           interopCenter,
           interopBundleSentTopic: topics.interopBundleSent,
           decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
+          decodeL1MessageData,
           wantBundleHash: ids.bundleHash,
+          l2SrcTxHash: ids.l2SrcTxHash,
         },
-        ids.l2SrcTxHash,
       );
     } catch (e) {
       if (isReceiptNotFoundError(e)) {

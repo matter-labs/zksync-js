@@ -166,10 +166,7 @@ export function createFinalizationServices(client: ViemClient): FinalizationServ
         { ctx: { where: 'l2.getChainId' }, message: 'Failed to read L2 chain id.' },
       );
 
-      // TODO: fix me
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const txIndex = Number((parsed as any).transactionIndex ?? 0);
-
+      const txIndex = Number(parsed.transactionIndex);
       const params: FinalizeDepositParams = {
         chainId: BigInt(chainId),
         l2BatchNumber: proof.batchNumber,

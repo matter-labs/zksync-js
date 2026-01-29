@@ -16,7 +16,6 @@ import {
   L1_MESSENGER_ADDRESS,
   L2_INTEROP_CENTER_ADDRESS,
   TOPIC_L1_MESSAGE_SENT_LEG,
-  TOPIC_L1_MESSAGE_SENT_NEW,
 } from '../../constants';
 import { OP_INTEROP, isZKsyncError } from '../../types/errors';
 import { createError } from '../../errors/factory';
@@ -40,7 +39,6 @@ export interface BundleReceiptInfo {
   dstChainId: bigint;
   sourceChainId: bigint;
   l1MessageData: Hex;
-  l1MessageIndex: number;
   l2ToL1LogIndex: number;
   txNumberInBatch: number;
   rawReceipt: ReceiptWithL2ToL1;
@@ -81,59 +79,10 @@ export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropI
 }
 
 export function isL1MessageSentLog(log: InteropLog): boolean {
-  const addr = log.address?.toLowerCase();
-  const t0 = log.topics?.[0]?.toLowerCase();
   return (
-    addr === L1_MESSENGER_ADDRESS.toLowerCase() &&
-    (t0 === TOPIC_L1_MESSAGE_SENT_NEW.toLowerCase() ||
-      t0 === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase())
+    log.address.toLowerCase() === L1_MESSENGER_ADDRESS.toLowerCase() &&
+    log.topics[0].toLowerCase() === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase()
   );
-}
-
-export function decodeSingleBytes(data: Hex): Hex {
-  const hex = data.startsWith('0x') ? data.slice(2) : data;
-  if (hex.length < 64) {
-    throw new Error('Encoded bytes is too short to decode.');
-  }
-
-  const offset = BigInt(`0x${hex.slice(0, 64)}`);
-  if (offset > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error('Encoded bytes offset is too large.');
-  }
-
-  const lenPos = Number(offset) * 2;
-  if (hex.length < lenPos + 64) {
-    throw new Error('Encoded bytes length is out of bounds.');
-  }
-
-  const length = BigInt(`0x${hex.slice(lenPos, lenPos + 64)}`);
-  if (length > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error('Encoded bytes length is too large.');
-  }
-
-  const dataStart = lenPos + 64;
-  const dataEnd = dataStart + Number(length) * 2;
-  if (hex.length < dataEnd) {
-    throw new Error('Encoded bytes payload is out of bounds.');
-  }
-
-  return `0x${hex.slice(dataStart, dataEnd)}`;
-}
-
-export function resolveTxIndex(raw: ReceiptWithL2ToL1): number {
-  const record = raw as Record<string, unknown>;
-  const idxRaw = record.transactionIndex ?? record.transaction_index ?? record.index;
-  if (idxRaw == null) return 0;
-  if (typeof idxRaw === 'number') return idxRaw;
-  if (typeof idxRaw === 'bigint') return Number(idxRaw);
-  if (typeof idxRaw === 'string') {
-    try {
-      return idxRaw.startsWith('0x') ? Number(BigInt(idxRaw)) : Number(idxRaw);
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -180,7 +129,7 @@ export interface ParseBundleSentInput {
   interopBundleSentTopic: Hex;
   decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
     bundleHash: Hex;
-    sourceChainId?: bigint;
+    sourceChainId: bigint;
     destinationChainId: bigint;
   };
 }
@@ -218,58 +167,58 @@ export function parseBundleSentFromReceipt(
   return { bundleHash: decoded.bundleHash, dstChainId: decoded.destinationChainId };
 }
 
-export interface ParseBundleReceiptInput {
+export interface ParseBundleReceiptParams {
   rawReceipt: ReceiptWithL2ToL1;
   interopCenter: Address;
   interopBundleSentTopic: Hex;
   decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
     bundleHash: Hex;
-    sourceChainId?: bigint;
+    sourceChainId: bigint;
     destinationChainId: bigint;
   };
+  decodeL1MessageData: (log: InteropLog) => Hex;
   wantBundleHash?: Hex;
+  l2SrcTxHash: Hex,
 }
 
 export function parseBundleReceiptInfo(
-  input: ParseBundleReceiptInput,
-  l2SrcTxHash: Hex,
+  params: ParseBundleReceiptParams,
 ): BundleReceiptInfo {
   const {
     rawReceipt,
     interopCenter,
     interopBundleSentTopic,
     decodeInteropBundleSent,
+    decodeL1MessageData,
     wantBundleHash,
-  } = input;
-
-  const logs = rawReceipt.logs ?? [];
+    l2SrcTxHash,
+  } = params;
+debugger;
   const wantAddr = interopCenter.toLowerCase();
   const wantTopic = interopBundleSentTopic.toLowerCase();
 
-  let l1MessageIndex = -1;
+  let l2ToL1LogIndex = -1;
   let l1MessageData: Hex | null = null;
   let found: { bundleHash: Hex; dstChainId: bigint; sourceChainId: bigint } | undefined;
 
-  for (const log of logs) {
+  for (const log of rawReceipt.logs!) {
     if (isL1MessageSentLog(log)) {
-      l1MessageIndex += 1;
+      l2ToL1LogIndex += 1;
       try {
-        l1MessageData = decodeSingleBytes(log.data);
+        l1MessageData = decodeL1MessageData(log);
       } catch (e) {
         throw createError('STATE', {
           resource: 'interop',
           operation: OP_INTEROP.svc.status.parseSentLog,
           message: 'Failed to decode L1MessageSent log data for interop bundle.',
-          context: { l2SrcTxHash, l1MessageIndex },
+          context: { l2SrcTxHash, l2ToL1LogIndex },
           cause: e as Error,
         });
       }
       continue;
     }
 
-    const addr = (log.address ?? '').toLowerCase();
-    const t0 = (log.topics?.[0] ?? '').toLowerCase();
-    if (addr !== wantAddr || t0 !== wantTopic) continue;
+    if (log.address.toLowerCase() !== wantAddr || log.topics[0].toLowerCase() !== wantTopic) continue;
 
     const decoded = decodeInteropBundleSent({
       data: log.data,
@@ -278,15 +227,6 @@ export function parseBundleReceiptInfo(
 
     if (wantBundleHash && decoded.bundleHash.toLowerCase() !== wantBundleHash.toLowerCase()) {
       continue;
-    }
-
-    if (decoded.sourceChainId == null) {
-      throw createError('STATE', {
-        resource: 'interop',
-        operation: OP_INTEROP.svc.status.parseSentLog,
-        message: 'InteropBundleSent log missing source chain id.',
-        context: { l2SrcTxHash, interopCenter },
-      });
     }
 
     found = {
@@ -315,41 +255,13 @@ export function parseBundleReceiptInfo(
     });
   }
 
-  if (l1MessageIndex < 0) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.svc.status.parseSentLog,
-      message: 'Failed to locate L1MessageSent log for interop bundle.',
-      context: { l2SrcTxHash },
-    });
-  }
-
-  let l2ToL1LogIndex: number;
-  try {
-    l2ToL1LogIndex = messengerLogIndex(rawReceipt, {
-      index: l1MessageIndex,
-      messenger: L1_MESSENGER_ADDRESS,
-    });
-  } catch (e) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.svc.status.parseSentLog,
-      message: 'Failed to derive L2->L1 messenger log index for interop bundle.',
-      context: { l2SrcTxHash, l1MessageIndex },
-      cause: e as Error,
-    });
-  }
-
-  const txNumberInBatch = resolveTxIndex(rawReceipt);
-
   return {
     bundleHash: found.bundleHash,
     dstChainId: found.dstChainId,
     sourceChainId: found.sourceChainId,
     l1MessageData,
-    l1MessageIndex,
     l2ToL1LogIndex,
-    txNumberInBatch,
+    txNumberInBatch: Number(rawReceipt.transactionIndex),
     rawReceipt,
   };
 }

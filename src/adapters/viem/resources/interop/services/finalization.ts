@@ -1,5 +1,5 @@
 import type { TransactionReceipt, Abi, AbiEvent } from 'viem';
-import { decodeEventLog, getAbiItem, getEventSelector } from 'viem';
+import { decodeAbiParameters, decodeEventLog, getAbiItem, getEventSelector } from 'viem';
 
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import type { ViemClient } from '../../../client';
@@ -66,7 +66,7 @@ function getTopics(): InteropTopics {
 
 function decodeInteropBundleSent(log: { data: Hex; topics: Hex[] }): {
   bundleHash: Hex;
-  sourceChainId?: bigint;
+  sourceChainId: bigint;
   destinationChainId: bigint;
 } {
   const decoded = decodeEventLog({
@@ -89,6 +89,11 @@ function decodeInteropBundleSent(log: { data: Hex; topics: Hex[] }): {
     sourceChainId: decoded.args.interopBundle.sourceChainId,
     destinationChainId: decoded.args.interopBundle.destinationChainId,
   };
+}
+
+function decodeL1MessageData(log: InteropLog): Hex {
+  const [message] = decodeAbiParameters([{ type: 'bytes' }], log.data);
+  return message;
 }
 
 // ---------------------------------------------------------------------------
@@ -438,9 +443,10 @@ async function waitForInteropFinalization(
           interopCenter,
           interopBundleSentTopic: topics.interopBundleSent,
           decodeInteropBundleSent,
+          decodeL1MessageData,
           wantBundleHash: ids.bundleHash,
+          l2SrcTxHash: ids.l2SrcTxHash,
         },
-        ids.l2SrcTxHash,
       );
     } catch (e) {
       if (isReceiptNotFoundError(e)) {
