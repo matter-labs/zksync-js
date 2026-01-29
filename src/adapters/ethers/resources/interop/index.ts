@@ -14,6 +14,7 @@ import type {
   InteropFinalizationInfo,
   InteropFinalizationResult,
 } from '../../../../core/types/flows/interop';
+import { isInteropFinalizationInfo } from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
 import { createTokensResource } from '../tokens';
 import { createContractsResource } from '../contracts';
@@ -64,21 +65,21 @@ export interface InteropResource {
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
 
-  status(h: InteropWaitable | Hex): Promise<InteropStatus>;
+  status(h: InteropWaitable): Promise<InteropStatus>;
 
   wait(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 
   tryWait(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
-  finalize(h: InteropWaitable | Hex): Promise<InteropFinalizationResult>;
+  finalize(h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult>;
   tryFinalize(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
@@ -261,7 +262,7 @@ export function createInteropResource(
     toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
   // status → non-blocking lifecycle inspection
-  const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>
+  const status = (h: InteropWaitable): Promise<InteropStatus> =>
     wrap(OP_INTEROP.status, () => interopStatus(client, h), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
@@ -269,7 +270,7 @@ export function createInteropResource(
 
   // wait → block until source finalization + destination root availability
   const wait = (
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
     wrap(OP_INTEROP.wait, () => interopWait(client, h, opts), {
@@ -278,19 +279,20 @@ export function createInteropResource(
     });
 
   const tryWait = (
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,
   // returns finalization metadata for UI / explorers.
-  const finalize = (h: InteropWaitable | Hex): Promise<InteropFinalizationResult> =>
+  const finalize = (h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {
         const svc = createInteropFinalizationServices(client);
-        const info = await svc.waitForFinalization(h);
+
+        const info = isInteropFinalizationInfo(h) ? h : await svc.waitForFinalization(h);
 
         // submit executeBundle on destination
         const execResult = await svc.executeBundle(info);
@@ -312,7 +314,7 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (h: InteropWaitable | Hex) =>
+  const tryFinalize = (h: InteropWaitable) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h));
 
   return {

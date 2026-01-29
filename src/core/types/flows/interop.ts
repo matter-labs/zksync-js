@@ -65,7 +65,6 @@ export interface InteropHandle<Tx>
 /** === Waitable === */
 export type InteropWaitable =
   | Hex
-  | { l2SrcTxHash?: Hex; l1MsgHash?: Hex; bundleHash?: Hex; dstChainId?: bigint; dstExecTxHash?: Hex }
   | InteropHandle<unknown>;
 
 /** === Status & phases === */
@@ -112,6 +111,31 @@ export interface InteropFinalizationInfo {
   proof: InteropMessageProof;
   encodedData: Hex;
 }
+
+export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizationInfo {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const info = obj as InteropFinalizationInfo;
+  return (
+    typeof info.l2SrcTxHash === 'string' &&
+    typeof info.bundleHash === 'string' &&
+    typeof info.dstChainId === 'bigint' &&
+    typeof info.encodedData === 'string' &&
+    typeof info.expectedRoot === 'object' &&
+    info.expectedRoot !== null &&
+    typeof info.expectedRoot.rootChainId === 'bigint' &&
+    typeof info.expectedRoot.batchNumber === 'bigint' &&
+    typeof info.expectedRoot.expectedRoot === 'string' &&
+    typeof info.proof === 'object' &&
+    info.proof !== null &&
+    typeof info.proof.chainId === 'bigint' &&
+    typeof info.proof.l1BatchNumber === 'bigint' &&
+    typeof info.proof.l2MessageIndex === 'bigint' &&
+    typeof info.proof.message === 'object' &&
+    info.proof.message !== null &&
+    typeof info.proof.message.txNumberInBatch === 'number' &&
+    typeof info.proof.message.sender === 'string'
+  );
+};
 
 export interface InteropFinalizationResult {
   bundleHash: Hex;

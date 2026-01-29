@@ -1,8 +1,4 @@
 // src/core/resources/interop/finalization.ts
-//
-// Pure helper functions for interop finalization.
-// Orchestration logic lives in adapters (viem/ethers finalization.ts).
-
 import type { Address, Hex } from '../../types/primitives';
 import type {
   InteropFinalizationInfo,
@@ -19,11 +15,6 @@ import {
 } from '../../constants';
 import { OP_INTEROP, isZKsyncError } from '../../types/errors';
 import { createError } from '../../errors/factory';
-import { messengerLogIndex } from '../withdrawals/logs';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export type InteropLog = {
   address: Address;
@@ -32,7 +23,7 @@ export type InteropLog = {
   transactionHash?: Hex;
 };
 
-export type InteropReceipt = { logs?: InteropLog[] };
+export type InteropReceipt = { logs: InteropLog[] };
 
 export interface BundleReceiptInfo {
   bundleHash: Hex;
@@ -44,17 +35,9 @@ export interface BundleReceiptInfo {
   rawReceipt: ReceiptWithL2ToL1;
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 export const DEFAULT_POLL_MS = 1_000;
 export const DEFAULT_TIMEOUT_MS = 300_000;
 export const ZERO_HASH: Hex = `0x${'0'.repeat(64)}`;
-
-// ---------------------------------------------------------------------------
-// Pure helper functions
-// ---------------------------------------------------------------------------
 
 interface ResolvedInteropIds {
   l2SrcTxHash?: Hex;
@@ -68,13 +51,11 @@ export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropI
     return { l2SrcTxHash: input };
   }
 
-  const asObj = input as ResolvedInteropIds;
-
   return {
-    l2SrcTxHash: asObj.l2SrcTxHash,
-    bundleHash: asObj.bundleHash,
-    dstChainId: asObj.dstChainId,
-    dstExecTxHash: asObj.dstExecTxHash,
+    l2SrcTxHash: input.l2SrcTxHash,
+    bundleHash: input.bundleHash,
+    dstChainId: input.dstChainId,
+    dstExecTxHash: input.dstExecTxHash,
   };
 }
 
@@ -119,10 +100,6 @@ export function isReceiptNotFoundError(err: unknown): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Receipt parsing helpers (pure, take decoded data as input)
-// ---------------------------------------------------------------------------
-
 export interface ParseBundleSentInput {
   receipt: InteropReceipt;
   interopCenter: Address;
@@ -136,32 +113,27 @@ export interface ParseBundleSentInput {
 
 export function parseBundleSentFromReceipt(
   input: ParseBundleSentInput,
-  l2SrcTxHash: Hex,
 ): { bundleHash: Hex; dstChainId: bigint } {
   const { receipt, interopCenter, interopBundleSentTopic, decodeInteropBundleSent } = input;
 
-  const logs = receipt.logs ?? [];
-  const wantAddr = interopCenter.toLowerCase();
-  const wantTopic = interopBundleSentTopic.toLowerCase();
-
-  const found = logs.find(
+  const bundleSentLog = receipt.logs.find(
     (log) =>
-      (log.address ?? '').toLowerCase() === wantAddr &&
-      (log.topics?.[0] ?? '').toLowerCase() === wantTopic,
+      log.address.toLowerCase() === interopCenter.toLowerCase() &&
+      log.topics[0].toLowerCase() === interopBundleSentTopic.toLowerCase(),
   );
 
-  if (!found) {
+  if (!bundleSentLog) {
     throw createError('STATE', {
       resource: 'interop',
       operation: OP_INTEROP.svc.status.parseSentLog,
       message: 'Failed to locate InteropBundleSent event in source receipt.',
-      context: { l2SrcTxHash, interopCenter },
+      context: { receipt, interopCenter },
     });
   }
 
   const decoded = decodeInteropBundleSent({
-    data: found.data,
-    topics: found.topics,
+    data: bundleSentLog.data,
+    topics: bundleSentLog.topics,
   });
 
   return { bundleHash: decoded.bundleHash, dstChainId: decoded.destinationChainId };
@@ -177,7 +149,6 @@ export interface ParseBundleReceiptParams {
     destinationChainId: bigint;
   };
   decodeL1MessageData: (log: InteropLog) => Hex;
-  wantBundleHash?: Hex;
   l2SrcTxHash: Hex,
 }
 
@@ -190,13 +161,8 @@ export function parseBundleReceiptInfo(
     interopBundleSentTopic,
     decodeInteropBundleSent,
     decodeL1MessageData,
-    wantBundleHash,
     l2SrcTxHash,
   } = params;
-debugger;
-  const wantAddr = interopCenter.toLowerCase();
-  const wantTopic = interopBundleSentTopic.toLowerCase();
-
   let l2ToL1LogIndex = -1;
   let l1MessageData: Hex | null = null;
   let found: { bundleHash: Hex; dstChainId: bigint; sourceChainId: bigint } | undefined;
@@ -218,16 +184,15 @@ debugger;
       continue;
     }
 
-    if (log.address.toLowerCase() !== wantAddr || log.topics[0].toLowerCase() !== wantTopic) continue;
+    if (
+      log.address.toLowerCase() !== interopCenter.toLowerCase() ||
+      log.topics[0].toLowerCase() !== interopBundleSentTopic.toLowerCase()
+    ) continue;
 
     const decoded = decodeInteropBundleSent({
       data: log.data,
       topics: log.topics,
     });
-
-    if (wantBundleHash && decoded.bundleHash.toLowerCase() !== wantBundleHash.toLowerCase()) {
-      continue;
-    }
 
     found = {
       bundleHash: decoded.bundleHash,
@@ -242,7 +207,7 @@ debugger;
       resource: 'interop',
       operation: OP_INTEROP.svc.status.parseSentLog,
       message: 'Failed to locate InteropBundleSent event in source receipt.',
-      context: { l2SrcTxHash, interopCenter, bundleHash: wantBundleHash },
+      context: { l2SrcTxHash, interopCenter },
     });
   }
 
@@ -266,10 +231,7 @@ debugger;
   };
 }
 
-// ---------------------------------------------------------------------------
-// Finalization info building helpers
-// ---------------------------------------------------------------------------
-
+// Finalization helpers
 export function validateBundlePayload(messageData: Hex, l2SrcTxHash: Hex): Hex {
   if (messageData.length <= 4) {
     throw createError('STATE', {
@@ -338,10 +300,7 @@ export function buildFinalizationInfo(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Error creation helpers
-// ---------------------------------------------------------------------------
-
+// Error helpers
 export function createTimeoutError(
   operation: string,
   message: string,

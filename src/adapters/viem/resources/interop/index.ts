@@ -11,6 +11,7 @@ import type {
   InteropFinalizationInfo,
   InteropFinalizationResult,
 } from '../../../../core/types/flows/interop';
+import { isInteropFinalizationInfo } from '../../../../core/types/flows/interop';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { ContractsResource } from '../contracts';
 import type { WriteContractParameters } from 'viem';
@@ -58,21 +59,21 @@ export interface InteropResource {
     { ok: true; value: InteropHandle<ViemPlanWriteRequest> } | { ok: false; error: unknown }
   >;
 
-  status(h: InteropWaitable | Hex): Promise<InteropStatus>;
+  status(h: InteropWaitable): Promise<InteropStatus>;
 
   wait(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 
   tryWait(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
-  finalize(h: InteropWaitable | Hex): Promise<InteropFinalizationResult>;
+  finalize(h: InteropWaitable): Promise<InteropFinalizationResult>;
   tryFinalize(
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
@@ -215,14 +216,14 @@ export function createInteropResource(
   const tryCreate = (params: InteropParams) =>
     toResult<InteropHandle<ViemPlanWriteRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
-  const status = (h: InteropWaitable | Hex): Promise<InteropStatus> =>
+  const status = (h: InteropWaitable): Promise<InteropStatus> =>
     wrap(OP_INTEROP.status, () => interopStatus(client, h), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
 
   const wait = (
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
     wrap(OP_INTEROP.wait, () => interopWait(client, h, opts), {
@@ -231,16 +232,16 @@ export function createInteropResource(
     });
 
   const tryWait = (
-    h: InteropWaitable | Hex,
+    h: InteropWaitable,
     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
-  const finalize = (h: InteropWaitable | Hex): Promise<InteropFinalizationResult> =>
+  const finalize = (h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {
         const svc = createInteropFinalizationServices(client);
-        const info = await svc.waitForFinalization(h);
+        const info = isInteropFinalizationInfo(h) ? h : await svc.waitForFinalization(h);
 
         const execResult = await svc.executeBundle(info);
         await execResult.wait();
@@ -257,7 +258,7 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (h: InteropWaitable | Hex) =>
+  const tryFinalize = (h: InteropWaitable) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h));
 
   return {

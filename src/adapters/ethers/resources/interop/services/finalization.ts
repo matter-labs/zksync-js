@@ -329,7 +329,6 @@ async function deriveInteropStatus(
         interopBundleSentTopic: topics.interopBundleSent,
         decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
       },
-      baseIds.l2SrcTxHash,
     );
 
     return { ...baseIds, bundleHash, dstChainId };
@@ -364,7 +363,7 @@ async function deriveInteropStatus(
 
 async function waitForInteropFinalization(
   client: EthersClient,
-  input: InteropWaitable | Hex,
+  input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
   const { topics, centerIface } = getTopics();
@@ -422,7 +421,7 @@ async function waitForInteropFinalization(
           interopBundleSentTopic: topics.interopBundleSent,
           decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
           decodeL1MessageData,
-          wantBundleHash: ids.bundleHash,
+          bundleHash: ids.bundleHash,
           l2SrcTxHash: ids.l2SrcTxHash,
         },
       );
@@ -559,7 +558,7 @@ export interface InteropFinalizationServices {
   deriveStatus(input: InteropWaitable): Promise<InteropStatus>;
 
   waitForFinalization(
-    input: InteropWaitable | Hex,
+    input: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 
