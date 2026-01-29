@@ -1,16 +1,16 @@
 // src/core/resources/interop/finalization.ts
+//
+// Pure helper functions for interop finalization.
+// Orchestration logic lives in adapters (viem/ethers finalization.ts).
 
 import type { Address, Hex } from '../../types/primitives';
 import type {
   InteropFinalizationInfo,
   InteropExpectedRoot,
   InteropMessageProof,
-  InteropPhase,
-  InteropStatus,
   InteropWaitable,
 } from '../../types/flows/interop';
 import type { ProofNormalized, ReceiptWithL2ToL1 } from '../../rpc/types';
-import type { InteropTopics } from './events';
 import {
   BUNDLE_IDENTIFIER,
   L1_MESSENGER_ADDRESS,
@@ -22,44 +22,41 @@ import { OP_INTEROP, isZKsyncError } from '../../types/errors';
 import { createError } from '../../errors/factory';
 import { messengerLogIndex } from '../withdrawals/logs';
 
-type InteropLog = {
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type InteropLog = {
   address: Address;
   topics: Hex[];
   data: Hex;
   transactionHash?: Hex;
 };
 
-type InteropReceipt = { logs?: InteropLog[] };
+export type InteropReceipt = { logs?: InteropLog[] };
 
-const DEFAULT_POLL_MS = 1_000;
-const DEFAULT_TIMEOUT_MS = 300_000;
-
-const ZERO_HASH = (`0x${'0'.repeat(64)}` as Hex);
-
-export interface InteropFinalizationDeps {
-  topics: InteropTopics;
-
-  getInteropAddresses(): Promise<{ interopCenter: Address; interopHandler: Address }>;
-  getSourceReceipt(txHash: Hex): Promise<InteropReceipt | null>;
-  getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
-  getL2ToL1LogProof(txHash: Hex, logIndex: number): Promise<ProofNormalized>;
-  getDstLogs(args: { dstChainId: bigint; address: Address; topics: Hex[] }): Promise<InteropLog[]>;
-  readInteropRoot(args: {
-    dstChainId: bigint;
-    rootChainId: bigint;
-    batchNumber: bigint;
-  }): Promise<Hex | null>;
-  executeBundle(args: {
-    dstChainId: bigint;
-    encodedData: Hex;
-    proof: InteropMessageProof;
-  }): Promise<{ hash: Hex; wait: () => Promise<unknown> }>;
-  decodeInteropBundleSent(log: { data: Hex; topics: Hex[] }): {
-    bundleHash: Hex;
-    sourceChainId?: bigint;
-    destinationChainId: bigint;
-  };
+export interface BundleReceiptInfo {
+  bundleHash: Hex;
+  dstChainId: bigint;
+  sourceChainId: bigint;
+  l1MessageData: Hex;
+  l1MessageIndex: number;
+  l2ToL1LogIndex: number;
+  txNumberInBatch: number;
+  rawReceipt: ReceiptWithL2ToL1;
 }
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_POLL_MS = 1_000;
+export const DEFAULT_TIMEOUT_MS = 300_000;
+export const ZERO_HASH: Hex = `0x${'0'.repeat(64)}`;
+
+// ---------------------------------------------------------------------------
+// Pure helper functions
+// ---------------------------------------------------------------------------
 
 interface ResolvedInteropIds {
   l2SrcTxHash?: Hex;
@@ -95,7 +92,7 @@ export function isFinalizationInfo(
   );
 }
 
-function isL1MessageSentLog(log: InteropLog): boolean {
+export function isL1MessageSentLog(log: InteropLog): boolean {
   const addr = log.address?.toLowerCase();
   const t0 = log.topics?.[0]?.toLowerCase();
   return (
@@ -105,7 +102,7 @@ function isL1MessageSentLog(log: InteropLog): boolean {
   );
 }
 
-function decodeSingleBytes(data: Hex): Hex {
+export function decodeSingleBytes(data: Hex): Hex {
   const hex = data.startsWith('0x') ? data.slice(2) : data;
   if (hex.length < 64) {
     throw new Error('Encoded bytes is too short to decode.');
@@ -132,10 +129,10 @@ function decodeSingleBytes(data: Hex): Hex {
     throw new Error('Encoded bytes payload is out of bounds.');
   }
 
-  return `0x${hex.slice(dataStart, dataEnd)}` as Hex;
+  return `0x${hex.slice(dataStart, dataEnd)}`;
 }
 
-function resolveTxIndex(raw: ReceiptWithL2ToL1): number {
+export function resolveTxIndex(raw: ReceiptWithL2ToL1): number {
   const record = raw as Record<string, unknown>;
   const idxRaw = record.transactionIndex ?? record.transaction_index ?? record.index;
   if (idxRaw == null) return 0;
@@ -151,30 +148,64 @@ function resolveTxIndex(raw: ReceiptWithL2ToL1): number {
   return 0;
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function parseBundleSentFromSource(args: {
-  deps: InteropFinalizationDeps;
-  l2SrcTxHash: Hex;
-}): Promise<{ bundleHash: Hex; dstChainId: bigint }> {
-  const { deps, l2SrcTxHash } = args;
-  const { interopCenter } = await deps.getInteropAddresses();
-  const receipt = await deps.getSourceReceipt(l2SrcTxHash);
+export function isProofNotReadyError(err: unknown): boolean {
+  if (!isZKsyncError(err)) return false;
+  if (err.envelope.operation !== 'zksrpc.getL2ToL1LogProof') return false;
 
-  if (!receipt) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.svc.status.sourceReceipt,
-      message: 'Source transaction receipt not found.',
-      context: { l2SrcTxHash },
-    });
+  if (
+    err.envelope.type === 'STATE' &&
+    err.envelope.message.toLowerCase().includes('proof not yet available')
+  ) {
+    return true;
   }
+
+  const cause = err.envelope.cause as { message?: unknown; code?: unknown } | undefined;
+  const causeMessage = typeof cause?.message === 'string' ? cause.message.toLowerCase() : '';
+
+  return (
+    causeMessage.includes('l1 batch') &&
+    causeMessage.includes('not') &&
+    causeMessage.includes('executed')
+  );
+}
+
+export function isReceiptNotFoundError(err: unknown): boolean {
+  if (!isZKsyncError(err)) return false;
+  return (
+    err.envelope.operation === OP_INTEROP.svc.status.sourceReceipt &&
+    err.envelope.type === 'STATE' &&
+    err.envelope.message.toLowerCase().includes('receipt not found')
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Receipt parsing helpers (pure, take decoded data as input)
+// ---------------------------------------------------------------------------
+
+export interface ParseBundleSentInput {
+  receipt: InteropReceipt;
+  interopCenter: Address;
+  interopBundleSentTopic: Hex;
+  decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
+    bundleHash: Hex;
+    sourceChainId?: bigint;
+    destinationChainId: bigint;
+  };
+}
+
+export function parseBundleSentFromReceipt(
+  input: ParseBundleSentInput,
+  l2SrcTxHash: Hex,
+): { bundleHash: Hex; dstChainId: bigint } {
+  const { receipt, interopCenter, interopBundleSentTopic, decodeInteropBundleSent } = input;
 
   const logs = receipt.logs ?? [];
   const wantAddr = interopCenter.toLowerCase();
-  const wantTopic = deps.topics.interopBundleSent.toLowerCase();
+  const wantTopic = interopBundleSentTopic.toLowerCase();
 
   const found = logs.find(
     (log) =>
@@ -191,7 +222,7 @@ async function parseBundleSentFromSource(args: {
     });
   }
 
-  const decoded = deps.decodeInteropBundleSent({
+  const decoded = decodeInteropBundleSent({
     data: found.data,
     topics: found.topics,
   });
@@ -199,45 +230,37 @@ async function parseBundleSentFromSource(args: {
   return { bundleHash: decoded.bundleHash, dstChainId: decoded.destinationChainId };
 }
 
-interface BundleReceiptInfo {
-  bundleHash: Hex;
-  dstChainId: bigint;
-  sourceChainId: bigint;
-  l1MessageData: Hex;
-  l1MessageIndex: number;
-  l2ToL1LogIndex: number;
-  txNumberInBatch: number;
+export interface ParseBundleReceiptInput {
   rawReceipt: ReceiptWithL2ToL1;
+  interopCenter: Address;
+  interopBundleSentTopic: Hex;
+  decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
+    bundleHash: Hex;
+    sourceChainId?: bigint;
+    destinationChainId: bigint;
+  };
+  wantBundleHash?: Hex;
 }
 
-async function parseBundleReceiptInfo(args: {
-  deps: InteropFinalizationDeps;
-  l2SrcTxHash: Hex;
-  bundleHash?: Hex;
-}): Promise<BundleReceiptInfo> {
-  const { deps, l2SrcTxHash, bundleHash: wantBundleHash } = args;
-  const { interopCenter } = await deps.getInteropAddresses();
-
-  const rawReceipt = await deps.getReceiptWithL2ToL1(l2SrcTxHash);
-
-  if (!rawReceipt) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.svc.status.sourceReceipt,
-      message: 'Source transaction receipt not found.',
-      context: { l2SrcTxHash },
-    });
-  }
+export function parseBundleReceiptInfo(
+  input: ParseBundleReceiptInput,
+  l2SrcTxHash: Hex,
+): BundleReceiptInfo {
+  const {
+    rawReceipt,
+    interopCenter,
+    interopBundleSentTopic,
+    decodeInteropBundleSent,
+    wantBundleHash,
+  } = input;
 
   const logs = rawReceipt.logs ?? [];
   const wantAddr = interopCenter.toLowerCase();
-  const wantTopic = deps.topics.interopBundleSent.toLowerCase();
+  const wantTopic = interopBundleSentTopic.toLowerCase();
 
   let l1MessageIndex = -1;
   let l1MessageData: Hex | null = null;
-  let found:
-    | { bundleHash: Hex; dstChainId: bigint; sourceChainId: bigint }
-    | undefined;
+  let found: { bundleHash: Hex; dstChainId: bigint; sourceChainId: bigint } | undefined;
 
   for (const log of logs) {
     if (isL1MessageSentLog(log)) {
@@ -260,15 +283,12 @@ async function parseBundleReceiptInfo(args: {
     const t0 = (log.topics?.[0] ?? '').toLowerCase();
     if (addr !== wantAddr || t0 !== wantTopic) continue;
 
-    const decoded = deps.decodeInteropBundleSent({
+    const decoded = decodeInteropBundleSent({
       data: log.data,
       topics: log.topics,
     });
 
-    if (
-      wantBundleHash &&
-      decoded.bundleHash.toLowerCase() !== wantBundleHash.toLowerCase()
-    ) {
+    if (wantBundleHash && decoded.bundleHash.toLowerCase() !== wantBundleHash.toLowerCase()) {
       continue;
     }
 
@@ -346,261 +366,21 @@ async function parseBundleReceiptInfo(args: {
   };
 }
 
-function isProofNotReadyError(err: unknown): boolean {
-  if (!isZKsyncError(err)) return false;
-  if (err.envelope.operation !== 'zksrpc.getL2ToL1LogProof') return false;
+// ---------------------------------------------------------------------------
+// Finalization info building helpers
+// ---------------------------------------------------------------------------
 
-  if (
-    err.envelope.type === 'STATE' &&
-    err.envelope.message.toLowerCase().includes('proof not yet available')
-  ) {
-    return true;
-  }
-
-  const cause = err.envelope.cause as { message?: unknown; code?: unknown } | undefined;
-  const causeMessage = typeof cause?.message === 'string' ? cause.message.toLowerCase() : '';
-
-  return (
-    causeMessage.includes('l1 batch') &&
-    causeMessage.includes('not') &&
-    causeMessage.includes('executed')
-  );
-}
-
-function isReceiptNotFoundError(err: unknown): boolean {
-  if (!isZKsyncError(err)) return false;
-  return (
-    err.envelope.operation === OP_INTEROP.svc.status.sourceReceipt &&
-    err.envelope.type === 'STATE' &&
-    err.envelope.message.toLowerCase().includes('receipt not found')
-  );
-}
-
-async function waitForLogProof(args: {
-  deps: InteropFinalizationDeps;
-  l2SrcTxHash: Hex;
-  logIndex: number;
-  pollMs: number;
-  deadlineMs: number;
-}): Promise<ProofNormalized> {
-  const { deps, l2SrcTxHash, logIndex, pollMs, deadlineMs } = args;
-
-  while (true) {
-    if (Date.now() > deadlineMs) {
-      throw createError('TIMEOUT', {
-        resource: 'interop',
-        operation: OP_INTEROP.svc.wait.timeout,
-        message: 'Timed out waiting for L2->L1 log proof to become available.',
-        context: { l2SrcTxHash, logIndex },
-      });
-    }
-
-    try {
-      return await deps.getL2ToL1LogProof(l2SrcTxHash, logIndex);
-    } catch (e) {
-      if (isProofNotReadyError(e)) {
-        await sleep(pollMs);
-        continue;
-      }
-      throw e;
-    }
-  }
-}
-
-async function waitUntilRootAvailable(args: {
-  deps: InteropFinalizationDeps;
-  dstChainId: bigint;
-  expectedRoot: InteropExpectedRoot;
-  pollMs: number;
-  deadlineMs: number;
-}): Promise<void> {
-  const { deps, dstChainId, expectedRoot, pollMs, deadlineMs } = args;
-
-  while (true) {
-    if (Date.now() > deadlineMs) {
-      throw createError('TIMEOUT', {
-        resource: 'interop',
-        operation: OP_INTEROP.svc.wait.timeout,
-        message: 'Timed out waiting for interop root to become available.',
-        context: { dstChainId, expectedRoot },
-      });
-    }
-
-    let root: Hex | null = null;
-    try {
-      const candidate = await deps.readInteropRoot({
-        dstChainId,
-        rootChainId: expectedRoot.rootChainId,
-        batchNumber: expectedRoot.batchNumber,
-      });
-      if (candidate && candidate !== ZERO_HASH) {
-        root = candidate;
-      }
-    } catch {
-      root = null;
-    }
-
-    if (root) {
-      if (root.toLowerCase() === expectedRoot.expectedRoot.toLowerCase()) {
-        return;
-      }
-      throw createError('STATE', {
-        resource: 'interop',
-        operation: OP_INTEROP.wait,
-        message: 'Interop root mismatch on destination chain.',
-        context: { expected: expectedRoot.expectedRoot, got: root, dstChainId },
-      });
-    }
-
-    await sleep(pollMs);
-  }
-}
-
-async function queryDstBundleLifecycle(args: {
-  deps: InteropFinalizationDeps;
-  bundleHash: Hex;
-  dstChainId: bigint;
-}): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
-  const { deps, bundleHash, dstChainId } = args;
-  const { interopHandler } = await deps.getInteropAddresses();
-
-  const fetchLogsFor = async (eventTopic: Hex) => {
-    return await deps.getDstLogs({
-      dstChainId,
-      address: interopHandler,
-      topics: [eventTopic, bundleHash],
-    });
-  };
-
-  const unbundledLogs = await fetchLogsFor(deps.topics.bundleUnbundled);
-  if (unbundledLogs.length > 0) {
-    const txHash = unbundledLogs.at(-1)?.transactionHash;
-    return { phase: 'UNBUNDLED', dstExecTxHash: txHash };
-  }
-
-  const executedLogs = await fetchLogsFor(deps.topics.bundleExecuted);
-  if (executedLogs.length > 0) {
-    const txHash = executedLogs.at(-1)?.transactionHash;
-    return { phase: 'EXECUTED', dstExecTxHash: txHash };
-  }
-
-  const verifiedLogs = await fetchLogsFor(deps.topics.bundleVerified);
-  if (verifiedLogs.length > 0) {
-    return { phase: 'VERIFIED' };
-  }
-
-  return { phase: 'SENT' };
-}
-
-export async function deriveInteropStatus(
-  deps: InteropFinalizationDeps,
-  input: InteropWaitable,
-): Promise<InteropStatus> {
-  const baseIds = resolveIdsFromWaitable(input);
-
-  const enrichedIds = await (async () => {
-    if (baseIds.bundleHash && baseIds.dstChainId) return baseIds;
-    if (!baseIds.l2SrcTxHash) return baseIds;
-    const { bundleHash, dstChainId } = await parseBundleSentFromSource({
-      deps,
-      l2SrcTxHash: baseIds.l2SrcTxHash,
-    });
-    return { ...baseIds, bundleHash, dstChainId };
-  })();
-
-  if (!enrichedIds.bundleHash || enrichedIds.dstChainId == null) {
-    const phase: InteropPhase = enrichedIds.l2SrcTxHash ? 'SENT' : 'UNKNOWN';
-    return {
-      phase,
-      l2SrcTxHash: enrichedIds.l2SrcTxHash,
-      bundleHash: enrichedIds.bundleHash,
-      dstExecTxHash: enrichedIds.dstExecTxHash,
-      dstChainId: enrichedIds.dstChainId,
-    };
-  }
-
-  const dstInfo = await queryDstBundleLifecycle({
-    deps,
-    bundleHash: enrichedIds.bundleHash,
-    dstChainId: enrichedIds.dstChainId,
-  });
-
-  return {
-    phase: dstInfo.phase,
-    l2SrcTxHash: enrichedIds.l2SrcTxHash,
-    bundleHash: enrichedIds.bundleHash,
-    dstExecTxHash: dstInfo.dstExecTxHash ?? enrichedIds.dstExecTxHash,
-    dstChainId: enrichedIds.dstChainId,
-  };
-}
-
-export async function waitForInteropFinalization(
-  deps: InteropFinalizationDeps,
-  input: InteropWaitable | Hex | InteropFinalizationInfo,
-  opts?: { pollMs?: number; timeoutMs?: number },
-): Promise<InteropFinalizationInfo> {
-  const pollMs = opts?.pollMs ?? DEFAULT_POLL_MS;
-  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const deadlineMs = Date.now() + timeoutMs;
-
-  if (isFinalizationInfo(input)) {
-    await waitUntilRootAvailable({
-      deps,
-      dstChainId: input.dstChainId,
-      expectedRoot: input.expectedRoot,
-      pollMs,
-      deadlineMs,
-    });
-    return input;
-  }
-
-  const ids = resolveIdsFromWaitable(input as InteropWaitable);
-  if (!ids.l2SrcTxHash) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.wait,
-      message: 'Cannot wait for interop finalization: missing l2SrcTxHash.',
-      context: { input },
-    });
-  }
-
-  let bundleInfo: BundleReceiptInfo | null = null;
-  while (!bundleInfo) {
-    if (Date.now() > deadlineMs) {
-      throw createError('TIMEOUT', {
-        resource: 'interop',
-        operation: OP_INTEROP.svc.wait.timeout,
-        message: 'Timed out waiting for source receipt to be available.',
-        context: { l2SrcTxHash: ids.l2SrcTxHash },
-      });
-    }
-
-    try {
-      bundleInfo = await parseBundleReceiptInfo({
-        deps,
-        l2SrcTxHash: ids.l2SrcTxHash,
-        bundleHash: ids.bundleHash,
-      });
-    } catch (e) {
-      if (isReceiptNotFoundError(e)) {
-        await sleep(pollMs);
-        continue;
-      }
-      throw e;
-    }
-  }
-
-  const messageData = bundleInfo.l1MessageData;
+export function validateBundlePayload(messageData: Hex, l2SrcTxHash: Hex): Hex {
   if (messageData.length <= 4) {
     throw createError('STATE', {
       resource: 'interop',
       operation: OP_INTEROP.wait,
       message: 'L1MessageSent data is too short to contain bundle payload.',
-      context: { l2SrcTxHash: ids.l2SrcTxHash },
+      context: { l2SrcTxHash },
     });
   }
 
-  const prefix = (`0x${messageData.slice(2, 4)}` as Hex).toLowerCase();
+  const prefix = `0x${messageData.slice(2, 4)}`.toLowerCase();
   if (prefix !== BUNDLE_IDENTIFIER.toLowerCase()) {
     throw createError('STATE', {
       resource: 'interop',
@@ -610,15 +390,15 @@ export async function waitForInteropFinalization(
     });
   }
 
-  const encodedData = `0x${messageData.slice(4)}` as Hex;
-  const proof = await waitForLogProof({
-    deps,
-    l2SrcTxHash: ids.l2SrcTxHash,
-    logIndex: bundleInfo.l2ToL1LogIndex,
-    pollMs,
-    deadlineMs,
-  });
+  return `0x${messageData.slice(4)}`;
+}
 
+export function buildFinalizationInfo(
+  ids: { l2SrcTxHash: Hex; bundleHash?: Hex },
+  bundleInfo: BundleReceiptInfo,
+  proof: ProofNormalized,
+  messageData: Hex,
+): InteropFinalizationInfo {
   if (!proof.root) {
     throw createError('STATE', {
       resource: 'interop',
@@ -646,13 +426,7 @@ export async function waitForInteropFinalization(
     proof: proof.proof,
   };
 
-  await waitUntilRootAvailable({
-    deps,
-    dstChainId: bundleInfo.dstChainId,
-    expectedRoot,
-    pollMs,
-    deadlineMs,
-  });
+  const encodedData = validateBundlePayload(messageData, ids.l2SrcTxHash);
 
   return {
     l2SrcTxHash: ids.l2SrcTxHash,
@@ -664,35 +438,32 @@ export async function waitForInteropFinalization(
   };
 }
 
-export async function executeInteropBundle(
-  deps: InteropFinalizationDeps,
-  info: InteropFinalizationInfo,
-): Promise<{ hash: Hex; wait: () => Promise<unknown> }> {
-  const { bundleHash, dstChainId, encodedData, proof } = info;
+// ---------------------------------------------------------------------------
+// Error creation helpers
+// ---------------------------------------------------------------------------
 
-  const dstStatus = await queryDstBundleLifecycle({
-    deps,
-    bundleHash,
-    dstChainId,
+export function createTimeoutError(
+  operation: string,
+  message: string,
+  context: Record<string, unknown>,
+): Error {
+  return createError('TIMEOUT', {
+    resource: 'interop',
+    operation,
+    message,
+    context,
   });
+}
 
-  if (dstStatus.phase === 'EXECUTED') {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.finalize,
-      message: 'Interop bundle has already been executed.',
-      context: { bundleHash, dstChainId },
-    });
-  }
-
-  if (dstStatus.phase === 'UNBUNDLED') {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.finalize,
-      message: 'Interop bundle has been unbundled and cannot be executed as a whole.',
-      context: { bundleHash, dstChainId },
-    });
-  }
-
-  return deps.executeBundle({ dstChainId, encodedData, proof });
+export function createStateError(
+  operation: string,
+  message: string,
+  context: Record<string, unknown>,
+): Error {
+  return createError('STATE', {
+    resource: 'interop',
+    operation,
+    message,
+    context,
+  });
 }

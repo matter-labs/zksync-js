@@ -33,7 +33,7 @@ export function encodeSecondBridgeArgs(
   amount: bigint,
   l2Receiver: Address,
 ): `0x${string}` {
-  return bridgeCodec.encodeSecondBridgeArgs(token, amount, l2Receiver) as `0x${string}`;
+  return bridgeCodec.encodeSecondBridgeArgs(token, amount, l2Receiver);
 }
 
 // --- Two-bridges encoding: ERC20 tuple (token, amount, l2Receiver) ---
@@ -51,7 +51,7 @@ export function encodeSecondBridgeEthArgs(
   l2Receiver: Address,
   ethToken: Address = ETH_ADDRESS,
 ): `0x${string}` {
-  return bridgeCodec.encodeSecondBridgeEthArgs(amount, l2Receiver, ethToken) as `0x${string}`;
+  return bridgeCodec.encodeSecondBridgeEthArgs(amount, l2Receiver, ethToken);
 }
 
 // --- L2 request builders (ETH direct) ---

@@ -13,9 +13,10 @@ export function createViemAttributesAbiCodec(): ViemAttributesAbiCodec {
   const encode = (fn: string, args: readonly unknown[]): Hex =>
     encodeFunctionData({
       abi,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       functionName: fn as any,
-      args: args as readonly unknown[],
-    }) as Hex;
+      args: args,
+    });
 
   const decode = (attr: Hex): DecodedAttribute => {
     const selector = (typeof attr === 'string' ? attr.slice(0, 10) : '0x') as Hex;

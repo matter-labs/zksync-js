@@ -10,7 +10,6 @@ import type { AttributesResource } from '../../../../core/resources/interop/attr
 import type { InteropTopics } from '../../../../core/resources/interop/events';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
-import { createEthersAttributesResource } from './attributes';
 
 // Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {

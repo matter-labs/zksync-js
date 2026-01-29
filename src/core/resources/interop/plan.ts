@@ -3,11 +3,7 @@
 import type { Address, Hex } from '../../types/primitives';
 import type { ApprovalNeed } from '../../types/flows/base';
 import type { InteropParams } from '../../types/flows/interop';
-import type { TokensResource } from '../../types/flows/token';
-import type { AttributesResource } from './attributes/resource';
-import { formatInteropEvmAddress, formatInteropEvmChain } from './address';
 import { sumActionMsgValue, sumErc20Amounts } from './route';
-import { FORMAL_ETH_ADDRESS } from '../../constants';
 
 export type InteropStarter = [Hex, Hex, Hex[]];
 
@@ -22,28 +18,32 @@ export interface InteropBundleBuild {
   };
 }
 
+/** ERC-7930 interoperable address encoding functions (injected by adapter) */
+export interface InteropAddressCodec {
+  /** Formats a chain ID as ERC-7930 interoperable address */
+  formatChain(chainId: bigint): Hex;
+  /** Formats an EVM address as ERC-7930 interoperable address */
+  formatAddress(address: Address): Hex;
+}
+
 export interface InteropBuildCtx {
   dstChainId: bigint;
   baseTokens: { src: Address; dst: Address };
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
-  attributes: AttributesResource;
+  /** ERC-7930 address encoding (injected by adapter) */
+  codec: InteropAddressCodec;
 }
 
-export interface BridgeCodec {
-  encodeNativeTokenVaultTransferData(amount: bigint, receiver: Address, token: Address): Hex;
-  encodeSecondBridgeDataV1(assetId: Hex, transferData: Hex): Hex;
+/** Pre-computed attributes from adapter (both bundle-level and per-call) */
+export interface PrecomputedAttributes {
+  bundleAttrs: Hex[];
+  callAttrs: Hex[][];
 }
 
-function buildBundleAttrs(p: InteropParams, attributes: AttributesResource): Hex[] {
-  const bundleAttrs: Hex[] = [];
-  if (p.execution?.only) {
-    bundleAttrs.push(attributes.bundle.executionAddress(p.execution.only));
-  }
-  if (p.unbundling?.by) {
-    bundleAttrs.push(attributes.bundle.unbundlerAddress(p.unbundling.by));
-  }
-  return bundleAttrs;
+/** Pre-computed action data for indirect route (encoded bridge payloads) */
+export interface PrecomputedActionData {
+  encodedPayload?: Hex;
 }
 
 export function preflightDirect(p: InteropParams, ctx: InteropBuildCtx): void {
@@ -71,36 +71,29 @@ export function preflightDirect(p: InteropParams, ctx: InteropBuildCtx): void {
   }
 }
 
-export function buildDirectBundle(p: InteropParams, ctx: InteropBuildCtx): InteropBundleBuild {
+export function buildDirectBundle(
+  p: InteropParams,
+  ctx: InteropBuildCtx,
+  attrs: PrecomputedAttributes,
+): InteropBundleBuild {
   const totalActionValue = sumActionMsgValue(p.actions);
 
-  const bundleAttrs = buildBundleAttrs(p, ctx.attributes);
-
-  const perCallAttrs: Hex[][] = p.actions.map((a) => {
-    if (a.type === 'sendNative') {
-      return [ctx.attributes.call.interopCallValue(a.amount)];
-    }
-    if (a.type === 'call' && a.value && a.value > 0n) {
-      return [ctx.attributes.call.interopCallValue(a.value)];
-    }
-    return [];
-  });
-
   const starters: InteropStarter[] = p.actions.map((a, i) => {
-    const to = formatInteropEvmAddress(a.to);
+    const to = ctx.codec.formatAddress(a.to);
+    const callAttrs = attrs.callAttrs[i] ?? [];
     if (a.type === 'sendNative') {
-      return [to, '0x' as Hex, perCallAttrs[i] ?? []];
+      return [to, '0x' as Hex, callAttrs];
     }
     if (a.type === 'call') {
-      return [to, a.data ?? ('0x' as Hex), perCallAttrs[i] ?? []];
+      return [to, a.data ?? ('0x' as Hex), callAttrs];
     }
-    return [to, '0x' as Hex, perCallAttrs[i] ?? []];
+    return [to, '0x' as Hex, callAttrs];
   });
 
   return {
-    dstChain: formatInteropEvmChain(ctx.dstChainId),
+    dstChain: ctx.codec.formatChain(ctx.dstChainId),
     starters,
-    bundleAttrs,
+    bundleAttrs: attrs.bundleAttrs,
     approvals: [],
     quoteExtras: {
       totalActionValue,
@@ -141,15 +134,14 @@ export function preflightIndirect(p: InteropParams, ctx: InteropBuildCtx): void 
   }
 }
 
-export async function buildIndirectBundle(
+export function buildIndirectBundle(
   p: InteropParams,
   ctx: InteropBuildCtx,
-  tokens: TokensResource,
-  codec: BridgeCodec,
-): Promise<InteropBundleBuild> {
+  attrs: PrecomputedAttributes,
+  precomputed: PrecomputedActionData[],
+): InteropBundleBuild {
   const totalActionValue = sumActionMsgValue(p.actions);
   const bridgedTokenTotal = sumErc20Amounts(p.actions);
-  const bundleAttrs = buildBundleAttrs(p, ctx.attributes);
 
   const approvals: ApprovalNeed[] = [];
   for (const a of p.actions) {
@@ -162,52 +154,35 @@ export async function buildIndirectBundle(
   }
 
   const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
-  const routerInteropAddr = formatInteropEvmAddress(ctx.l2AssetRouter);
+  const routerInteropAddr = ctx.codec.formatAddress(ctx.l2AssetRouter);
 
-  const starters: InteropStarter[] = await Promise.all(
-    p.actions.map(async (a) => {
-      if (a.type === 'sendErc20') {
-        const assetId = await tokens.assetIdOfL2(a.token);
-        const transferData = codec.encodeNativeTokenVaultTransferData(
-          a.amount,
-          a.to,
-          FORMAL_ETH_ADDRESS,
-        );
-        const payload = codec.encodeSecondBridgeDataV1(assetId, transferData);
-        return [routerInteropAddr, payload, [ctx.attributes.call.indirectCall(0n)]];
-      }
+  const starters: InteropStarter[] = p.actions.map((a, i) => {
+    const callAttrs = attrs.callAttrs[i] ?? [];
+    const actionData = precomputed[i];
 
-      if (a.type === 'sendNative' && !baseMatches) {
-        const assetId = await tokens.baseTokenAssetId();
-        const transferData = codec.encodeNativeTokenVaultTransferData(
-          a.amount,
-          a.to,
-          FORMAL_ETH_ADDRESS,
-        );
-        const payload = codec.encodeSecondBridgeDataV1(assetId, transferData);
-        return [routerInteropAddr, payload, [ctx.attributes.call.indirectCall(a.amount)]];
-      }
+    // Actions with pre-computed encoded payload go to the router
+    if (actionData?.encodedPayload) {
+      return [routerInteropAddr, actionData.encodedPayload, callAttrs];
+    }
 
-      const directTo = formatInteropEvmAddress(a.to);
+    // sendNative with matching base tokens or call/other actions go direct
+    const directTo = ctx.codec.formatAddress(a.to);
 
-      if (a.type === 'sendNative') {
-        return [directTo, '0x' as Hex, [ctx.attributes.call.interopCallValue(a.amount)]];
-      }
+    if (a.type === 'sendNative' && baseMatches) {
+      return [directTo, '0x' as Hex, callAttrs];
+    }
 
-      if (a.type === 'call') {
-        const callAttrs: Hex[] =
-          a.value && a.value > 0n ? [ctx.attributes.call.interopCallValue(a.value)] : [];
-        return [directTo, a.data ?? ('0x' as Hex), callAttrs];
-      }
+    if (a.type === 'call') {
+      return [directTo, a.data ?? ('0x' as Hex), callAttrs];
+    }
 
-      return [directTo, '0x' as Hex, []];
-    }),
-  );
+    return [directTo, '0x' as Hex, callAttrs];
+  });
 
   return {
-    dstChain: formatInteropEvmChain(ctx.dstChainId),
+    dstChain: ctx.codec.formatChain(ctx.dstChainId),
     starters,
-    bundleAttrs,
+    bundleAttrs: attrs.bundleAttrs,
     approvals,
     quoteExtras: {
       totalActionValue,

@@ -1,4 +1,5 @@
 import { getAbiItem, getEventSelector } from 'viem';
+import type { Abi, AbiEvent } from 'viem';
 import type { ViemClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
@@ -29,9 +30,9 @@ export interface BuildCtx extends CommonCtx {
   attributes: AttributesResource;
 }
 
-function eventTopic(abi: unknown, name: string): Hex {
-  const item = getAbiItem({ abi: abi as any, name });
-  return getEventSelector(item as any) as Hex;
+function eventTopic(abi: Abi, name: string): Hex {
+  const item = getAbiItem({ abi, name });
+  return getEventSelector(item as AbiEvent);
 }
 
 export async function commonCtx(
@@ -41,7 +42,7 @@ export async function commonCtx(
   contracts: ContractsResource,
   attributes: AttributesResource = createViemAttributesResource(),
 ): Promise<BuildCtx & { route: InteropRoute }> {
-  const sender = client.account.address as Address;
+  const sender = client.account.address;
   const chainId = BigInt(await client.l2.getChainId());
   const dstChainId = p.dst;
 

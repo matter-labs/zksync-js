@@ -1,6 +1,6 @@
-// src/core/resources/interop/address.ts
+// Ethers adapter: ERC-7930 interoperable address encoding
 import { concat, getAddress, getBytes, hexlify, toBeHex } from 'ethers';
-import type { Address, Hex } from '../../types/primitives';
+import type { Address, Hex } from '../../../../core/types/primitives';
 
 function assertUint8(value: number, context: string): void {
   if (!Number.isInteger(value) || value < 0 || value > 0xff) {

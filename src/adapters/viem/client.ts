@@ -272,7 +272,7 @@ export function createViemClient(args: InitArgs): ViemClient {
   }
 
   const walletCache = new Map<bigint, WalletClient<Transport, Chain | undefined, Account>>();
-  async function walletFor(target?: 'l1' | bigint) {
+  function walletFor(target?: 'l1' | bigint) {
     if (target === 'l1') return l1Wallet;
     if (target == null) return getL2Wallet();
 
