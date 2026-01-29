@@ -20,9 +20,6 @@ import {
   parseBundleSentFromReceipt,
   parseBundleReceiptInfo,
   buildFinalizationInfo,
-  isProofNotReadyError,
-  isReceiptNotFoundError,
-  sleep,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
   ZERO_HASH,
@@ -31,6 +28,7 @@ import {
   type InteropLog,
   type BundleReceiptInfo,
 } from '../../../../../core/resources/interop/finalization';
+import { sleep } from '../../../../../core/utils';
 
 // ABIs we need to decode events / send executeBundle()
 import InteropCenterAbi from '../../../../../core/internal/abis/InteropCenter';
@@ -220,28 +218,30 @@ async function waitForLogProof(
   client: EthersClient,
   l2SrcTxHash: Hex,
   logIndex: number,
+  blockNumber: bigint,
   pollMs: number,
   deadlineMs: number,
 ) {
+  // Wait for the block to be finalized first
   while (true) {
     if (Date.now() > deadlineMs) {
       throw createTimeoutError(
         OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for L2->L1 log proof to become available.',
-        { l2SrcTxHash, logIndex },
+        'Timed out waiting for block to be finalized.',
+        { l2SrcTxHash, logIndex, blockNumber },
       );
     }
 
-    try {
-      return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
-    } catch (e) {
-      if (isProofNotReadyError(e)) {
-        await sleep(pollMs);
-        continue;
-      }
-      throw e;
+    const finalizedBlock = await client.l2.getBlock('finalized');
+    if (finalizedBlock && BigInt(finalizedBlock.number) >= blockNumber) {
+      break;
     }
+
+    await sleep(pollMs);
   }
+
+  // Block is finalized, fetch the proof
+  return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
 }
 
 async function waitUntilRootAvailable(
@@ -399,45 +399,37 @@ async function waitForInteropFinalization(
       );
     }
 
-    try {
-      const rawReceipt = await wrap(
-        OP_INTEROP.svc.status.sourceReceipt,
-        () => client.zks.getReceiptWithL2ToL1(ids.l2SrcTxHash!),
-        {
-          ctx: { where: 'zks.getReceiptWithL2ToL1', l2SrcTxHash: ids.l2SrcTxHash },
-          message: 'Failed to fetch source L2 receipt (with L2->L1 logs) for interop tx.',
-        },
-      );
+    const rawReceipt = await wrap(
+      OP_INTEROP.svc.status.sourceReceipt,
+      () => client.zks.getReceiptWithL2ToL1(ids.l2SrcTxHash!),
+      {
+        ctx: { where: 'zks.getReceiptWithL2ToL1', l2SrcTxHash: ids.l2SrcTxHash },
+        message: 'Failed to fetch source L2 receipt (with L2->L1 logs) for interop tx.',
+      },
+    );
 
-      if (!rawReceipt) {
-        await sleep(pollMs);
-        continue;
-      }
-
-      bundleInfo = parseBundleReceiptInfo(
-        {
-          rawReceipt,
-          interopCenter,
-          interopBundleSentTopic: topics.interopBundleSent,
-          decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
-          decodeL1MessageData,
-          bundleHash: ids.bundleHash,
-          l2SrcTxHash: ids.l2SrcTxHash,
-        },
-      );
-    } catch (e) {
-      if (isReceiptNotFoundError(e)) {
-        await sleep(pollMs);
-        continue;
-      }
-      throw e;
+    if (!rawReceipt) {
+      await sleep(pollMs);
+      continue;
     }
+
+    bundleInfo = parseBundleReceiptInfo(
+      {
+        rawReceipt,
+        interopCenter,
+        interopBundleSentTopic: topics.interopBundleSent,
+        decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
+        decodeL1MessageData,
+        l2SrcTxHash: ids.l2SrcTxHash,
+      },
+    );
   }
 
   const proof = await waitForLogProof(
     client,
     ids.l2SrcTxHash,
     bundleInfo.l2ToL1LogIndex,
+    BigInt(bundleInfo.rawReceipt.blockNumber!),
     pollMs,
     deadlineMs,
   );

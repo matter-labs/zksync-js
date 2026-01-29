@@ -13,14 +13,14 @@ import {
   L2_INTEROP_CENTER_ADDRESS,
   TOPIC_L1_MESSAGE_SENT_LEG,
 } from '../../constants';
-import { OP_INTEROP, isZKsyncError } from '../../types/errors';
+import { OP_INTEROP } from '../../types/errors';
 import { createError } from '../../errors/factory';
 
 export type InteropLog = {
   address: Address;
   topics: Hex[];
   data: Hex;
-  transactionHash?: Hex;
+  transactionHash: Hex;
 };
 
 export type InteropReceipt = { logs: InteropLog[] };
@@ -63,40 +63,6 @@ export function isL1MessageSentLog(log: InteropLog): boolean {
   return (
     log.address.toLowerCase() === L1_MESSENGER_ADDRESS.toLowerCase() &&
     log.topics[0].toLowerCase() === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase()
-  );
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function isProofNotReadyError(err: unknown): boolean {
-  if (!isZKsyncError(err)) return false;
-  if (err.envelope.operation !== 'zksrpc.getL2ToL1LogProof') return false;
-
-  if (
-    err.envelope.type === 'STATE' &&
-    err.envelope.message.toLowerCase().includes('proof not yet available')
-  ) {
-    return true;
-  }
-
-  const cause = err.envelope.cause as { message?: unknown; code?: unknown } | undefined;
-  const causeMessage = typeof cause?.message === 'string' ? cause.message.toLowerCase() : '';
-
-  return (
-    causeMessage.includes('l1 batch') &&
-    causeMessage.includes('not') &&
-    causeMessage.includes('executed')
-  );
-}
-
-export function isReceiptNotFoundError(err: unknown): boolean {
-  if (!isZKsyncError(err)) return false;
-  return (
-    err.envelope.operation === OP_INTEROP.svc.status.sourceReceipt &&
-    err.envelope.type === 'STATE' &&
-    err.envelope.message.toLowerCase().includes('receipt not found')
   );
 }
 
@@ -232,18 +198,11 @@ export function parseBundleReceiptInfo(
 }
 
 // Finalization helpers
-export function validateBundlePayload(messageData: Hex, l2SrcTxHash: Hex): Hex {
-  if (messageData.length <= 4) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.wait,
-      message: 'L1MessageSent data is too short to contain bundle payload.',
-      context: { l2SrcTxHash },
-    });
-  }
-
-  const prefix = `0x${messageData.slice(2, 4)}`.toLowerCase();
-  if (prefix !== BUNDLE_IDENTIFIER.toLowerCase()) {
+export function getBundleEncodedData(messageData: Hex): Hex {
+  // InteropCenter prepends BUNDLE_IDENTIFIER (0x01) to the message
+  // Strip it off to get the original encoded bundle data
+  const prefix = `0x${messageData.slice(2, 4)}`;
+  if (prefix !== BUNDLE_IDENTIFIER) {
     throw createError('STATE', {
       resource: 'interop',
       operation: OP_INTEROP.wait,
@@ -261,19 +220,10 @@ export function buildFinalizationInfo(
   proof: ProofNormalized,
   messageData: Hex,
 ): InteropFinalizationInfo {
-  if (!proof.root) {
-    throw createError('STATE', {
-      resource: 'interop',
-      operation: OP_INTEROP.wait,
-      message: 'L2->L1 log proof missing expected root.',
-      context: { l2SrcTxHash: ids.l2SrcTxHash },
-    });
-  }
-
   const expectedRoot: InteropExpectedRoot = {
     rootChainId: bundleInfo.sourceChainId,
     batchNumber: proof.batchNumber,
-    expectedRoot: proof.root,
+    expectedRoot: proof.root!,
   };
 
   const messageProof: InteropMessageProof = {
@@ -288,15 +238,13 @@ export function buildFinalizationInfo(
     proof: proof.proof,
   };
 
-  const encodedData = validateBundlePayload(messageData, ids.l2SrcTxHash);
-
   return {
     l2SrcTxHash: ids.l2SrcTxHash,
     bundleHash: bundleInfo.bundleHash,
     dstChainId: bundleInfo.dstChainId,
     expectedRoot,
     proof: messageProof,
-    encodedData,
+    encodedData: getBundleEncodedData(messageData),
   };
 }
 

@@ -18,6 +18,7 @@ export type ReceiptWithL2ToL1 = {
     address: Address;
     topics: Hex[];
     data: Hex;
+    transactionHash: Hex;
   }>;
   // ZKsync-specific field
   l2ToL1Logs?: L2ToL1Log[];
