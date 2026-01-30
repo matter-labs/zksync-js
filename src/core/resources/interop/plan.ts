@@ -141,15 +141,23 @@ export function buildIndirectBundle(
   const totalActionValue = sumActionMsgValue(params.actions);
   const bridgedTokenTotal = sumErc20Amounts(params.actions);
 
-  const approvals: ApprovalNeed[] = [];
+  // Aggregate approvals for the same token
+  const approvalMap = new Map<string, ApprovalNeed>();
   for (const action of params.actions) {
     if (action.type !== 'sendErc20') continue;
-    approvals.push({
-      token: action.token,
-      spender: ctx.l2NativeTokenVault,
-      amount: action.amount,
-    });
+    const key = action.token.toLowerCase();
+    const existing = approvalMap.get(key);
+    if (existing) {
+      existing.amount += action.amount;
+    } else {
+      approvalMap.set(key, {
+        token: action.token,
+        spender: ctx.l2NativeTokenVault,
+        amount: action.amount,
+      });
+    }
   }
+  const approvals = Array.from(approvalMap.values());
 
   const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
 
