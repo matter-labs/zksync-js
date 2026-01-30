@@ -409,8 +409,12 @@ describe('interop/plan', () => {
       const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData);
 
       expect(result.approvals).toHaveLength(2);
-      const tokenApproval = result.approvals.find((a) => a.token.toLowerCase() === TOKEN.toLowerCase());
-      const token2Approval = result.approvals.find((a) => a.token.toLowerCase() === TOKEN_2.toLowerCase());
+      const tokenApproval = result.approvals.find(
+        (a) => a.token.toLowerCase() === TOKEN.toLowerCase(),
+      );
+      const token2Approval = result.approvals.find(
+        (a) => a.token.toLowerCase() === TOKEN_2.toLowerCase(),
+      );
       expect(tokenApproval?.amount).toBe(300n);
       expect(token2Approval?.amount).toBe(125n);
     });
