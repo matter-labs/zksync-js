@@ -344,5 +344,75 @@ describe('interop/plan', () => {
 
       expect(result.starters[1][1]).toBe('0x');
     });
+
+    it('aggregates approvals for same token', () => {
+      const params: InteropParams = {
+        dst: 2n,
+        actions: [
+          { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
+          { type: 'sendErc20', token: TOKEN, to: ADDR_B, amount: 200n },
+          { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 50n },
+        ],
+      };
+      const starterData: InteropStarterData[] = [
+        { assetRouterPayload: '0xpayload1' },
+        { assetRouterPayload: '0xpayload2' },
+        { assetRouterPayload: '0xpayload3' },
+      ];
+      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData);
+
+      expect(result.approvals).toHaveLength(1);
+      expect(result.approvals[0]).toEqual({
+        token: TOKEN,
+        spender: L2_NTV,
+        amount: 350n,
+      });
+    });
+
+    it('aggregates approvals case-insensitively', () => {
+      const tokenLower = '0xcccccccccccccccccccccccccccccccccccccccc' as const;
+      const tokenUpper = '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' as const;
+      const params: InteropParams = {
+        dst: 2n,
+        actions: [
+          { type: 'sendErc20', token: tokenLower, to: ADDR_A, amount: 100n },
+          { type: 'sendErc20', token: tokenUpper, to: ADDR_B, amount: 200n },
+        ],
+      };
+      const starterData: InteropStarterData[] = [
+        { assetRouterPayload: '0xpayload1' },
+        { assetRouterPayload: '0xpayload2' },
+      ];
+      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData);
+
+      expect(result.approvals).toHaveLength(1);
+      expect(result.approvals[0].amount).toBe(300n);
+    });
+
+    it('aggregates same tokens while keeping different tokens separate', () => {
+      const TOKEN_2 = '0x1111111111111111111111111111111111111111' as const;
+      const params: InteropParams = {
+        dst: 2n,
+        actions: [
+          { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
+          { type: 'sendErc20', token: TOKEN_2, to: ADDR_A, amount: 50n },
+          { type: 'sendErc20', token: TOKEN, to: ADDR_B, amount: 200n },
+          { type: 'sendErc20', token: TOKEN_2, to: ADDR_B, amount: 75n },
+        ],
+      };
+      const starterData: InteropStarterData[] = [
+        { assetRouterPayload: '0xpayload1' },
+        { assetRouterPayload: '0xpayload2' },
+        { assetRouterPayload: '0xpayload3' },
+        { assetRouterPayload: '0xpayload4' },
+      ];
+      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData);
+
+      expect(result.approvals).toHaveLength(2);
+      const tokenApproval = result.approvals.find((a) => a.token.toLowerCase() === TOKEN.toLowerCase());
+      const token2Approval = result.approvals.find((a) => a.token.toLowerCase() === TOKEN_2.toLowerCase());
+      expect(tokenApproval?.amount).toBe(300n);
+      expect(token2Approval?.amount).toBe(125n);
+    });
   });
 });
