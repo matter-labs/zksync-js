@@ -199,7 +199,10 @@ export function createInteropResource(
           // best-effort gasLimit with buffer
           if (!step.tx.gasLimit) {
             try {
-              const est = await srcProvider.estimateGas(step.tx);
+              const est = await srcProvider.estimateGas({
+                ...step.tx,
+                from,
+              });
               step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
             } catch {
             }
