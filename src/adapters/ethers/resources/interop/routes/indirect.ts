@@ -144,6 +144,7 @@ export function routeIndirect(): InteropRouteStrategy {
             tx: {
               to: approval.token,
               data: approveData,
+              ...ctx.gasOverrides,
             },
           });
         }
@@ -163,6 +164,7 @@ export function routeIndirect(): InteropRouteStrategy {
           to: ctx.interopCenter,
           data,
           value: built.quoteExtras.totalActionValue,
+          ...ctx.gasOverrides,
         },
       });
 

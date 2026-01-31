@@ -87,6 +87,7 @@ export function routeDirect(): InteropRouteStrategy {
           to: ctx.interopCenter,
           data,
           value: built.quoteExtras.totalActionValue,
+          ...ctx.gasOverrides,
         },
       });
 

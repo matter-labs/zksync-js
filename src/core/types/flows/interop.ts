@@ -1,6 +1,7 @@
 // src/core/types/flows/interop.ts
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
+import type { TxOverrides } from '../fees';
 
 export type EncodedCallAttributes = readonly Hex[];
 export type EncodedBundleAttributes = readonly Hex[];
@@ -30,6 +31,7 @@ export interface InteropParams {
   sender?: Address;
   execution?: { only: Address };
   unbundling?: { by: Address };
+  txOverrides?: TxOverrides;
 }
 
 export interface InteropQuote {

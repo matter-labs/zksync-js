@@ -78,6 +78,11 @@ export function routeDirect(): InteropRouteStrategy {
               args: [built.dstChain, built.starters, built.bundleAttributes],
               value: built.quoteExtras.totalActionValue,
               account: ctx.client.account,
+              ...(ctx.gasOverrides && {
+                gas: ctx.gasOverrides.gasLimit,
+                maxFeePerGas: ctx.gasOverrides.maxFeePerGas,
+                maxPriorityFeePerGas: ctx.gasOverrides.maxPriorityFeePerGas,
+              }),
             },
           },
         ],

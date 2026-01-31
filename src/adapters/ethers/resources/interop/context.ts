@@ -5,6 +5,7 @@ import type { EthersClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams, InteropRoute } from '../../../../core/types/flows/interop';
+import type { TxOverrides } from '../../../../core/types/fees';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { InteropTopics } from '../../../../core/resources/interop/events';
@@ -29,6 +30,7 @@ export interface BuildCtx extends CommonCtx {
   ifaces: { interopCenter: Interface; interopHandler: Interface };
   topics: InteropTopics;
   attributes: AttributesResource;
+  gasOverrides?: TxOverrides;
 }
 
 export async function commonCtx(
@@ -88,5 +90,6 @@ export async function commonCtx(
     topics,
     attributes,
     route,
+    gasOverrides: params.txOverrides,
   } satisfies BuildCtx & { route: InteropRoute };
 }
