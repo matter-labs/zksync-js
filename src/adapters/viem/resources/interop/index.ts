@@ -151,7 +151,7 @@ export function createInteropResource(
         for (const step of plan.steps) {
           const nonce = next++;
 
-          const baseReq = {
+          const req = {
             address: step.tx.address,
             abi: step.tx.abi,
             functionName: step.tx.functionName,
@@ -159,18 +159,10 @@ export function createInteropResource(
             account: step.tx.account ?? client.account,
             gas: step.tx.gas,
             nonce,
-            ...(step.tx.maxFeePerGas != null ? { maxFeePerGas: step.tx.maxFeePerGas } : {}),
-            ...(step.tx.maxPriorityFeePerGas != null
-              ? { maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas }
-              : {}),
-            ...(step.tx.dataSuffix ? { dataSuffix: step.tx.dataSuffix } : {}),
-            ...(step.tx.chain ? { chain: step.tx.chain } : {}),
-          } as Omit<WriteContractParameters, 'value'>;
-
-          const req: WriteContractParameters =
-            step.tx.value != null
-              ? ({ ...baseReq, value: step.tx.value } as WriteContractParameters)
-              : (baseReq as WriteContractParameters);
+            ...(step.tx.value != null ? { value: step.tx.value } : {}),
+            maxFeePerGas: step.tx.maxFeePerGas,
+            maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+          } as WriteContractParameters;
 
           let hash: Hex | undefined;
           try {

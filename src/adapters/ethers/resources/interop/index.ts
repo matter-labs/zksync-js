@@ -199,16 +199,9 @@ export function createInteropResource(
           // best-effort gasLimit with buffer
           if (!step.tx.gasLimit) {
             try {
-              try {
-                await srcProvider.call(step.tx); // 'call' gives better revert data than 'estimateGas'
-              } catch (e) {
-                console.log("REAL ERROR:", (e as { data?: unknown }).data); // This hex string can be decoded
-              }
-
               const est = await srcProvider.estimateGas(step.tx);
               step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
             } catch {
-              // ignore; signer can still populate
             }
           }
 
