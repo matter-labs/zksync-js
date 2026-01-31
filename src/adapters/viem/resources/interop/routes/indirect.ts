@@ -1,4 +1,4 @@
-import type { Hex } from 'viem';
+import type { Abi, Hex } from 'viem';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy, ViemPlanWriteRequest } from './types';
@@ -121,20 +121,31 @@ export function routeIndirect(): InteropRouteStrategy {
         precomputed,
       );
 
-      steps.push(
-        ...built.approvals.map((approval) => ({
-          key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
-          kind: 'approve',
-          description: `Approve ${ctx.l2NativeTokenVault} to spend ${approval.amount} of ${approval.token}`,
-          tx: {
-            address: approval.token,
-            abi: IERC20ABI,
-            functionName: 'approve',
-            args: [ctx.l2NativeTokenVault, approval.amount],
-            account: ctx.client.account,
-          },
-        })),
-      );
+      // Check allowance and only approve what's needed
+      for (const approval of built.approvals) {
+        const currentAllowance = (await ctx.client.l2.readContract({
+          address: approval.token,
+          abi: IERC20ABI as Abi,
+          functionName: 'allowance',
+          args: [ctx.sender, ctx.l2NativeTokenVault],
+        })) as bigint;
+
+        if (currentAllowance < approval.amount) {
+          const approveAmount = approval.amount - currentAllowance;
+          steps.push({
+            key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
+            kind: 'approve',
+            description: `Approve ${ctx.l2NativeTokenVault} to spend ${approveAmount} of ${approval.token}`,
+            tx: {
+              address: approval.token,
+              abi: IERC20ABI,
+              functionName: 'approve',
+              args: [ctx.l2NativeTokenVault, approveAmount],
+              account: ctx.client.account,
+            },
+          });
+        }
+      }
 
       steps.push({
         key: 'sendBundle',

@@ -125,25 +125,28 @@ export function routeIndirect(): InteropRouteStrategy {
         precomputed,
       );
 
+      // Check allowance and only approve what's needed
       for (const approval of built.approvals) {
-        const approveData = new Contract(
-          approval.token,
-          IERC20ABI,
-          ctx.client.l2,
-        ).interface.encodeFunctionData('approve', [
-          ctx.l2NativeTokenVault,
-          approval.amount,
-        ]) as Hex;
+        const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
+        const currentAllowance = (await erc20.allowance(ctx.sender, ctx.l2NativeTokenVault)) as bigint;
 
-        steps.push({
-          key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
-          kind: 'approve',
-          description: `Approve ${ctx.l2NativeTokenVault} to spend ${approval.amount} of ${approval.token}`,
-          tx: {
-            to: approval.token,
-            data: approveData,
-          },
-        });
+        if (currentAllowance < approval.amount) {
+          const approveAmount = approval.amount - currentAllowance;
+          const approveData = erc20.interface.encodeFunctionData('approve', [
+            ctx.l2NativeTokenVault,
+            approveAmount,
+          ]) as Hex;
+
+          steps.push({
+            key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
+            kind: 'approve',
+            description: `Approve ${ctx.l2NativeTokenVault} to spend ${approveAmount} of ${approval.token}`,
+            tx: {
+              to: approval.token,
+              data: approveData,
+            },
+          });
+        }
       }
 
       const data = ctx.ifaces.interopCenter.encodeFunctionData('sendBundle', [
