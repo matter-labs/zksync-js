@@ -3,18 +3,17 @@
 import { describe, it, expect } from 'bun:test';
 import {
   resolveIdsFromWaitable,
-  isL1MessageSentLog,
   parseBundleSentFromReceipt,
   parseBundleReceiptInfo,
   getBundleEncodedData,
   buildFinalizationInfo,
   createTimeoutError,
   createStateError,
-  ZERO_HASH,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
 } from '../finalization';
-import type { InteropLog } from '../finalization';
+import { isL1MessageSentLog } from '../../../utils/events';
+import type { Log } from '../../../types/transactions';
 import {
   L1_MESSENGER_ADDRESS,
   TOPIC_L1_MESSAGE_SENT_LEG,
@@ -31,10 +30,6 @@ const INTEROP_BUNDLE_SENT_TOPIC =
 
 describe('interop/finalization', () => {
   describe('constants', () => {
-    it('exports ZERO_HASH as 64 zeros', () => {
-      expect(ZERO_HASH).toBe(`0x${'0'.repeat(64)}`);
-    });
-
     it('exports DEFAULT_POLL_MS as 1 second', () => {
       expect(DEFAULT_POLL_MS).toBe(1_000);
     });
@@ -77,7 +72,7 @@ describe('interop/finalization', () => {
 
   describe('isL1MessageSentLog', () => {
     it('returns true for matching L1MessageSent log', () => {
-      const log: InteropLog = {
+      const log: Log = {
         address: L1_MESSENGER_ADDRESS,
         topics: [TOPIC_L1_MESSAGE_SENT_LEG],
         data: '0x',
@@ -87,7 +82,7 @@ describe('interop/finalization', () => {
     });
 
     it('returns true for case-insensitive address match', () => {
-      const log: InteropLog = {
+      const log: Log = {
         address: L1_MESSENGER_ADDRESS.toLowerCase() as Address,
         topics: [TOPIC_L1_MESSAGE_SENT_LEG.toUpperCase() as Hex],
         data: '0x',
@@ -97,7 +92,7 @@ describe('interop/finalization', () => {
     });
 
     it('returns false for non-matching address', () => {
-      const log: InteropLog = {
+      const log: Log = {
         address: '0x0000000000000000000000000000000000001234' as Address,
         topics: [TOPIC_L1_MESSAGE_SENT_LEG],
         data: '0x',
@@ -107,7 +102,7 @@ describe('interop/finalization', () => {
     });
 
     it('returns false for non-matching topic', () => {
-      const log: InteropLog = {
+      const log: Log = {
         address: L1_MESSENGER_ADDRESS,
         topics: ['0xdeadbeef'],
         data: '0x',

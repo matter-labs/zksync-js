@@ -11,10 +11,10 @@ import type {
   WithdrawalKey,
   WithdrawalStatus,
   FinalizeReadiness,
-  ParsedLog,
-  ParsedReceipt,
 } from '../flows/withdrawals';
 import type { ApprovalNeed } from '../flows/base';
+import type { Log, TxReceipt } from '../transactions';
+import { assertNever } from '../../utils/index';
 
 // ------------------------ Type-only helpers ------------------------
 
@@ -23,12 +23,6 @@ function expectType<T>(_value: T): void {
   // no-op at runtime; compile-time only
   void _value;
 }
-
-// Exhaustiveness helper for discriminated unions
-function assertNever(x: never): never {
-  throw new Error('Unexpected object: ' + String(x));
-}
-
 // ------------------------ Tests ------------------------
 
 describe('types/flows/withdrawals — basic shapes', () => {
@@ -80,14 +74,15 @@ describe('types/flows/withdrawals — basic shapes', () => {
     quote.approvalsNeeded = [];
   });
 
-  it('ParsedLog / ParsedReceipt minimal event shape', () => {
-    const log: ParsedLog = {
-      address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  it('Log / TxReceipt minimal event shape', () => {
+    const log: Log = {
+      address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
       topics: ['0x' + '11'.repeat(32)] as Hex[],
       data: ('0x' + '22'.repeat(32)) as Hex,
+      transactionHash: ('0x' + '33'.repeat(32)) as Hex,
     };
-    const receipt: ParsedReceipt = { logs: [log] };
-    expectType<ParsedReceipt>(receipt);
+    const receipt: TxReceipt = { logs: [log] };
+    expectType<TxReceipt>(receipt);
   });
 });
 

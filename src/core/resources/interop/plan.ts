@@ -3,6 +3,7 @@ import type { Address, Hex } from '../../types/primitives';
 import type { ApprovalNeed } from '../../types/flows/base';
 import type { InteropParams } from '../../types/flows/interop';
 import { sumActionMsgValue, sumErc20Amounts } from './route';
+import { assertNever } from '../../utils/index';
 
 export type InteropStarter = [Hex, Hex, Hex[]];
 
@@ -50,10 +51,6 @@ export function preflightDirect(params: InteropParams, ctx: InteropBuildCtx): vo
     throw new Error('route "direct" requires at least one action.');
   }
 
-  const hasErc20 = params.actions.some((a) => a.type === 'sendErc20');
-  if (hasErc20) {
-    throw new Error('route "direct" does not support ERC-20 actions; use the indirect route.');
-  }
 
   const baseMatch = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
   if (!baseMatch) {
@@ -61,11 +58,19 @@ export function preflightDirect(params: InteropParams, ctx: InteropBuildCtx): vo
   }
 
   for (const action of params.actions) {
-    if (action.type === 'sendNative' && action.amount < 0n) {
-      throw new Error('sendNative.amount must be >= 0.');
-    }
-    if (action.type === 'call' && action.value != null && action.value < 0n) {
-      throw new Error('call.value must be >= 0 when provided.');
+    switch (action.type) {
+      case 'sendNative':
+        if (action.amount < 0n) {
+          throw new Error('sendNative.amount must be >= 0.');
+        }
+        break;
+      case 'call':
+        if (action.value != null && action.value < 0n) {
+          throw new Error('call.value must be >= 0 when provided.');
+        }
+        break;
+      default:
+        throw new Error(`route "direct" does not support ${action.type} actions; use the indirect route.`);
     }
   }
 }
@@ -79,13 +84,14 @@ export function buildDirectBundle(
   const starters: InteropStarter[] = params.actions.map((action, index) => {
     const to = ctx.codec.formatAddress(action.to);
     const callAttributes = attrs.callAttributes[index] ?? [];
-    if (action.type === 'sendNative') {
-      return [to, '0x' as Hex, callAttributes];
+    switch (action.type) {
+      case 'sendNative':
+        return [to, '0x' as Hex, callAttributes];
+      case 'call':
+        return [to, action.data ?? ('0x' as Hex), callAttributes];
+      default:
+        throw new Error(`buildDirectBundle: unsupported action type "${action.type}".`);
     }
-    if (action.type === 'call') {
-      return [to, action.data ?? ('0x' as Hex), callAttributes];
-    }
-    return [to, '0x' as Hex, callAttributes];
   });
 
   return {
@@ -115,19 +121,29 @@ export function preflightIndirect(params: InteropParams, ctx: InteropBuildCtx): 
   }
 
   for (const action of params.actions) {
-    if (action.type === 'sendNative' && action.amount < 0n) {
-      throw new Error('sendNative.amount must be >= 0.');
-    }
-    if (action.type === 'sendErc20' && action.amount < 0n) {
-      throw new Error('sendErc20.amount must be >= 0.');
-    }
-    if (action.type === 'call' && action.value != null) {
-      if (action.value < 0n) {
-        throw new Error('call.value must be >= 0 when provided.');
-      }
-      if (action.value > 0n && !baseMatches) {
-        throw new Error('indirect route does not support call.value when base tokens differ.');
-      }
+    switch (action.type) {
+      case 'sendNative':
+        if (action.amount < 0n) {
+          throw new Error('sendNative.amount must be >= 0.');
+        }
+        break;
+      case 'sendErc20':
+        if (action.amount < 0n) {
+          throw new Error('sendErc20.amount must be >= 0.');
+        }
+        break;
+      case 'call':
+        if (action.value != null) {
+          if (action.value < 0n) {
+            throw new Error('call.value must be >= 0 when provided.');
+          }
+          if (action.value > 0n && !baseMatches) {
+            throw new Error('indirect route does not support call.value when base tokens differ.');
+          }
+        }
+        break;
+      default:
+        assertNever(action);
     }
   }
 }
@@ -159,8 +175,6 @@ export function buildIndirectBundle(
   }
   const approvals = Array.from(approvalMap.values());
 
-  const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
-
   const starters: InteropStarter[] = params.actions.map((action, index) => {
     const callAttributes = attrs.callAttributes[index] ?? [];
 
@@ -173,15 +187,14 @@ export function buildIndirectBundle(
     // sendNative with matching base tokens or call/other actions go direct
     const directTo = ctx.codec.formatAddress(action.to);
 
-    if (action.type === 'sendNative' && baseMatches) {
-      return [directTo, '0x' as Hex, callAttributes];
+    switch (action.type) {
+      case 'sendNative':
+        return [directTo, '0x' as Hex, callAttributes];
+      case 'call':
+        return [directTo, action.data ?? ('0x' as Hex), callAttributes];
+      default:
+        return [directTo, '0x' as Hex, callAttributes];
     }
-
-    if (action.type === 'call') {
-      return [directTo, action.data ?? ('0x' as Hex), callAttributes];
-    }
-
-    return [directTo, '0x' as Hex, callAttributes];
   });
 
   return {
