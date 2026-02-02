@@ -64,7 +64,7 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@db/fix-config-issue # v0.1.0
+        uses: dutterbutter/zksync-server-action@e0401b155b1fa0f4f3629d569db3ae7094383729 # main
 
       - name: Compile test contracts
         working-directory: tests/contracts
