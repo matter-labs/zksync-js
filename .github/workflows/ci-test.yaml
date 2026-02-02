@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.0.2
         with:
           bun-version: '1.3.5'
 
@@ -64,7 +64,7 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@0ccaf62628692bf7dbb6a0832b1f0a9c2a7c08ee # v0.1.0
+        uses: dutterbutter/zksync-server-action@e0401b155b1fa0f4f3629d569db3ae7094383729 # main
 
       - name: Compile test contracts
         working-directory: tests/contracts

@@ -73,7 +73,7 @@ export const DEFAULT_PUBDATA_BYTES = 155n;
 // Approximate ABI-encoded size (bytes) of a deposit tx
 export const DEFAULT_ABI_BYTES = 400n;
 // Approximate safe L1 gas limit for bridge deposits
-export const SAFE_L1_BRIDGE_GAS = 600_000n;
+export const SAFE_L1_BRIDGE_GAS = 700_000n;
 
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.
