@@ -48,5 +48,11 @@ export type GenesisInput = {
   genesisRoot: Hex;
 };
 
+export type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RpcTransport = (method: string, params?: unknown[]) => Promise<any>;

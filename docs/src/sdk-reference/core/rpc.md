@@ -1,6 +1,6 @@
 # zks_ RPC
 
-Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, L2→L1 log proofs, receipts with `l2ToL1Logs`).
+Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
 
 ## Standard Ethereum RPC (`eth_*`)
 
@@ -13,9 +13,11 @@ For standard Ethereum JSON-RPC (e.g., `eth_call`, `eth_getLogs`, `eth_getBalance
 ```ts
 interface ZksRpc {
   getBridgehubAddress(): Promise<Address>;
+  getBytecodeSupplierAddress(): Promise<Address>;
   getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
-  getGenesis(): Promise<GenesisInfo>;
+  getBlockMetadataByNumber(blockNumber: number): Promise<BlockMetadata | null>;
+  getGenesis(): Promise<GenesisInput>;
 }
 ```
 
@@ -29,6 +31,16 @@ Fetch the on-chain **Bridgehub** contract address.
 
 ```ts
 const addr = await client.zks.getBridgehubAddress();
+```
+
+---
+
+### `getBytecodeSupplierAddress() → Promise<Address>`
+
+Fetch the on-chain **Bytecode Supplier** contract address.
+
+```ts
+const addr = await client.zks.getBytecodeSupplierAddress();
 ```
 
 ---
@@ -72,6 +84,34 @@ console.log(rcpt?.l2ToL1Logs); // always an array
 
 ---
 
+### `getBlockMetadataByNumber(blockNumber: number)`
+
+**What it does**
+Fetches per-block metadata used by the node (pubdata price, native price, execution version).
+Returns `null` if the block metadata is unavailable.
+Price fields are returned as `bigint`.
+
+**Example**
+
+```ts
+const meta = await client.zks.getBlockMetadataByNumber(123_456);
+if (meta) {
+  console.log(meta.pubdataPricePerByte, meta.nativePrice, meta.executionVersion);
+}
+```
+
+**Returns**
+
+```ts
+type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
+};
+```
+
+---
+
 ## Types (overview)
 
 ```ts
@@ -85,6 +125,12 @@ type ProofNormalized = {
 type ReceiptWithL2ToL1 = {
   // …standard receipt fields…
   l2ToL1Logs: unknown[];
+};
+
+type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
 };
 ```
 
