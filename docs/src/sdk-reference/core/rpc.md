@@ -79,6 +79,7 @@ type ProofNormalized = {
   id: bigint;
   batchNumber: bigint;
   proof: Hex[];
+  root: Hex;
 };
 
 type ReceiptWithL2ToL1 = {

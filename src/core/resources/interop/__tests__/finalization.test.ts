@@ -7,8 +7,6 @@ import {
   parseBundleReceiptInfo,
   getBundleEncodedData,
   buildFinalizationInfo,
-  createTimeoutError,
-  createStateError,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
 } from '../finalization';
@@ -17,7 +15,6 @@ import type { Log } from '../../../types/transactions';
 import {
   L1_MESSENGER_ADDRESS,
   TOPIC_L1_MESSAGE_SENT_LEG,
-  BUNDLE_IDENTIFIER,
   L2_INTEROP_CENTER_ADDRESS,
 } from '../../../constants';
 import type { Hex, Address } from '../../../types/primitives';
@@ -410,26 +407,6 @@ describe('interop/finalization', () => {
       });
 
       expect(result.encodedData).toBe('0xencodedmsg');
-    });
-  });
-
-  describe('createTimeoutError', () => {
-    it('creates a timeout error with correct structure', () => {
-      const error = createTimeoutError('waitForExecution', 'Timed out waiting', {
-        bundleHash: BUNDLE_HASH,
-      });
-
-      expect(error).toBeInstanceOf(Error);
-      expect(error.message).toContain('Timed out waiting');
-    });
-  });
-
-  describe('createStateError', () => {
-    it('creates a state error with correct structure', () => {
-      const error = createStateError('parseReceipt', 'Invalid state', { txHash: TX_HASH });
-
-      expect(error).toBeInstanceOf(Error);
-      expect(error.message).toContain('Invalid state');
     });
   });
 });

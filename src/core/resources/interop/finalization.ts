@@ -230,30 +230,3 @@ export function buildFinalizationInfo(
     encodedData: getBundleEncodedData(messageData),
   };
 }
-
-// Error helpers
-export function createTimeoutError(
-  operation: string,
-  message: string,
-  context: Record<string, unknown>,
-): Error {
-  return createError('TIMEOUT', {
-    resource: 'interop',
-    operation,
-    message,
-    context,
-  });
-}
-
-export function createStateError(
-  operation: string,
-  message: string,
-  context: Record<string, unknown>,
-): Error {
-  return createError('STATE', {
-    resource: 'interop',
-    operation,
-    message,
-    context,
-  });
-}
