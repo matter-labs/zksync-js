@@ -87,6 +87,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
       id: toBig(idRaw),
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
+      root: raw.root as Hex,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;
