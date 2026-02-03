@@ -8,10 +8,7 @@ import type {
 } from '../../types/flows/interop';
 import type { Log, TxReceipt } from '../../types/transactions';
 import type { ProofNormalized, ReceiptWithL2ToL1 } from '../../rpc/types';
-import {
-  BUNDLE_IDENTIFIER,
-  L2_INTEROP_CENTER_ADDRESS,
-} from '../../constants';
+import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../constants';
 import { OP_INTEROP } from '../../types/errors';
 import { createError } from '../../errors/factory';
 import { isL1MessageSentLog } from '../../utils/events';

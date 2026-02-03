@@ -51,7 +51,6 @@ export function preflightDirect(params: InteropParams, ctx: InteropBuildCtx): vo
     throw new Error('route "direct" requires at least one action.');
   }
 
-
   const baseMatch = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
   if (!baseMatch) {
     throw new Error('route "direct" requires matching base tokens between source and destination.');
@@ -70,7 +69,9 @@ export function preflightDirect(params: InteropParams, ctx: InteropBuildCtx): vo
         }
         break;
       default:
-        throw new Error(`route "direct" does not support ${action.type} actions; use the indirect route.`);
+        throw new Error(
+          `route "direct" does not support ${action.type} actions; use the indirect route.`,
+        );
     }
   }
 }

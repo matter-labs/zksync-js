@@ -9,7 +9,7 @@ import type { Log, TxReceipt } from '../types/transactions';
 
 type Prefer = 'messenger' | 'assetRouter' | { address: string };
 
-function extractPreferAddress(opts?: { prefer?: Prefer; }): string {
+function extractPreferAddress(opts?: { prefer?: Prefer }): string {
   const preferAddr =
     typeof opts?.prefer === 'object'
       ? opts.prefer.address
@@ -50,7 +50,7 @@ export function findL1MessageSentLog(
   return chosen;
 }
 
-export function isL1MessageSentLog(log: Log, opts?: { prefer?: Prefer; },): boolean {
+export function isL1MessageSentLog(log: Log, opts?: { prefer?: Prefer }): boolean {
   const topic = log.topics[0].toLowerCase();
   const preferAddr = extractPreferAddress(opts);
   return (
