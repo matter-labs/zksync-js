@@ -316,7 +316,6 @@ export const OP_INTEROP = {
     status: {
       sourceReceipt: 'interop.svc.status:sourceReceipt',
       ensureAddresses: 'interop.svc.status:ensureAddresses',
-      // buildTopics: 'interop.svc.status:buildTopics',
       parseSentLog: 'interop.svc.status:parseSentLog',
       requireDstProvider: 'interop.svc.status:requireDstProvider',
       dstLogs: 'interop.svc.status:dstLogs',
