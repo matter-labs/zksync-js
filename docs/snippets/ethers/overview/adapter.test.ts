@@ -1,4 +1,4 @@
-import { describe, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 // ANCHOR: ethers-adapter-imports
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
@@ -25,6 +25,39 @@ const params = {
 const handle = await sdk.deposits.create(params);
 await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
 // ANCHOR_END: ethers-deposit
+
+// ANCHOR: mental-model
+// Instead of this:
+try {
+  const handle = await sdk.withdrawals.create(params);
+  // ... happy path
+} catch (error) {
+  // ... sad path
+}
+
+// You can do this:
+const result = await sdk.withdrawals.tryCreate(params);
+
+if (result.ok) {
+  // Safe to use result.value, which is the WithdrawHandle
+  const handle = result.value;
+} else {
+  // Handle the error explicitly
+  console.error('Withdrawal failed:', result.error);
+}
+// ANCHOR_END: mental-model
+expect(result.ok).toEqual(true);
+
+// ANCHOR: simple-flow
+// 1. Create the deposit
+const depositHandle = await sdk.deposits.create(params);
+
+// 2. Wait for it to be finalized on L2
+const receipt = await sdk.deposits.wait(depositHandle, { for: 'l2' });
+
+console.log('Deposit complete!');
+// ANCHOR_END: simple-flow
+expect(receipt?.hash).toContain("0x");
 });
 
 });

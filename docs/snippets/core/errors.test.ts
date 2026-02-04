@@ -12,7 +12,7 @@ import { ETH_ADDRESS } from '../../../src/core';
 import type { Exact } from "./types";
 
 // ANCHOR: envelope-type
-export interface ErrorEnvelope {
+interface ErrorEnvelope {
   /** Resource surface that raised the error. */
   resource: Resource;
   /** SDK operation, e.g. 'withdrawals.finalize' */

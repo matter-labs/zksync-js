@@ -79,13 +79,13 @@ Price fields are returned as `bigint`.
 **Example**
 
 ```ts
-{{#include ../../../snippets/viem/overview/adapter.test.ts:block-metadata}}
+{{#include ../../../snippets/core/rpc.test.ts:block-metadata}}
 ```
 
 **Returns**
 
 ```ts
-{{#include ../../../snippets/viem/overview/adapter.test.ts:metadata-type}}
+{{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 ```
 
 ---
@@ -116,7 +116,7 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 
 {{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
 
-{{#include ../../../snippets/viem/overview/adapter.test.ts:metadata-type}}
+{{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 
 {{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
 ```

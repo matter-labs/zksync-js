@@ -55,24 +55,24 @@ async function main() {
   console.log('QUOTE response: ', quote);
 
   // ANCHOR: prepare
-  const prepare = await sdk.deposits.prepare(params);
+  const plan = await sdk.deposits.prepare(params);
   // ANCHOR_END: prepare
-  console.log('PREPARE response: ', prepare);
+  console.log('PREPARE response: ', plan);
 
   // Create (prepare + send)
   // ANCHOR: create
-  const create = await sdk.deposits.create(params);
+  const handle = await sdk.deposits.create(params);
   // ANCHOR_END: create
-  console.log('CREATE response: ', create);
+  console.log('CREATE response: ', handle);
 
   // ANCHOR: status
-    const status = await sdk.deposits.status(create);  /* input can be handle or l1TxHash */
+    const status = await sdk.deposits.status(handle);  /* input can be handle or l1TxHash */
   // status.phase: 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
   // ANCHOR_END: status
   console.log('STATUS response: ', status);
 
   // Wait (for now, L1 inclusion)
-  const receipt = await sdk.deposits.wait(create, { for: 'l1' });
+  const receipt = await sdk.deposits.wait(handle, { for: 'l1' });
   console.log(
     'Included at block:',
     receipt?.blockNumber,
@@ -82,11 +82,11 @@ async function main() {
     receipt?.hash,
   );
 
-  const status2 = await sdk.deposits.status(create);
+  const status2 = await sdk.deposits.status(handle);
   console.log('STATUS2 response: ', status2);
 
   // Wait (for now, L2 inclusion)
-  const l2Receipt = await sdk.deposits.wait(create, { for: 'l2' });
+  const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
   console.log(
     'Included at block:',
     l2Receipt?.blockNumber,

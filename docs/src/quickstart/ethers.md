@@ -26,8 +26,8 @@ Next, create a `.env` file in your project's root directory to store your privat
 PRIVATE_KEY=0xYOUR_PRIVATE_KEY_HERE
 
 # RPC endpoints
-L1_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_ID
-L2_RPC_URL="ZKSYNC-OS-TESTNET-RPC"
+L1_RPC=https://sepolia.infura.io/v3/YOUR_INFURA_ID
+L2_RPC="ZKSYNC-OS-TESTNET-RPC"
 ```
 
 ## 3. The Deposit Script

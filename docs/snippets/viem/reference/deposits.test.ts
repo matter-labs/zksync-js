@@ -140,7 +140,7 @@ const handle = await sdk.deposits.create({
 
 await sdk.deposits.wait(handle, { for: 'l2' });
 // ANCHOR_END: create-eth-deposit
-expect(handle.route).toEqual("eth-base");
+expect(handle.plan.route).toEqual('eth-base');
 
 // ANCHOR: token-address
 const token = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' // Example: USDC

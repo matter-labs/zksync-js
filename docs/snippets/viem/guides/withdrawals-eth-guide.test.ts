@@ -140,20 +140,20 @@ async function main() {
 
   // Create (send L2 withdraw)
   // ANCHOR: create
-  const created = await sdk.withdrawals.create(params);
+  const handle = await sdk.withdrawals.create(params);
   // ANCHOR_END: create
-  console.log('CREATE:', created);
+  console.log('CREATE:', handle);
 
   // Quick status
   // ANCHOR: status
-  const status = await sdk.withdrawals.status(created.l2TxHash); // input can be handle or l2TxHash
+  const status = await sdk.withdrawals.status(handle.l2TxHash); // input can be handle or l2TxHash
   // status.phase: 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
   // ANCHOR_END: status
   console.log('STATUS (initial):', status);
 
   // ANCHOR: wait
   // Wait for L2 inclusion
-  const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
+  const l2Receipt = await sdk.withdrawals.wait(handle, { for: 'l2' });
   console.log(
     'L2 included: block=',
     l2Receipt?.blockNumber,
@@ -164,15 +164,15 @@ async function main() {
   );
 
   // Wait until ready to finalize
-  await sdk.withdrawals.wait(created.l2TxHash, { for: 'ready' }); // becomes finalizable
+  await sdk.withdrawals.wait(handle.l2TxHash, { for: 'ready' }); // becomes finalizable
   // ANCHOR_END: wait
-  console.log('STATUS (ready):', await sdk.withdrawals.status(created.l2TxHash));
+  console.log('STATUS (ready):', await sdk.withdrawals.status(handle.l2TxHash));
 
   // Try to finalize on L1
-  const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
+  const fin = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
   console.log('TRY FINALIZE:', fin);
 
-  const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
+  const l1Receipt = await sdk.withdrawals.wait(handle.l2TxHash, { for: 'finalized' });
   if (l1Receipt) {
     console.log('L1 finalize receipt:', l1Receipt.transactionHash);
   } else {
