@@ -1,4 +1,4 @@
-import type { Hex } from '../types/primitives.ts';
+import type { Hex } from '../types/primitives';
 
 const RegExpHex = /^0x[0-9a-fA-F]*$/;
 

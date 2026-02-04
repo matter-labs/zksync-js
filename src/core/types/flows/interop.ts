@@ -1,8 +1,7 @@
 // src/core/types/flows/interop.ts
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
-import { isBigint, isNumber } from '../../utils';
-import { isHash, isHash66, isHash66Array, isAddress } from '../../utils';
+import { isHash, isHash66, isHash66Array, isAddress, isBigint, isNumber } from '../../utils';
 
 /** Encoded call attributes for interop */
 export type EncodedCallAttributes = readonly Hex[];

@@ -1,6 +1,6 @@
-import type { Address, Hex } from '../types/primitives.ts';
-import { FORMAL_ETH_ADDRESS, ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../constants.ts';
-import { isHash } from './hash.ts';
+import type { Address, Hex } from '../types/primitives';
+import { FORMAL_ETH_ADDRESS, ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../constants';
+import { isHash } from './hash';
 
 export function isAddress(x: unknown): x is Address {
   return isHash(x, 42); // 40 hex chars + '0x' prefix
