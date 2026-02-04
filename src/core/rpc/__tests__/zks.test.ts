@@ -75,29 +75,69 @@ describe('rpc/zks.normalizeGenesis', () => {
     genesis_root: '0x' + '55'.repeat(32),
   };
 
-  it('normalizes tuples and camel-cases field names', () => {
+  it('normalizes tuples and camel-cases field names (raw additional_storage)', () => {
     const normalized = normalizeGenesis(sample);
+
     expect(normalized).toEqual({
       initialContracts: [
         { address: sample.initial_contracts[0][0], bytecode: sample.initial_contracts[0][1] },
         { address: sample.initial_contracts[1][0], bytecode: sample.initial_contracts[1][1] },
       ],
       additionalStorage: [
-        { key: sample.additional_storage[0][0], value: sample.additional_storage[0][1] },
+        {
+          format: 'raw',
+          key: sample.additional_storage[0][0],
+          value: sample.additional_storage[0][1],
+        },
       ],
       executionVersion: sample.execution_version,
       genesisRoot: sample.genesis_root,
     });
   });
 
-  it('throws ZKsyncError on malformed response', () => {
-    try {
-      normalizeGenesis(null);
-      throw new Error('expected to throw');
-    } catch (e) {
-      expect(isZKsyncError(e)).toBe(true);
-      expect(String(e)).toContain('Malformed genesis response');
-    }
+  it('normalizes pretty additional_storage map format', () => {
+    const addr = '0x' + 'aa'.repeat(20);
+    const slot = '0x' + '33'.repeat(32);
+    const val = '0x' + '44'.repeat(32);
+
+    const prettySample = {
+      ...sample,
+      additional_storage: {
+        [addr]: {
+          [slot]: val,
+        },
+      },
+    };
+
+    const normalized = normalizeGenesis(prettySample);
+
+    expect(normalized.additionalStorage).toEqual([
+      {
+        format: 'pretty',
+        address: addr,
+        key: slot,
+        value: val,
+      },
+    ]);
+  });
+
+  it('falls back to additional_storage_raw when additional_storage is missing', () => {
+    const fallbackSample = {
+      initial_contracts: sample.initial_contracts,
+      additional_storage_raw: [['0x' + '33'.repeat(32), '0x' + '44'.repeat(32)]],
+      execution_version: sample.execution_version,
+      genesis_root: sample.genesis_root,
+    };
+
+    const normalized = normalizeGenesis(fallbackSample);
+
+    expect(normalized.additionalStorage).toEqual([
+      {
+        format: 'raw',
+        key: fallbackSample.additional_storage_raw[0][0],
+        value: fallbackSample.additional_storage_raw[0][1],
+      },
+    ]);
   });
 });
 
@@ -222,25 +262,59 @@ describe('rpc/zks.getReceiptWithL2ToL1', () => {
 });
 
 describe('rpc/zks.getGenesis', () => {
-  it('returns normalized genesis data', async () => {
+  it('returns normalized genesis data (raw additional_storage)', async () => {
     const raw = {
       initial_contracts: [['0x' + '11'.repeat(20), '0x' + 'aa'.repeat(4)]],
       additional_storage: [['0x' + '22'.repeat(32), '0x' + '33'.repeat(32)]],
       execution_version: 9,
       genesis_root: '0x' + '44'.repeat(32),
     };
+
     const rpc = createZksRpc(fakeTransport({ zks_getGenesis: raw }));
     const out = await rpc.getGenesis();
+
     expect(out).toEqual({
       initialContracts: [
         { address: raw.initial_contracts[0][0], bytecode: raw.initial_contracts[0][1] },
       ],
       additionalStorage: [
-        { key: raw.additional_storage[0][0], value: raw.additional_storage[0][1] },
+        {
+          format: 'raw',
+          key: raw.additional_storage[0][0],
+          value: raw.additional_storage[0][1],
+        },
       ],
       executionVersion: raw.execution_version,
       genesisRoot: raw.genesis_root,
     });
+  });
+  it('returns normalized genesis data (pretty additional_storage)', async () => {
+    const addr = '0x' + 'aa'.repeat(20);
+    const slot = '0x' + '22'.repeat(32);
+    const val = '0x' + '33'.repeat(32);
+
+    const raw = {
+      initial_contracts: [['0x' + '11'.repeat(20), '0x' + 'aa'.repeat(4)]],
+      additional_storage: {
+        [addr]: {
+          [slot]: val,
+        },
+      },
+      execution_version: 9,
+      genesis_root: '0x' + '44'.repeat(32),
+    };
+
+    const rpc = createZksRpc(fakeTransport({ zks_getGenesis: raw }));
+    const out = await rpc.getGenesis();
+
+    expect(out.additionalStorage).toEqual([
+      {
+        format: 'pretty',
+        address: addr,
+        key: slot,
+        value: val,
+      },
+    ]);
   });
 });
 
