@@ -29,7 +29,7 @@ jobs:
 
       - name: Run unit tests w/ coverage
         run: |
-          bun test
+          bun test src
           test -f coverage/lcov.info || (echo "lcov not found for unit tests" && exit 1)
           mv coverage/lcov.info lcov.unit.info
 
