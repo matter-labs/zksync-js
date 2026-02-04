@@ -248,7 +248,6 @@ const rcpt = await client.zks.getReceiptWithL2ToL1(l2TxHash);
 console.log("L2 to L1 logs:", rcpt?.l2ToL1Logs); // always an array
 // ANCHOR_END: receipt-with-logs
 
- //
 // ANCHOR: log-proof
 const proof = await client.zks.getL2ToL1LogProof(l2TxHash, 0);
 /*

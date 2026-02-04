@@ -157,6 +157,7 @@ if (!r.ok) {
   console.error('Withdrawal failed:', r.error);
 } else {
   const handle = r.value;
+  await sdk.withdrawals.wait(handle, { for: 'ready' });
   const f = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
   if (!f.ok) {
     console.error('Finalize failed:', f.error);

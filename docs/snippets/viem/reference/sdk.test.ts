@@ -81,7 +81,7 @@ it('tests the token resource', async () => {
   const tokenAddress = ETH_ADDRESS;
 
 // ANCHOR: resolve-token
-const token = await sdk.tokens.resolve('0xYourTokenL1...');
+const token = await sdk.tokens.resolve(tokenAddress);
 /*
 {
   kind: 'eth' | 'base' | 'erc20',

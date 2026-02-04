@@ -1,7 +1,6 @@
 import { describe, it } from 'bun:test';
 
 // ANCHOR: quickstart-imports
-import 'dotenv/config'; // Load environment variables from .env
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, createViemSdk } from '../../../../src/adapters/viem';
@@ -10,8 +9,8 @@ import { ETH_ADDRESS } from '../../../../src/core';
 import { l1Chain } from '../chains';
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const L1_RPC_URL = process.env.L1_RPC_URL;
-const L2_RPC_URL = process.env.L2_RPC_URL;
+const L1_RPC_URL = process.env.L1_RPC;
+const L2_RPC_URL = process.env.L2_RPC;
 // ANCHOR_END: quickstart-imports
 
 describe('viem quickstart', () => {

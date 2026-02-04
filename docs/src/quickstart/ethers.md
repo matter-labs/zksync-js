@@ -37,6 +37,7 @@ The following script will connect to the networks, create a deposit transaction,
 Save this code as `deposit-ethers.ts`:
 
 ```ts
+import 'dotenv/config'; // Load environment variables from .env
 {{#include ../../snippets/ethers/quickstart/quickstart.test.ts:quickstart-imports}}
 
 {{#include ../../snippets/ethers/quickstart/quickstart.test.ts:quickstart-main}}

@@ -1,14 +1,13 @@
 import { describe, it } from 'bun:test';
 
 // ANCHOR: quickstart-imports
-import 'dotenv/config'; // Load environment variables from .env
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../../src/adapters/ethers';
 import { ETH_ADDRESS } from '../../../../src/core';
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const L1_RPC_URL = process.env.L1_RPC_URL;
-const L2_RPC_URL = process.env.L2_RPC_URL;
+const L1_RPC_URL = process.env.L1_RPC;
+const L2_RPC_URL = process.env.L2_RPC;
 // ANCHOR_END: quickstart-imports
 
 describe('viem quickstart', () => {

@@ -34,6 +34,7 @@ L2_RPC_URL=ZKSYNC-OS-TESTNET-RPC
 Save as `deposit-viem.ts`:
 
 ```ts
+import 'dotenv/config'; // Load environment variables from .env
 {{#include ../../snippets/viem/quickstart/quickstart.test.ts:quickstart-imports}}
 
 {{#include ../../snippets/viem/quickstart/quickstart.test.ts:quickstart-main}}
