@@ -29,13 +29,15 @@ export type ErrorType =
   | 'RPC'
   | 'INTERNAL'
   | 'VERIFICATION'
-  | 'CONTRACT';
+  | 'CONTRACT'
+  | 'TIMEOUT';
 
 /** Resource surface */
 export type Resource =
   | 'deposits'
   | 'withdrawals'
   | 'withdrawal-finalization'
+  | 'interop'
   | 'tokens'
   | 'contracts'
   | 'helpers'
@@ -274,5 +276,54 @@ export const OP_WITHDRAWALS = {
     send: 'withdrawals.finalize.finalizeDeposit:send',
     wait: 'withdrawals.finalize.finalizeDeposit:wait',
     estimate: 'withdrawals.finalize.estimateFinalizationFees',
+  },
+} as const;
+
+// Operation constants for Interop error contexts
+export const OP_INTEROP = {
+  // high-level flow ops (match resource methods)
+  quote: 'interop.quote',
+  tryQuote: 'interop.tryQuote',
+  prepare: 'interop.prepare',
+  tryPrepare: 'interop.tryPrepare',
+  create: 'interop.create',
+  tryCreate: 'interop.tryCreate',
+  status: 'interop.status',
+  wait: 'interop.wait',
+  tryWait: 'interop.tryWait',
+  finalize: 'interop.finalize',
+  tryFinalize: 'interop.tryFinalize',
+
+  // route-specific ops (keep names aligned with files)
+  routes: {
+    direct: {
+      preflight: 'interop.routes.direct:preflight',
+      build: 'interop.routes.direct:build',
+    },
+    indirect: {
+      preflight: 'interop.routes.indirect:preflight',
+      build: 'interop.routes.indirect:build',
+    },
+  },
+  // execution path (nonce, gas, send, wait) – mirrors deposits’ style
+  exec: {
+    sendStep: 'interop.exec:sendStep',
+    waitStep: 'interop.exec:waitStep',
+  },
+
+  // status service (logs & derivation)
+  svc: {
+    status: {
+      sourceReceipt: 'interop.svc.status:sourceReceipt',
+      ensureAddresses: 'interop.svc.status:ensureAddresses',
+      parseSentLog: 'interop.svc.status:parseSentLog',
+      requireDstProvider: 'interop.svc.status:requireDstProvider',
+      dstLogs: 'interop.svc.status:dstLogs',
+      derive: 'interop.svc.status:derive',
+    },
+    wait: {
+      poll: 'interop.svc.wait:poll',
+      timeout: 'interop.svc.wait:timeout',
+    },
   },
 } as const;

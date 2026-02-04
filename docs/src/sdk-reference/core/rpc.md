@@ -1,6 +1,6 @@
 # zks_ RPC
 
-Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, L2→L1 log proofs, receipts with `l2ToL1Logs`).
+Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
 
 ## Standard Ethereum RPC (`eth_*`)
 
@@ -24,6 +24,16 @@ Fetch the on-chain **Bridgehub** contract address.
 
 ```ts
 {{#include ../../../snippets/core/rpc.test.ts:bridgehub-address}}
+```
+
+---
+
+### `getBytecodeSupplierAddress() → Promise<Address>`
+
+Fetch the on-chain **Bytecode Supplier** contract address.
+
+```ts
+const addr = await client.zks.getBytecodeSupplierAddress();
 ```
 
 ---
@@ -55,6 +65,34 @@ Fetch the transaction receipt; the returned object **always** includes `l2ToL1Lo
 
 ```ts
 {{#include ../../../snippets/viem/overview/adapter.test.ts:receipt-with-logs}}
+```
+
+---
+
+### `getBlockMetadataByNumber(blockNumber: number)`
+
+**What it does**
+Fetches per-block metadata used by the node (pubdata price, native price, execution version).
+Returns `null` if the block metadata is unavailable.
+Price fields are returned as `bigint`.
+
+**Example**
+
+```ts
+const meta = await client.zks.getBlockMetadataByNumber(123_456);
+if (meta) {
+  console.log(meta.pubdataPricePerByte, meta.nativePrice, meta.executionVersion);
+}
+```
+
+**Returns**
+
+```ts
+type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
+};
 ```
 
 ---

@@ -47,6 +47,13 @@ Before submitting a PR, please make sure:
 - Update or add docs/examples if needed.
 - Link the related issue (if any).
 
+## 🤖 AI-Assisted Development
+
+If you're using AI tools (Claude, ChatGPT, Cursor, etc.) to contribute:
+
+- Start with [`AGENTS.md`](../AGENTS.md) for rules and workflow
+- See [`llm/README.md`](../llm/README.md) for detailed guidance
+
 ## 💬 Questions?
 
 - Open a [GitHub Discussion](https://github.com/ZKsync-Community-Hub/zksync-developers/discussions/)

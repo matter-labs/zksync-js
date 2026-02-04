@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.7](https://github.com/matter-labs/zksync-js/compare/v0.0.6...v0.0.7) (2026-02-03)
+
+
+### Features
+
+* add new zks_rpc ([#42](https://github.com/matter-labs/zksync-js/issues/42)) ([b21932f](https://github.com/matter-labs/zksync-js/commit/b21932f56f07f214d5bc1a139fec74003f12fbdf))
+
+
+### Bug Fixes
+
+* increase safe bridge gas ([#45](https://github.com/matter-labs/zksync-js/issues/45)) ([e5b35d6](https://github.com/matter-labs/zksync-js/commit/e5b35d6ad5c2fba516b575e9b4ff826e7a65f83e))
+
 ## [0.0.6](https://github.com/matter-labs/zksync-js/compare/v0.0.5...v0.0.6) (2026-01-14)
 
 
