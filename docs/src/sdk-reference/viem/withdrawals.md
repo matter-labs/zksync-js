@@ -15,31 +15,9 @@ L2 → L1 withdrawals for ETH and ERC-20 tokens with quote, prepare, create, sta
 ## Import
 
 ```ts
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseEther,
-  type Account,
-  type Chain,
-  type Transport,
-  type WalletClient,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:imports}}
 
-const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
-const l1 = createPublicClient({ transport: http(L1_RPC) });
-const l2 = createPublicClient({ transport: http(L2_RPC) });
-const l1Wallet: WalletClient<Transport, Chain, Account> = createWalletClient({
-  account,
-  transport: http(L1_RPC),
-});
-
-// Initialize the SDK
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
-// sdk.withdrawals → WithdrawalsResource
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:init-sdk}}
 ```
 
 ## Quick Start
@@ -47,20 +25,9 @@ const sdk = createViemSdk(client);
 Withdraw **0.1 ETH** from L2 → L1 and finalize on L1:
 
 ```ts
-const handle = await sdk.withdrawals.create({
-  token: ETH_ADDRESS, // ETH sentinel supported
-  amount: parseEther('0.1'),
-  to: account.address, // L1 recipient
-});
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:eth-import}}
 
-// 1) L2 inclusion (adds l2ToL1Logs if available)
-await sdk.withdrawals.wait(handle, { for: 'l2' });
-
-// 2) Wait until finalizable (no side effects)
-await sdk.withdrawals.wait(handle, { for: 'ready', pollMs: 6000 });
-
-// 3) Finalize on L1 (no-op if already finalized)
-const { status, receipt: l1Receipt } = await sdk.withdrawals.finalize(handle.l2TxHash);
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:create-withdrawal}}
 ```
 
 > [!INFO]
@@ -96,25 +63,7 @@ Estimate the operation (route, approvals, gas hints). Does **not** send transact
 **Returns:** `WithdrawQuote`
 
 ```ts
-const q = await sdk.withdrawals.quote({ token, amount, to });
-/*
-{
-  route: "base" | "erc20-nonbase",
-  summary: {
-    route,
-    approvalsNeeded: [{ token, spender, amount }],
-    amounts: {
-      transfer: { token, amount }
-    },
-    fees: {
-      token,
-      maxTotal,
-      mintValue,
-      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
-    }
-  }
-}
-*/
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:quote}}
 ```
 
 ### `tryQuote(p) → Promise<{ ok: true; value: WithdrawQuote } | { ok: false; error }>`
@@ -128,17 +77,7 @@ Builds the plan (ordered L2 steps + unsigned txs) without sending.
 **Returns:** `WithdrawPlan`
 
 ```ts
-const plan = await sdk.withdrawals.prepare({ token, amount, to });
-/*
-{
-  route,
-  summary: WithdrawQuote,
-  steps: [
-    { key, kind, tx: TransactionRequest },
-    // …
-  ]
-}
-*/
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:plan}}
 ```
 
 ### `tryPrepare(p) → Promise<{ ok: true; value: WithdrawPlan } | { ok: false; error }>`
@@ -153,15 +92,7 @@ Returns a handle with the **L2 transaction hash**.
 **Returns:** `WithdrawHandle`
 
 ```ts
-const handle = await sdk.withdrawals.create({ token, amount, to });
-/*
-{
-  kind: "withdrawal",
-  l2TxHash: Hex,
-  stepHashes: Record<string, Hex>,
-  plan: WithdrawPlan
-}
-*/
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:handle}}
 ```
 
 > [!WARNING]
@@ -186,8 +117,7 @@ Accepts a `WithdrawHandle` or raw **L2 tx hash**.
 | `FINALIZED`         | Already finalized on L1                |
 
 ```ts
-const s = await sdk.withdrawals.status(handle);
-// { phase, l2TxHash, key? }
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:status}}
 ```
 
 ### `wait(handleOrHash, { for: 'l2' | 'ready' | 'finalized', pollMs?, timeoutMs? })`
@@ -199,9 +129,8 @@ Wait until the withdrawal reaches a specific phase.
 * `{ for: 'finalized' }` → Resolves the **L1 receipt** (if found) or `null`
 
 ```ts
-const l2Rcpt = await sdk.withdrawals.wait(handle, { for: 'l2' });
-await sdk.withdrawals.wait(handle, { for: 'ready', pollMs: 6000, timeoutMs: 15 * 60_000 });
-const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', pollMs: 7000 });
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:receipt-1}}
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:receipt-2}}
 ```
 
 > [!TIP]
@@ -218,10 +147,7 @@ Send the **L1 finalize** transaction **if ready**.
 If already finalized, returns the status without sending.
 
 ```ts
-const { status, receipt } = await sdk.withdrawals.finalize(handle.l2TxHash);
-if (status.phase === 'FINALIZED') {
-  console.log('L1 tx:', receipt?.transactionHash);
-}
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:finalize}}
 ```
 
 > [!INFO]
@@ -235,85 +161,39 @@ Result-style `finalize`.
 ## End-to-End Example
 
 ```ts
-const handle = await sdk.withdrawals.create({ token, amount, to });
-
-// L2 inclusion
-await sdk.withdrawals.wait(handle, { for: 'l2' });
-
-// Option A: finalize immediately (throws if not ready)
-await sdk.withdrawals.finalize(handle.l2TxHash);
-
-// Option B: wait for readiness, then finalize
-await sdk.withdrawals.wait(handle, { for: 'ready' });
-await sdk.withdrawals.finalize(handle.l2TxHash);
+{{#include ../../../snippets/viem/reference/withdrawals.test.ts:min-happy-path}}
 ```
 
 ## Types (Overview)
 
+### Withdraw Params
+
 ```ts
-export interface WithdrawParams {
-  token: Address; // L2 token (ETH sentinel supported)
-  amount: bigint; // wei
-  to?: Address; // L1 recipient
-  l2GasLimit?: bigint;
-  l2TxOverrides?: Eip1559GasOverrides;
-}
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:params-type}}
+```
 
-export interface Eip1559GasOverrides {
-  gasLimit?: bigint;
-  maxFeePerGas?: bigint;
-  maxPriorityFeePerGas?: bigint;
-}
+### Withdraw Quote
 
-export interface WithdrawQuote {
-  route: 'base' | 'erc20-nonbase';
-  summary: {
-    route: 'base' | 'erc20-nonbase';
-    approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
-    amounts: {
-      transfer: {
-        token: Address;
-        amount: bigint;
-      };
-    };
-    fees: {
-      token: Address;
-      maxTotal: bigint;
-      mintValue?: bigint;
-      l2?: {
-        gasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas?: bigint;
-        total: bigint;
-      };
-    };
-  };
-}
+```ts
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:quote-type}}
+```
 
-export interface WithdrawPlan<TTx = TransactionRequest> {
-  route: WithdrawQuote['route'];
-  summary: WithdrawQuote;
-  steps: Array<{ key: string; kind: string; tx: TTx }>;
-}
+### Withdraw Plan
 
-export interface WithdrawHandle<TTx = TransactionRequest> {
-  kind: 'withdrawal';
-  l2TxHash: Hex;
-  stepHashes: Record<string, Hex>;
-  plan: WithdrawPlan<TTx>;
-}
+```ts
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:plan-type}}
+```
 
-export type WithdrawalStatus =
-  | { phase: 'UNKNOWN'; l2TxHash: Hex }
-  | { phase: 'L2_PENDING'; l2TxHash: Hex }
-  | { phase: 'PENDING'; l2TxHash: Hex; key?: unknown }
-  | { phase: 'READY_TO_FINALIZE'; l2TxHash: Hex; key: unknown }
-  | { phase: 'FINALIZED'; l2TxHash: Hex; key: unknown };
+### Withdraw Waitable
 
-// L2 receipt augmentation returned by wait({ for: 'l2' })
-export type TransactionReceiptZKsyncOS = TransactionReceipt & {
-  l2ToL1Logs?: Array<unknown>;
-};
+```ts
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:wait-type}}
+```
+
+### Withdraw Status
+
+```ts
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:status-type}}
 ```
 
 ---

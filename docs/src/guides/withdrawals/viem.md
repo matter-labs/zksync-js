@@ -26,11 +26,17 @@ Withdrawals are a **two-step process**:
 | `refundRecipient` | No       | L2 address to receive fee refunds (if applicable) |
 | `l2TxOverrides`   | No       | L2 tx overrides (e.g. gasLimit, maxFeePerGas, maxPriorityFeePerGas)     |
 
-
 ## Fast path (one-shot)
 
 ```ts
-{{#include ../../../snippets/viem/withdrawals-eth.ts}}
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:imports}}
+
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:main}}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
 ```
 
 - `create()` prepares **and** sends the L2 withdrawal.
@@ -45,7 +51,7 @@ Withdrawals are a **two-step process**:
 Preview fees/steps and whether extra approvals are required.
 
 ```ts
-const quote = await sdk.withdrawals.quote(params);
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:quote}}
 ```
 
 **2. Prepare (build txs, don’t send)**
@@ -53,7 +59,7 @@ const quote = await sdk.withdrawals.quote(params);
 Get `TransactionRequest[]` for signing/UX.
 
 ```ts
-const plan = await sdk.withdrawals.prepare(params);
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:prepare}}
 ```
 
 **3. Create (send)**
@@ -61,7 +67,7 @@ const plan = await sdk.withdrawals.prepare(params);
 Use defaults, or send your prepared txs if you customized.
 
 ```ts
-const handle = await sdk.withdrawals.create(params);
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:create}}
 ```
 
 ## Track progress (status vs wait)
@@ -69,15 +75,13 @@ const handle = await sdk.withdrawals.create(params);
 **Non-blocking snapshot**
 
 ```ts
-const s = await sdk.withdrawals.status(handle /* or l2TxHash */);
-// 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:status}}
 ```
 
 **Block until checkpoint**
 
 ```ts
-const l2Receipt = await sdk.withdrawals.wait(handle, { for: 'l2' });
-await sdk.withdrawals.wait(handle, { for: 'ready' }); // becomes finalizable
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:wait}}
 ```
 
 ## Finalization (required step)
@@ -86,8 +90,7 @@ To actually release funds on L1, call `finalize`. Note
 the transaction needs to be ready for finalization.
 
 ```ts
-const result = await sdk.withdrawals.finalize(handle.l2TxHash);
-console.log('Finalization status:', result.status.phase);
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:wfinalize}}
 ```
 
 ## Error handling patterns
@@ -95,11 +98,7 @@ console.log('Finalization status:', result.status.phase);
 **Exceptions**
 
 ```ts
-try {
-  const handle = await sdk.withdrawals.create(params);
-} catch (e) {
-  // normalized error envelope (type, operation, message, context, optional revert)
-}
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:try-catch-create}}
 ```
 
 **No-throw style**
@@ -113,19 +112,7 @@ These never throw—so you don’t need `try/catch`. Instead they return:
 This is useful for **UI flows** or **services** where you want explicit control over errors.
 
 ```ts
-const r = await sdk.withdrawals.tryCreate(params);
-
-if (!r.ok) {
-  console.error('Withdrawal failed:', r.error);
-} else {
-  const handle = r.value;
-  const f = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
-  if (!f.ok) {
-    console.error('Finalize failed:', f.error);
-  } else {
-    console.log('Withdrawal finalized on L1:', f.value.receipt?.transactionHash);
-  }
-}
+{{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:tryCreate}}
 ```
 
 ## Troubleshooting

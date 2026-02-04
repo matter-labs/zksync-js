@@ -41,8 +41,7 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 <summary><code>withdrawals-status.ts</code></summary>
 
 ```ts
-const s = await sdk.withdrawals.status(handleOrHash);
-// s.phase ∈ 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-status}}
 ```
 
 </details>
@@ -67,14 +66,7 @@ const s = await sdk.withdrawals.status(handleOrHash);
 <summary><code>withdrawals-wait.ts</code></summary>
 
 ```ts
-// Wait for L2 inclusion → get L2 receipt (augmented with l2ToL1Logs if available)
-const l2Rcpt = await sdk.withdrawals.wait(handle, { for: 'l2', pollMs: 5000 });
-
-// Wait until it becomes finalizable (no side effects)
-await sdk.withdrawals.wait(handle, { for: 'ready' });
-
-// Wait for L1 finalization → L1 receipt (or null if not retrievable)
-const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', timeoutMs: 15 * 60_000 });
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-wait}}
 ```
 
 </details>
@@ -105,8 +97,7 @@ const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', timeoutMs:
 <summary><code>deposits-status.ts</code></summary>
 
 ```ts
-const s = await sdk.deposits.status(handleOrL1Hash);
-// s.phase ∈ 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+{{#include ../../snippets/viem/overview/adapter.test.ts:deposit-status}}
 ```
 
 </details>
@@ -124,8 +115,7 @@ const s = await sdk.deposits.status(handleOrL1Hash);
 <summary><code>deposits-wait.ts</code></summary>
 
 ```ts
-const l1Rcpt = await sdk.deposits.wait(handle, { for: 'l1' });
-const l2Rcpt = await sdk.deposits.wait(handle, { for: 'l2' });
+{{#include ../../snippets/viem/overview/adapter.test.ts:deposit-wait}}
 ```
 
 </details>
@@ -146,14 +136,7 @@ const l2Rcpt = await sdk.deposits.wait(handle, { for: 'l2' });
 <summary><code>polling.ts</code></summary>
 
 ```ts
-const ready = await sdk.withdrawals.wait(handle, {
-  for: 'ready',
-  pollMs: 5500, // minimum enforced internally
-  timeoutMs: 30 * 60_000, // 30 minutes → returns null on deadline
-});
-if (ready === null) {
-  // timeout or not yet finalizable — decide whether to retry or show a hint
-}
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-poll}}
 ```
 
 </details>
@@ -169,12 +152,7 @@ Prefer **no-throw** variants if you want explicit flow control:
 <summary><code>no-throw.ts</code></summary>
 
 ```ts
-const r = await sdk.withdrawals.tryWait(handle, { for: 'finalized' });
-if (!r.ok) {
-  console.error('Finalize wait failed:', r.error);
-} else {
-  console.log('Finalized L1 receipt:', r.value);
-}
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-try-wait}}
 ```
 
 </details>

@@ -165,3 +165,35 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  docs-examples:
+    name: docs-examples 📑
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install Foundry (anvil)
+        uses: foundry-rs/foundry-toolchain@8b0419c685ef46cb79ec93fbdc131174afceb730 # v1.6.0
+        with:
+          version: v1.3.4
+
+      - name: Run ZKsync OS (L1-L2)
+        uses: dutterbutter/zksync-server-action@0ccaf62628692bf7dbb6a0832b1f0a9c2a7c08ee # v0.1.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: '1.3.5'
+
+      - name: Install deps
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Run docs examples tests
+        env:
+          L1_RPC: http://localhost:8545
+          L2_RPC: http://localhost:3050
+          PRIVATE_KEY: 0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110
+        run: |
+          bun test:docs

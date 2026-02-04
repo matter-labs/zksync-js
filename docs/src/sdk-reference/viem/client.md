@@ -14,37 +14,16 @@ Provides cached core contract addresses, typed contract access, convenience wall
 ## Import
 
 ```ts
-import { createViemClient } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/client.test.ts:client-import}}
 ```
 
 ## Quick Start
 
 ```ts
-import { createPublicClient, createWalletClient, http } from 'viem';
+{{#include ../../../snippets/viem/reference/client.test.ts:client-import}}
+{{#include ../../../snippets/viem/reference/client.test.ts:viem-import}}
 
-// Public clients (reads)
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-
-// Wallet clients (writes)
-const l1Wallet = createWalletClient({
-  account: /* your L1 account */,
-  transport: http(process.env.ETH_RPC!),
-});
-
-// Optional dedicated L2 wallet (required for L2 sends, e.g., withdrawals)
-const l2Wallet = createWalletClient({
-  account: /* can be same key as L1 */,
-  transport: http(process.env.ZKSYNC_RPC!),
-});
-
-const client = createViemClient({ l1, l2, l1Wallet, l2Wallet });
-
-// Resolve core addresses (cached)
-const addrs = await client.ensureAddresses();
-
-// Typed contracts (viem getContract)
-const { bridgehub, l1AssetRouter } = await client.contracts();
+{{#include ../../../snippets/viem/reference/client.test.ts:init-client}}
 ```
 
 > [!TIP]
@@ -84,13 +63,7 @@ const { bridgehub, l1AssetRouter } = await client.contracts();
 Resolve and cache core contract addresses from chain state (merging any provided overrides).
 
 ```ts
-const a = await client.ensureAddresses();
-/*
-{
-  bridgehub, l1AssetRouter, l1Nullifier, l1NativeTokenVault,
-  l2AssetRouter, l2NativeTokenVault, l2BaseTokenSystem
-}
-*/
+{{#include ../../../snippets/viem/reference/client.test.ts:ensureAddresses}}
 ```
 
 ### `contracts() → Promise<{ ...contracts }>`
@@ -98,8 +71,7 @@ const a = await client.ensureAddresses();
 Return **typed** Viem contracts (`getContract`) connected to the current clients.
 
 ```ts
-const c = await client.contracts();
-const bh = c.bridgehub; // bh.read.*, bh.write.*, bh.simulate.*
+{{#include ../../../snippets/viem/reference/client.test.ts:contracts}}
 ```
 
 ### `refresh(): void`
@@ -108,8 +80,7 @@ Clear cached addresses and contracts.
 Subsequent calls to `ensureAddresses()` or `contracts()` will re-resolve.
 
 ```ts
-client.refresh();
-await client.ensureAddresses();
+{{#include ../../../snippets/viem/reference/client.test.ts:refresh}}
 ```
 
 ### `baseToken(chainId: bigint) → Promise<Address>`
@@ -117,7 +88,7 @@ await client.ensureAddresses();
 Return the **L1 base-token address** for a given L2 chain via `Bridgehub.baseToken(chainId)`.
 
 ```ts
-const base = await client.baseToken(324n /* example chain ID */);
+{{#include ../../../snippets/viem/reference/client.test.ts:base}}
 ```
 
 ### `getL2Wallet() → viem.WalletClient`
@@ -125,7 +96,7 @@ const base = await client.baseToken(324n /* example chain ID */);
 Return or lazily derive an L2 wallet from the same `account` as the L1 wallet.
 
 ```ts
-const w = client.getL2Wallet(); // ensures L2 writes are possible
+{{#include ../../../snippets/viem/reference/client.test.ts:l2-wallet}}
 ```
 
 ## Types
@@ -133,15 +104,7 @@ const w = client.getL2Wallet(); // ensures L2 writes are possible
 ### `ResolvedAddresses`
 
 ```ts
-type ResolvedAddresses = {
-  bridgehub: Address;
-  l1AssetRouter: Address;
-  l1Nullifier: Address;
-  l1NativeTokenVault: Address;
-  l2AssetRouter: Address;
-  l2NativeTokenVault: Address;
-  l2BaseTokenSystem: Address;
-};
+{{#include ../../../snippets/viem/reference/client.test.ts:resolved-type}}
 ```
 
 ## Notes & Pitfalls

@@ -14,15 +14,10 @@ Token identity, L1↔L2 mapping, bridge asset IDs, and chain token facts for ETH
 ## Import
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:ethers-import}}
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:sdk-import}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
-
-const client = createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:init-sdk}}
 // sdk.tokens → TokensResource
 ```
 
@@ -31,34 +26,19 @@ const sdk = createEthersSdk(client);
 Resolve a token by L1 address and fetch its L2 counterpart + bridge metadata:
 
 ```ts
-const token = await sdk.tokens.resolve('0xYourTokenL1...');
-/*
-{
-  kind: 'eth' | 'base' | 'erc20',
-  l1: Address,
-  l2: Address,
-  assetId: Hex,
-  originChainId: bigint,
-  isChainEthBased: boolean,
-  baseTokenAssetId: Hex,
-  wethL1: Address,
-  wethL2: Address,
-}
-*/
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:resolve-token}}
 ```
 
 Map addresses directly:
 
 ```ts
-const l2Addr = await sdk.tokens.toL2Address('0xTokenL1...');
-const l1Addr = await sdk.tokens.toL1Address(l2Addr);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:map-token}}
 ```
 
 Compute bridge identifiers:
 
 ```ts
-const assetId = await sdk.tokens.assetIdOfL1('0xTokenL1...');
-const backL2 = await sdk.tokens.l2TokenFromAssetId(assetId);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:token-asset-ids}}
 ```
 
 ## Method Reference

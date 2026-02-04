@@ -18,45 +18,18 @@ High-level SDK built on top of the **Viem adapter** — provides deposits, withd
 ## Import
 
 ```ts
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/sdk.test.ts:sdk-import}}
 ```
 
 ## Quick Start
 
 ```ts
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/sdk.test.ts:sdk-import}}
+{{#include ../../../snippets/viem/reference/sdk.test.ts:viem-import}}
+{{#include ../../../snippets/viem/reference/sdk.test.ts:eth-import}}
 
-// Public clients (reads)
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-
-// Wallet clients (writes)
-const l1Wallet = createWalletClient({
-  account: /* your L1 Account */,
-  transport: http(process.env.ETH_RPC!),
-});
-
-const l2Wallet = createWalletClient({
-  account: /* your L2 Account (can be the same key) */,
-  transport: http(process.env.ZKSYNC_RPC!),
-});
-
-const client = createViemClient({ l1, l2, l1Wallet, l2Wallet });
-const sdk = createViemSdk(client);
-
-// Example: deposit 0.05 ETH L1 → L2, wait for L2 execution
-const handle = await sdk.deposits.create({
-  token: ETH_ADDRESS,               // 0x…00 sentinel for ETH
-  amount: 50_000_000_000_000_000n,  // 0.05 ETH in wei
-  to: l2Wallet.account.address,
-});
-await sdk.deposits.wait(handle, { for: 'l2' });
-
-// Example: resolve contracts and map an L1 token to its L2 address
-const { l1NativeTokenVault } = await sdk.contracts.instances();
-const token = await sdk.tokens.resolve('0xYourToken');
-console.log(token.l2);
+{{#include ../../../snippets/viem/reference/sdk.test.ts:init-sdk}}
+{{#include ../../../snippets/viem/reference/sdk.test.ts:basic-sdk}}
 ```
 
 > [!TIP]
@@ -106,7 +79,7 @@ Utilities for resolved addresses and connected contracts. Token mapping lives in
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.contracts.addresses();
+{{#include ../../../snippets/viem/reference/sdk.test.ts:contract-addresses}}
 ```
 
 ### `instances() → Promise<{ ...contracts }>`
@@ -114,8 +87,7 @@ const a = await sdk.contracts.addresses();
 **Typed** Viem contracts for all core components (each exposes `.read` / `.write` / `.simulate`).
 
 ```ts
-const c = await sdk.contracts.instances();
-const bridgehub = c.bridgehub;
+{{#include ../../../snippets/viem/reference/sdk.test.ts:contract-instances}}
 ```
 
 ### One-off Contract Getters
@@ -131,7 +103,7 @@ const bridgehub = c.bridgehub;
 | `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const nullifier = await sdk.contracts.l1Nullifier();
+{{#include ../../../snippets/viem/reference/sdk.test.ts:nullifier}}
 ```
 
 ---

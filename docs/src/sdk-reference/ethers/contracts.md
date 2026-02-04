@@ -13,16 +13,9 @@ Resolved addresses and connected core contracts for the Ethers adapter.
 ## Import
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:imports}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
-
-const client = createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
-// sdk.contracts → ContractsResource
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:init-sdk}}
 ```
 
 ## Quick Start
@@ -30,10 +23,7 @@ const sdk = createEthersSdk(client);
 Resolve addresses and contract handles:
 
 ```ts
-const addresses = await sdk.contracts.addresses();
-const { l1NativeTokenVault, l2AssetRouter } = await sdk.contracts.instances();
-
-const ntv = await sdk.contracts.l1NativeTokenVault();
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:ntv}}
 ```
 
 ## Method Reference
@@ -43,18 +33,7 @@ const ntv = await sdk.contracts.l1NativeTokenVault();
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.contracts.addresses();
-/*
-{
-  bridgehub,
-  l1AssetRouter,
-  l1Nullifier,
-  l1NativeTokenVault,
-  l2AssetRouter,
-  l2NativeTokenVault,
-  l2BaseTokenSystem
-}
-*/
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:addresses}}
 ```
 
 ### `instances() → Promise<{ ...contracts }>`
@@ -62,18 +41,7 @@ const a = await sdk.contracts.addresses();
 Return connected `ethers.Contract` instances for all core contracts.
 
 ```ts
-const c = await sdk.contracts.instances();
-/*
-{
-  bridgehub,
-  l1AssetRouter,
-  l1Nullifier,
-  l1NativeTokenVault,
-  l2AssetRouter,
-  l2NativeTokenVault,
-  l2BaseTokenSystem
-}
-*/
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:instances}}
 ```
 
 ### One-off Contract Getters
@@ -89,7 +57,7 @@ const c = await sdk.contracts.instances();
 | `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const router = await sdk.contracts.l2AssetRouter();
+{{#include ../../../snippets/ethers/reference/contracts.test.ts:router}}
 ```
 
 ## Notes & Pitfalls
