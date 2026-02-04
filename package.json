@@ -140,7 +140,7 @@
     "docs:gen": "node ./node_modules/typedoc/bin/typedoc",
     "docs:serve": "mdbook serve docs -p 3000",
     "docs:build": "mdbook build docs",
-    "test": "bun test --filter '!docs/snippets'",
+    "test": "bun test src",
     "test:e2e:ethers": "bun test ./src/adapters/ethers/e2e/*.e2e.ts",
     "test:e2e:viem": "bun test ./src/adapters/viem/e2e/*.e2e.ts",
     "test:watch": "bun test --watch",
