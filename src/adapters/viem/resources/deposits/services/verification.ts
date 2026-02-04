@@ -3,7 +3,7 @@
 import type { PublicClient, TransactionReceipt, Log, AbiEvent } from 'viem';
 import type { Hex } from '../../../../../core/types/primitives';
 import { decodeEventLog } from 'viem';
-import { isHash66 } from '../../../../../core/utils/addr';
+import { isHash66 } from '../../../../../core/utils/hash';
 import { TOPIC_CANONICAL_ASSIGNED, TOPIC_CANONICAL_SUCCESS } from '../../../../../core/constants';
 import { createError } from '../../../../../core/errors/factory';
 
