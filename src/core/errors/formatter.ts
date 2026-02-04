@@ -2,6 +2,7 @@
 
 /* -------------------- Formatting helpers -------------------- */
 import type { ErrorEnvelope } from '../types';
+import { isBigint, isNumber } from '../utils';
 
 function elideMiddle(s: string, max = 96): string {
   if (s.length <= max) return s;
@@ -12,7 +13,7 @@ function elideMiddle(s: string, max = 96): string {
 function shortJSON(v: unknown, max = 240): string {
   try {
     const s = JSON.stringify(v, (_k: string, val: unknown): unknown =>
-      typeof val === 'bigint' ? `${val.toString()}n` : val,
+      isBigint(val) ? `${val.toString()}n` : val,
     );
     return s.length > max ? elideMiddle(s, max) : s;
   } catch {
@@ -36,7 +37,7 @@ function formatContextLine(ctx?: Record<string, unknown>): string | undefined {
     parts.push(`txHash=${typeof txHash === 'string' ? txHash : shortJSON(txHash, 96)}`);
   if (nonce !== undefined) {
     const nonceStr =
-      typeof nonce === 'string' || typeof nonce === 'number' || typeof nonce === 'bigint'
+      typeof nonce === 'string' || isNumber(nonce) || isBigint(nonce)
         ? String(nonce)
         : shortJSON(nonce, 48);
     parts.push(`nonce=${nonceStr}`);
@@ -75,8 +76,8 @@ function formatCause(c?: unknown): string[] {
       const nameVal = obj.name;
       const nameStr =
         typeof nameVal === 'string' ||
-        typeof nameVal === 'number' ||
-        typeof nameVal === 'bigint' ||
+        isNumber(nameVal) ||
+        isBigint(nameVal) ||
         typeof nameVal === 'boolean'
           ? String(nameVal)
           : shortJSON(nameVal, 120);
@@ -86,8 +87,8 @@ function formatCause(c?: unknown): string[] {
       const codeVal = obj.code;
       const codeStr =
         typeof codeVal === 'string' ||
-        typeof codeVal === 'number' ||
-        typeof codeVal === 'bigint' ||
+        isNumber(codeVal) ||
+        isBigint(codeVal) ||
         typeof codeVal === 'boolean'
           ? String(codeVal)
           : shortJSON(codeVal, 120);
@@ -98,8 +99,8 @@ function formatCause(c?: unknown): string[] {
     if (obj.message) {
       const messageStr =
         typeof obj.message === 'string' ||
-        typeof obj.message === 'number' ||
-        typeof obj.message === 'bigint' ||
+        isNumber(obj.message) ||
+        isBigint(obj.message) ||
         typeof obj.message === 'boolean'
           ? String(obj.message)
           : shortJSON(obj.message, 600);

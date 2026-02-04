@@ -3,13 +3,14 @@ import { describe, it, expect } from 'bun:test';
 import { createCallAttributes } from '../call';
 import type { AttributesCodec } from '../types';
 import type { Hex } from '../../../../types/primitives';
+import { isBigint } from '../../../../utils';
 
 describe('interop/attributes/call', () => {
   describe('createCallAttributes', () => {
     const mockCodec: AttributesCodec = {
       encode: (fn: string, args: readonly unknown[]): Hex => {
         // Convert BigInt to string for serialization
-        const serializable = args.map((a) => (typeof a === 'bigint' ? a.toString() : a));
+        const serializable = args.map((a) => (isBigint(a) ? a.toString() : a));
         return `0x${fn}:${JSON.stringify(serializable)}` as Hex;
       },
       decode: () => ({ selector: '0x00000000', name: 'mock', args: [] }),
