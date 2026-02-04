@@ -33,7 +33,7 @@ Fetch the on-chain **Bridgehub** contract address.
 Fetch the on-chain **Bytecode Supplier** contract address.
 
 ```ts
-const addr = await client.zks.getBytecodeSupplierAddress();
+{{#include ../../../snippets/core/rpc.test.ts:bytecode-supplier}}
 ```
 
 ---
@@ -79,33 +79,18 @@ Price fields are returned as `bigint`.
 **Example**
 
 ```ts
-const meta = await client.zks.getBlockMetadataByNumber(123_456);
-if (meta) {
-  console.log(meta.pubdataPricePerByte, meta.nativePrice, meta.executionVersion);
-}
+{{#include ../../../snippets/viem/overview/adapter.test.ts:block-metadata}}
 ```
 
 **Returns**
 
 ```ts
-type BlockMetadata = {
-  pubdataPricePerByte: bigint;
-  nativePrice: bigint;
-  executionVersion: number;
-};
+{{#include ../../../snippets/viem/overview/adapter.test.ts:metadata-type}}
 ```
 
 ---
 
-## Types (overview)
-
-```ts
-{{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
-```
-
----
-
-## `getGenesis()`
+### `getGenesis()`
 
 **What it does**
 Retrieves the L2 genesis configuration exposed by the node, including initial contract deployments, storage patches, execution version, and the expected genesis root.
@@ -119,6 +104,20 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 **Returns**
 
 ```ts
+{{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
+```
+
+---
+
+## Types (overview)
+
+```ts
+{{#include ../../../snippets/core/rpc.test.ts:zks-rpc}}
+
+{{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
+
+{{#include ../../../snippets/viem/overview/adapter.test.ts:metadata-type}}
+
 {{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
 ```
 
