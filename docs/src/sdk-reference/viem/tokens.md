@@ -26,18 +26,21 @@ Token identity, L1↔L2 mapping, bridge asset IDs, and chain token facts for ETH
 Resolve a token by L1 address and fetch its L2 counterpart + bridge metadata:
 
 ```ts
+{{#include ../../../snippets/viem/reference/sdk.test.ts:erc-20-address}}
 {{#include ../../../snippets/viem/reference/sdk.test.ts:resolve-token}}
 ```
 
 Map addresses directly:
 
 ```ts
+{{#include ../../../snippets/viem/reference/sdk.test.ts:erc-20-address}}
 {{#include ../../../snippets/viem/reference/sdk.test.ts:map-token}}
 ```
 
 Compute bridge identifiers:
 
 ```ts
+{{#include ../../../snippets/viem/reference/sdk.test.ts:erc-20-address}}
 {{#include ../../../snippets/viem/reference/sdk.test.ts:token-asset-ids}}
 ```
 

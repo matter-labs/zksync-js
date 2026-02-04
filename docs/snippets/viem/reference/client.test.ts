@@ -72,7 +72,7 @@ await client.ensureAddresses();
 // ANCHOR_END: refresh
 
 // ANCHOR: base
-const base = await client.baseToken(324n);
+const base = await client.baseToken(6565n);
 // ANCHOR_END: base
 
 // ANCHOR: l2-wallet

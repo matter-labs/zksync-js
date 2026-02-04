@@ -29,6 +29,7 @@ High-level SDK built on top of the **Viem adapter** — provides deposits, withd
 {{#include ../../../snippets/viem/reference/sdk.test.ts:eth-import}}
 
 {{#include ../../../snippets/viem/reference/sdk.test.ts:init-sdk}}
+{{#include ../../../snippets/viem/reference/sdk.test.ts:erc-20-address}}
 {{#include ../../../snippets/viem/reference/sdk.test.ts:basic-sdk}}
 ```
 

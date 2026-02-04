@@ -33,11 +33,16 @@ const sdk = createViemSdk(client);
 // ANCHOR_END: init-sdk
 viemSDK = sdk;
 me = account;
+
+// ANCHOR: erc-20-address
+const tokenAddress = '0xYourToken';
+// ANCHOR_END: erc-20-address
 })
 
 it('tests the viem sdk', async () => {
   const sdk = viemSDK;
   const account = me;
+  const tokenAddress = ETH_ADDRESS;
 // ANCHOR: basic-sdk
 // Example: deposit 0.05 ETH L1 → L2, wait for L2 execution
 const handle = await sdk.deposits.create({
@@ -49,7 +54,7 @@ await sdk.deposits.wait(handle, { for: 'l2' });
 
 // Example: resolve contracts and map an L1 token to its L2 address
 const { l1NativeTokenVault } = await sdk.contracts.instances();
-const token = await sdk.tokens.resolve('0xYourToken');
+const token = await sdk.tokens.resolve(tokenAddress);
 console.log(token.l2);
 // ANCHOR_END: basic-sdk
 
@@ -73,6 +78,7 @@ expect(nullifier.address).toContain("0x");
 it('tests the token resource', async () => {
   const sdk = viemSDK;
   const account = me;
+  const tokenAddress = ETH_ADDRESS;
 
 // ANCHOR: resolve-token
 const token = await sdk.tokens.resolve('0xYourTokenL1...');
@@ -93,12 +99,12 @@ const token = await sdk.tokens.resolve('0xYourTokenL1...');
 // ANCHOR_END: resolve-token
 
 // ANCHOR: map-token
-const l2Addr = await sdk.tokens.toL2Address('0xTokenL1...');
+const l2Addr = await sdk.tokens.toL2Address(tokenAddress);
 const l1Addr = await sdk.tokens.toL1Address(l2Addr);
 // ANCHOR_END: map-token
 
 // ANCHOR: token-asset-ids
-const assetId = await sdk.tokens.assetIdOfL1('0xTokenL1...');
+const assetId = await sdk.tokens.assetIdOfL1(tokenAddress);
 const backL2 = await sdk.tokens.l2TokenFromAssetId(assetId);
 // ANCHOR_END: token-asset-ids
 });

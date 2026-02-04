@@ -1,4 +1,4 @@
-import { describe, it } from 'bun:test';
+import { beforeAll, describe, it } from 'bun:test';
 
 import type { EthersSdk } from '../../../../src/adapters/ethers';
 
@@ -14,14 +14,17 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
 
 describe('ethers withdraw ETH guide', () => {
 
-it('withdraws some ETH', async () => {
-  // deposit some ETH first
+let sdk: EthersSdk;
+let signer: Wallet;
+
+beforeAll(async () => {
+// deposit some ETH first
   const l1 = new JsonRpcProvider(process.env.L1_RPC!);
   const l2 = new JsonRpcProvider(process.env.L2_RPC!);
-  const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+  signer = new Wallet(process.env.PRIVATE_KEY!, l1);
 
   const client = createEthersClient({ l1, l2, signer });
-  const sdk = createEthersSdk(client);
+  sdk = createEthersSdk(client);
 
   const params = {
     amount: parseEther('0.2'),
@@ -31,8 +34,13 @@ it('withdraws some ETH', async () => {
 
   const handle = await sdk.deposits.create(params);
   await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
+})
 
+it('withdraws some ETH with main guide', async () => {
   await main();
+});
+
+it('withdraws some ETH with alt methods', async () => {
   await altMethods(sdk, signer);
 });
 
@@ -127,6 +135,7 @@ async function altMethods(sdk: EthersSdk, signer: Wallet){
   } as const;
 
   const handle = await sdk.withdrawals.create(params);
+  await sdk.withdrawals.wait(handle, { for: 'ready' });
 
 // ANCHOR: wfinalize
 const result = await sdk.withdrawals.finalize(handle.l2TxHash);

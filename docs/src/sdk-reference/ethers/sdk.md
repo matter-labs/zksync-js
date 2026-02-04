@@ -24,6 +24,7 @@ High-level SDK built on top of the **Ethers adapter** — provides deposits, wit
 {{#include ../../../snippets/ethers/reference/sdk.test.ts:sdk-import}}
 
 {{#include ../../../snippets/ethers/reference/sdk.test.ts:init-sdk}}
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:erc-20-address}}
 {{#include ../../../snippets/ethers/reference/sdk.test.ts:basic-sdk}}
 ```
 

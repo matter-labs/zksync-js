@@ -27,11 +27,16 @@ const sdk = createEthersSdk(client);
 // ANCHOR_END: init-sdk
 ethersSDK = sdk;
 me = signer;
+
+// ANCHOR: erc-20-address
+const tokenAddress = '0xTokenL1...';
+// ANCHOR_END: erc-20-address
 })
 
 it('tests the ethers sdk', async () => {
   const sdk = ethersSDK;
   const signer = me;
+  const tokenAddress = ETH_ADDRESS;
 // ANCHOR: basic-sdk
 // Example: deposit 0.05 ETH L1 → L2 and wait for L2 execution
 const handle = await sdk.deposits.create({
@@ -46,7 +51,7 @@ await sdk.deposits.wait(handle, { for: 'l2' });
 const { l1NativeTokenVault } = await sdk.contracts.instances();
 
 // Example: map a token L1 → L2
-const token = await sdk.tokens.resolve('0xYourToken');
+const token = await sdk.tokens.resolve(tokenAddress);
 console.log(token.l2);
 // ANCHOR_END: basic-sdk
 
@@ -69,9 +74,10 @@ expect(nullifier.target).toContain("0x");
 it('tests the token resource', async () => {
   const sdk = ethersSDK;
   const signer = me;
+  const tokenAddress = ETH_ADDRESS;
 
 // ANCHOR: resolve-token
-const token = await sdk.tokens.resolve('0xYourTokenL1...');
+const token = await sdk.tokens.resolve(tokenAddress);
 /*
 {
   kind: 'eth' | 'base' | 'erc20',
@@ -89,12 +95,12 @@ const token = await sdk.tokens.resolve('0xYourTokenL1...');
 // ANCHOR_END: resolve-token
 
 // ANCHOR: map-token
-const l2Addr = await sdk.tokens.toL2Address('0xTokenL1...');
+const l2Addr = await sdk.tokens.toL2Address(tokenAddress);
 const l1Addr = await sdk.tokens.toL1Address(l2Addr);
 // ANCHOR_END: map-token
 
 // ANCHOR: token-asset-ids
-const assetId = await sdk.tokens.assetIdOfL1('0xTokenL1...');
+const assetId = await sdk.tokens.assetIdOfL1(tokenAddress);
 const backL2 = await sdk.tokens.l2TokenFromAssetId(assetId);
 // ANCHOR_END: token-asset-ids
 });
