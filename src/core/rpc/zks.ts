@@ -13,6 +13,7 @@ import type { Hex, Address } from '../types/primitives';
 import { createError, shapeCause } from '../errors/factory';
 import { withRpcOp } from '../errors/rpc';
 import { isZKsyncError, type Resource } from '../types/errors';
+import { isBigint, isNumber } from '../utils';
 
 /** ZKsync-specific RPC methods. */
 export interface ZksRpc {
@@ -68,9 +69,9 @@ export function normalizeProof(p: unknown): ProofNormalized {
     }
 
     const toBig = (x: unknown) =>
-      typeof x === 'bigint'
+      isBigint(x)
         ? x
-        : typeof x === 'number'
+        : isNumber(x)
           ? BigInt(x)
           : typeof x === 'string'
             ? BigInt(x)
@@ -121,8 +122,8 @@ function ensureNumber(
   const operation = opts?.operation ?? 'zksrpc.normalizeGenesis';
   const messagePrefix = opts?.messagePrefix ?? 'Malformed genesis response';
 
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'bigint') return Number(value);
+  if (isNumber(value)) return value;
+  if (isBigint(value)) return Number(value);
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
@@ -145,8 +146,8 @@ function ensureBigInt(
   const operation = opts?.operation ?? 'zksrpc.normalizeBlockMetadata';
   const messagePrefix = opts?.messagePrefix ?? 'Malformed block metadata response';
 
-  if (typeof value === 'bigint') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (isBigint(value)) return value;
+  if (isNumber(value)) {
     if (!Number.isInteger(value)) {
       throw createError('RPC', {
         resource: 'zksrpc' as Resource,

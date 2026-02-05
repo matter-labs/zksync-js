@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { isHash66, isAddressEq, isETH, normalizeAddrEq } from '../addr';
+import { isAddressEq, isETH, normalizeAddrEq } from '../addr';
+import { isHash66 } from '../hash';
 import { ETH_ADDRESS, FORMAL_ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../../constants';
 
 // Helpers
