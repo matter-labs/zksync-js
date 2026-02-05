@@ -40,7 +40,7 @@ List all files you expect to modify. Consider:
 - Don't "improve" unrelated code
 - Follow existing patterns exactly
 - Don't add hardcoded code examples directly in any markdown docs.
-    Use imported code snippets from tests in `docs/snippets` in markdown docs files
+  Use imported code snippets from tests in `docs/snippets` in markdown docs files
 
 ### 4. Run Required Scripts
 
