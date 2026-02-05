@@ -33,7 +33,7 @@ const tokenAddress = '0xTokenL1...';
 // ANCHOR_END: erc-20-address
 })
 
-it('tests the ethers sdk', async () => {
+it('shows basic use of ethers sdk', async () => {
   const sdk = ethersSDK;
   const signer = me;
   const tokenAddress = ETH_ADDRESS;
@@ -54,26 +54,34 @@ const { l1NativeTokenVault } = await sdk.contracts.instances();
 const token = await sdk.tokens.resolve(tokenAddress);
 console.log(token.l2);
 // ANCHOR_END: basic-sdk
+});
 
+it('gets contract addresses from ethers sdk', async () => {
+  const sdk = ethersSDK;
 // ANCHOR: contract-addresses
 const a = await sdk.contracts.addresses();
 // ANCHOR_END: contract-addresses
 expect(a.bridgehub).toContain("0x");
+});
 
+it('gets contract instances from ethers sdk', async () => {
+  const sdk = ethersSDK;
 // ANCHOR: contract-instances
 const c = await sdk.contracts.instances();
 // ANCHOR_END: contract-instances
 expect(c.bridgehub.target).toContain("0x");
+});
 
+it('gets l1 nullifier contract from ethers sdk', async () => {
+  const sdk = ethersSDK;
 // ANCHOR: nullifier
 const nullifier = await sdk.contracts.l1Nullifier();
 // ANCHOR_END: nullifier
 expect(nullifier.target).toContain("0x");
 });
 
-it('tests the token resource', async () => {
+it('it tries to resolve a token address', async () => {
   const sdk = ethersSDK;
-  const signer = me;
   const tokenAddress = ETH_ADDRESS;
 
 // ANCHOR: resolve-token
@@ -93,12 +101,18 @@ const token = await sdk.tokens.resolve(tokenAddress);
 */
 
 // ANCHOR_END: resolve-token
-
+});
+it('maps token addresses', async () => {
+  const sdk = ethersSDK;
+  const tokenAddress = ETH_ADDRESS;
 // ANCHOR: map-token
 const l2Addr = await sdk.tokens.toL2Address(tokenAddress);
 const l1Addr = await sdk.tokens.toL1Address(l2Addr);
 // ANCHOR_END: map-token
-
+});
+it('gets token asset ids', async () => {
+  const sdk = ethersSDK;
+  const tokenAddress = ETH_ADDRESS;
 // ANCHOR: token-asset-ids
 const assetId = await sdk.tokens.assetIdOfL1(tokenAddress);
 const backL2 = await sdk.tokens.l2TokenFromAssetId(assetId);

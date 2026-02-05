@@ -207,29 +207,6 @@ const token = ETH_ADDRESS;
 const amount = parseEther('0.01');
 const to = await signer.getAddress() as `0x${string}`;
 
-// ANCHOR: quote
-const q = await sdk.withdrawals.quote({ token, amount, to });
-/*
-{
-  route: "base" | "erc20-nonbase",
-  summary: {
-    route,
-    approvalsNeeded: [{ token, spender, amount }],
-    amounts: {
-      transfer: { token, amount }
-    },
-    fees: {
-      token,
-      maxTotal,
-      mintValue,
-      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
-    }
-  }
-}
-*/
-// ANCHOR_END: quote
-expect(q.route).toEqual("base");
-
 // ANCHOR: plan
 const plan = await sdk.withdrawals.prepare({ token, amount, to });
 /*
@@ -281,6 +258,60 @@ const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', pollMs: 70
 expect(l1Rcpt?.hash).toContain("0x");
 const finalStatus = await sdk.withdrawals.status(handle);
 expect(finalStatus.phase).toEqual("FINALIZED");
+});
+
+it('creates a plan for withdrawal', async () => {
+const signer = me;
+const sdk = ethersSDK;
+const token = ETH_ADDRESS;
+const amount = parseEther('0.01');
+const to = await signer.getAddress() as `0x${string}`;
+
+// ANCHOR: plan
+const plan = await sdk.withdrawals.prepare({ token, amount, to });
+/*
+{
+  route,
+  summary: WithdrawQuote,
+  steps: [
+    { key, kind, tx: TransactionRequest },
+    // …
+  ]
+}
+*/
+// ANCHOR_END: plan
+expect(plan.route).toEqual("base");
+});
+
+it('creates a quote for withdrawal', async () => {
+const signer = me;
+const sdk = ethersSDK;
+const token = ETH_ADDRESS;
+const amount = parseEther('0.01');
+const to = await signer.getAddress() as `0x${string}`;
+
+// ANCHOR: quote
+const q = await sdk.withdrawals.quote({ token, amount, to });
+/*
+{
+  route: "base" | "erc20-nonbase",
+  summary: {
+    route,
+    approvalsNeeded: [{ token, spender, amount }],
+    amounts: {
+      transfer: { token, amount }
+    },
+    fees: {
+      token,
+      maxTotal,
+      mintValue,
+      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
+    }
+  }
+}
+*/
+// ANCHOR_END: quote
+expect(q.route).toEqual("base");
 });
 
 it('creates a withdrawal 3', async () => {

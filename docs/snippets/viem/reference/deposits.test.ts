@@ -46,60 +46,14 @@ const depositHandle = await sdk.deposits.create({
 
 const l2TxReceipt = await sdk.deposits.wait(depositHandle, { for: 'l2' }); // null only if no L1 hash
 // ANCHOR_END: create-deposit
+});
 
+it('creates a deposit 2', async () => {
+const account = me;
+const sdk = viemSDK;
 const to = account.address;
 const token = ETH_ADDRESS;
 const amount = parseEther("0.01");
-
-
-// ANCHOR: quote-deposit
-const q = await sdk.deposits.quote({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.25'),
-  to,
-});
-/*
-{
-  route: "eth-base" | "eth-nonbase" | "erc20-base" | "erc20-nonbase",
-  summary: {
-    route,
-    approvalsNeeded: [{ token, spender, amount }],
-    amounts: {
-      transfer: { token, amount }
-    },
-    fees: {
-      token,
-      maxTotal,
-      mintValue,
-      l1: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, maxTotal },
-      l2: { total, baseCost, operatorTip, gasLimit, maxFeePerGas, maxPriorityFeePerGas, gasPerPubdata }
-    },
-    baseCost,
-    mintValue
-  }
-}
-*/
-// ANCHOR_END: quote-deposit
-expect(q.route).toEqual('eth-base');
-
-// ANCHOR: plan-deposit
-const plan = await sdk.deposits.prepare({
-  token,
-  amount,
-  to
-});
-/*
-{
-  route,
-  summary: DepositQuote,
-  steps: [
-    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
-    { key: "bridge", kind: "bridge", tx: TransactionRequest }
-  ]
-}
-*/
-// ANCHOR_END: plan-deposit
-expect(plan.steps).toBeArray();
 
 // ANCHOR: handle
 const handle = await sdk.deposits.create({ token, amount, to });
@@ -128,7 +82,61 @@ expect(l1Receipt?.transactionHash).toContain("0x");
 expect(l2Receipt?.transactionHash).toContain("0x");
 });
 
-it('creates a deposit 2', async () => {
+it('creates a deposit quote', async () => {
+const account = me;
+const sdk = viemSDK;
+const to = account.address;
+const token = ETH_ADDRESS;
+const amount = parseEther("0.01");
+
+// ANCHOR: plan-deposit
+const plan = await sdk.deposits.prepare({
+  token,
+  amount,
+  to
+});
+/*
+{
+  route,
+  summary: DepositQuote,
+  steps: [
+    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
+    { key: "bridge", kind: "bridge", tx: TransactionRequest }
+  ]
+}
+*/
+// ANCHOR_END: plan-deposit
+expect(plan.steps).toBeArray();
+});
+
+it('creates a deposit plan', async () => {
+const account = me;
+const sdk = viemSDK;
+const to = account.address;
+const token = ETH_ADDRESS;
+const amount = parseEther("0.01");
+
+// ANCHOR: plan-deposit
+const plan = await sdk.deposits.prepare({
+  token,
+  amount,
+  to
+});
+/*
+{
+  route,
+  summary: DepositQuote,
+  steps: [
+    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
+    { key: "bridge", kind: "bridge", tx: TransactionRequest }
+  ]
+}
+*/
+// ANCHOR_END: plan-deposit
+expect(plan.steps).toBeArray();
+});
+
+it('creates a deposit 3', async () => {
 const account = me;
 const sdk = viemSDK;
 // ANCHOR: create-eth-deposit
@@ -162,7 +170,6 @@ const handle = await sdk.deposits.create({
 const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
 // ANCHOR_END: create-token-deposit
 expect(l1Receipt?.transactionHash).toContain("0x");
-
 });
 
 });

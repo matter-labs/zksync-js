@@ -62,44 +62,6 @@ const token = ETH_ADDRESS;
 const amount = parseEther('0.01');
 const to = account.address;
 
-// ANCHOR: quote
-const q = await sdk.withdrawals.quote({ token, amount, to });
-/*
-{
-  route: "base" | "erc20-nonbase",
-  summary: {
-    route,
-    approvalsNeeded: [{ token, spender, amount }],
-    amounts: {
-      transfer: { token, amount }
-    },
-    fees: {
-      token,
-      maxTotal,
-      mintValue,
-      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
-    }
-  }
-}
-*/
-// ANCHOR_END: quote
-expect(q.route).toEqual("base");
-
-// ANCHOR: plan
-const plan = await sdk.withdrawals.prepare({ token, amount, to });
-/*
-{
-  route,
-  summary: WithdrawQuote,
-  steps: [
-    { key, kind, tx: TransactionRequest },
-    // …
-  ]
-}
-*/
-// ANCHOR_END: plan
-expect(plan.route).toEqual("base");
-
 // ANCHOR: handle
 const handle = await sdk.withdrawals.create({ token, amount, to });
 /*
@@ -136,6 +98,60 @@ const l1Rcpt = await sdk.withdrawals.wait(handle, { for: 'finalized', pollMs: 70
 expect(l1Rcpt?.transactionHash).toContain("0x");
 const finalStatus = await sdk.withdrawals.status(handle);
 expect(finalStatus.phase).toEqual("FINALIZED");
+});
+
+it('creates a plan for a withdrawal', async () => {
+const account = me;
+const sdk = viemSDK;
+const token = ETH_ADDRESS;
+const amount = parseEther('0.01');
+const to = account.address;
+
+// ANCHOR: plan
+const plan = await sdk.withdrawals.prepare({ token, amount, to });
+/*
+{
+  route,
+  summary: WithdrawQuote,
+  steps: [
+    { key, kind, tx: TransactionRequest },
+    // …
+  ]
+}
+*/
+// ANCHOR_END: plan
+expect(plan.route).toEqual("base");
+});
+
+it('gets a quote for a withdrawal', async () => {
+const account = me;
+const sdk = viemSDK;
+const token = ETH_ADDRESS;
+const amount = parseEther('0.01');
+const to = account.address;
+
+// ANCHOR: quote
+const q = await sdk.withdrawals.quote({ token, amount, to });
+/*
+{
+  route: "base" | "erc20-nonbase",
+  summary: {
+    route,
+    approvalsNeeded: [{ token, spender, amount }],
+    amounts: {
+      transfer: { token, amount }
+    },
+    fees: {
+      token,
+      maxTotal,
+      mintValue,
+      l2: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, total }
+    }
+  }
+}
+*/
+// ANCHOR_END: quote
+expect(q.route).toEqual("base");
 });
 
 it('creates a withdrawal 3', async () => {

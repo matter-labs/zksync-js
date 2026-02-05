@@ -185,11 +185,73 @@ const depositHandle = await sdk.deposits.create({
 
 const l2TxReceipt = await sdk.deposits.wait(depositHandle, { for: 'l2' }); // null only if no L1 hash
 // ANCHOR_END: create-deposit
+});
 
+it('creates a deposit 2', async () => {
+const signer = me;
+const sdk = ethersSDK;
 const to = await signer.getAddress() as `0x${string}`;
 const token = ETH_ADDRESS;
 const amount = parseEther("0.01");
 
+// ANCHOR: handle
+const handle = await sdk.deposits.create({ token, amount, to });
+/*
+{
+  kind: "deposit",
+  l1TxHash: Hex,
+  stepHashes: Record<string, Hex>,
+  plan: DepositPlan
+}
+*/
+// ANCHOR_END: handle
+
+// ANCHOR: status
+const s = await sdk.deposits.status(handle);
+// { phase, l1TxHash, l2TxHash? }
+// ANCHOR_END: status
+expect(s.phase).toBeString();
+
+// ANCHOR: wait
+const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
+const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
+// ANCHOR_END: wait
+expect(l1Receipt?.hash).toContain("0x");
+expect(l2Receipt?.hash).toContain("0x");
+});
+
+it('creates a deposit plan', async () => {
+const signer = me;
+const sdk = ethersSDK;
+const to = await signer.getAddress() as `0x${string}`;
+const token = ETH_ADDRESS;
+const amount = parseEther("0.01");
+
+// ANCHOR: plan-deposit
+const plan = await sdk.deposits.prepare({
+  token,
+  amount,
+  to
+});
+/*
+{
+  route,
+  summary: DepositQuote,
+  steps: [
+    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
+    { key: "bridge", kind: "bridge", tx: TransactionRequest }
+  ]
+}
+*/
+// ANCHOR_END: plan-deposit
+expect(plan.steps).toBeArray();
+});
+
+it('creates a deposit quote', async () => {
+const signer = me;
+const sdk = ethersSDK;
+
+const to = await signer.getAddress() as `0x${string}`;
 
 // ANCHOR: quote-deposit
 const q = await sdk.deposits.quote({
@@ -220,54 +282,9 @@ const q = await sdk.deposits.quote({
 */
 // ANCHOR_END: quote-deposit
 expect(q.route).toEqual('eth-base');
-
-// ANCHOR: plan-deposit
-const plan = await sdk.deposits.prepare({
-  token,
-  amount,
-  to
-});
-/*
-{
-  route,
-  summary: DepositQuote,
-  steps: [
-    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
-    { key: "bridge", kind: "bridge", tx: TransactionRequest }
-  ]
-}
-*/
-// ANCHOR_END: plan-deposit
-expect(plan.steps).toBeArray();
-
-// ANCHOR: handle
-const handle = await sdk.deposits.create({ token, amount, to });
-/*
-{
-  kind: "deposit",
-  l1TxHash: Hex,
-  stepHashes: Record<string, Hex>,
-  plan: DepositPlan
-}
-*/
-// ANCHOR_END: handle
-
-
-// ANCHOR: status
-const s = await sdk.deposits.status(handle);
-// { phase, l1TxHash, l2TxHash? }
-// ANCHOR_END: status
-expect(s.phase).toBeString();
-
-// ANCHOR: wait
-const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
-const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
-// ANCHOR_END: wait
-expect(l1Receipt?.hash).toContain("0x");
-expect(l2Receipt?.hash).toContain("0x");
 });
 
-it('creates a deposit 2', async () => {
+it('creates a deposit 3', async () => {
 const signer = me;
 const sdk = ethersSDK;
 // ANCHOR: create-eth-deposit
