@@ -174,6 +174,10 @@ function ensureBigInt(
   });
 }
 
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return !!x && typeof x === 'object' && !Array.isArray(x);
+}
+
 function normalizeContractTuple(tuple: unknown, index: number): GenesisContractDeployment {
   if (!Array.isArray(tuple) || tuple.length < 2) {
     throw createError('RPC', {
@@ -191,7 +195,11 @@ function normalizeContractTuple(tuple: unknown, index: number): GenesisContractD
   };
 }
 
-function normalizeStorageTuple(tuple: unknown, index: number): GenesisStorageEntry {
+// Normalizes a "raw" storage entry tuple: [key, value]
+function normalizeRawStorageTuple(
+  tuple: unknown,
+  index: number,
+): Extract<GenesisStorageEntry, { format: 'raw' }> {
   if (!Array.isArray(tuple) || tuple.length < 2) {
     throw createError('RPC', {
       resource: 'zksrpc' as Resource,
@@ -203,9 +211,65 @@ function normalizeStorageTuple(tuple: unknown, index: number): GenesisStorageEnt
 
   const [keyRaw, valueRaw] = tuple as [unknown, unknown];
   return {
+    format: 'raw' as const,
     key: ensureHex(keyRaw, 'additional_storage.key', { index }),
     value: ensureHex(valueRaw, 'additional_storage.value', { index }),
   };
+}
+
+// Normalizes additional storage entries from either "raw" or "pretty" format.
+function normalizeAdditionalStorage(
+  value: unknown,
+  record: Record<string, unknown>,
+): GenesisStorageEntry[] {
+  const effective = value ?? record['additional_storage_raw'];
+
+  // Raw tuple format: [[key, value], ...]
+  if (Array.isArray(effective)) {
+    return effective.map((entry, index) => {
+      const kv = normalizeRawStorageTuple(entry, index);
+      return { format: 'raw' as const, key: kv.key, value: kv.value };
+    });
+  }
+
+  // Pretty format: { [address]: { [slot]: value } }
+  if (isRecord(effective)) {
+    const out: GenesisStorageEntry[] = [];
+    for (const [addrRaw, slotsRaw] of Object.entries(effective)) {
+      const address = ensureHex(addrRaw, 'additional_storage.address', {});
+
+      if (!isRecord(slotsRaw)) {
+        throw createError('RPC', {
+          resource: 'zksrpc' as Resource,
+          operation: 'zksrpc.normalizeGenesis',
+          message: 'Malformed genesis response: additional_storage[address] must be an object map.',
+          context: { address, valueType: typeof slotsRaw },
+        });
+      }
+
+      for (const [slotRaw, valRaw] of Object.entries(slotsRaw)) {
+        out.push({
+          format: 'pretty' as const,
+          address,
+          key: ensureHex(slotRaw, 'additional_storage.key', { address }),
+          value: ensureHex(valRaw, 'additional_storage.value', { address, key: slotRaw }),
+        });
+      }
+    }
+    return out;
+  }
+
+  throw createError('RPC', {
+    resource: 'zksrpc' as Resource,
+    operation: 'zksrpc.normalizeGenesis',
+    message:
+      'Malformed genesis response: additional_storage must be an array (raw) or an object map (pretty).',
+    context: {
+      valueType: typeof effective,
+      hasAdditionalStorage: 'additional_storage' in record,
+      hasAdditionalStorageRaw: 'additional_storage_raw' in record,
+    },
+  });
 }
 
 // Normalizes the genesis response into camel-cased fields and typed entries.
@@ -232,23 +296,14 @@ export function normalizeGenesis(raw: unknown): GenesisInput {
       });
     }
 
-    const storageRaw = record['additional_storage'];
-    if (!Array.isArray(storageRaw)) {
-      throw createError('RPC', {
-        resource: 'zksrpc' as Resource,
-        operation: 'zksrpc.normalizeGenesis',
-        message: 'Malformed genesis response: additional_storage must be an array.',
-        context: { valueType: typeof storageRaw },
-      });
-    }
-
     const executionVersion = ensureNumber(record['execution_version'], 'execution_version');
     const genesisRoot = ensureHex(record['genesis_root'], 'genesis_root', {});
 
     const initialContracts = contractsRaw.map((entry, index) =>
       normalizeContractTuple(entry, index),
     );
-    const additionalStorage = storageRaw.map((entry, index) => normalizeStorageTuple(entry, index));
+
+    const additionalStorage = normalizeAdditionalStorage(record['additional_storage'], record);
 
     return {
       initialContracts,
