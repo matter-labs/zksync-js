@@ -121,7 +121,10 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         from: ctx.sender,
       };
 
-      const withdrawGas = await quoteL2Gas({ ctx, tx: withdrawTx });
+      // Only estimate withdraw gas when allowance is already sufficient.
+      // Otherwise the estimation can revert (pre-approval) and produce noisy logs.
+      const withdrawGas =
+        current >= p.amount ? await quoteL2Gas({ ctx, tx: withdrawTx }) : undefined;
       if (withdrawGas) {
         withdrawTx.gasLimit = withdrawGas.gasLimit;
         withdrawTx.maxFeePerGas = withdrawGas.maxFeePerGas;
