@@ -13,37 +13,21 @@ High-level SDK built on top of the **Ethers adapter** — provides deposits, wit
 ## Import
 
 ```ts
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:sdk-import}}
 ```
 
 ## Quick Start
 
 ```ts
-import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:ethers-import}}
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:eth-import}}
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:sdk-import}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:init-sdk}}
 
-const client = createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:erc-20-address}}
 
-// Example: deposit 0.05 ETH L1 → L2 and wait for L2 execution
-const handle = await sdk.deposits.create({
-  token: ETH_ADDRESS, // 0x…00 sentinel for ETH supported
-  amount: parseEther('0.05'),
-  to: await signer.getAddress(),
-});
-
-await sdk.deposits.wait(handle, { for: 'l2' });
-
-// Example: resolve core contracts
-const { l1NativeTokenVault } = await sdk.contracts.instances();
-
-// Example: map a token L1 → L2
-const token = await sdk.tokens.resolve('0xYourToken');
-console.log(token.l2);
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:basic-sdk}}
 ```
 
 > [!TIP]
@@ -90,7 +74,7 @@ Utilities for resolved addresses and connected contracts. Token mapping lives in
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.contracts.addresses();
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:contract-addresses}}
 ```
 
 ### `instances() → Promise<{ ...contracts }>`
@@ -98,7 +82,7 @@ const a = await sdk.contracts.addresses();
 Return connected `ethers.Contract` instances for all core contracts.
 
 ```ts
-const c = await sdk.contracts.instances();
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:contract-instances}}
 ```
 
 ### One-off Contract Getters
@@ -114,7 +98,7 @@ const c = await sdk.contracts.instances();
 | `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const nullifier = await sdk.contracts.l1Nullifier();
+{{#include ../../../snippets/ethers/reference/sdk.test.ts:nullifier}}
 ```
 
 ## Notes & Pitfalls

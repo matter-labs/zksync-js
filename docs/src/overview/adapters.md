@@ -31,52 +31,21 @@ The SDK extends your existing client. Configure **viem** or **ethers** as you no
 ### viem (public + wallet client)
 
 ```ts
-import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+{{#include ../../snippets/viem/overview/adapter.test.ts:viem-adapter-imports}}
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+{{#include ../../snippets/viem/overview/adapter-basic.test.ts:init-viem-adapter}}
 
-const l1 = createPublicClient({ transport: http(process.env.L1_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.L2_RPC!) });
-const l1Wallet = createWalletClient({ account, transport: http(process.env.L1_RPC!) });
-
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
-
-const params = {
-  amount: parseEther('0.01'),
-  to: account.address,
-  token: ETH_ADDRESS,
-} as const;
-
-const handle = await sdk.deposits.create(params);
-await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
+{{#include ../../snippets/viem/overview/adapter.test.ts:viem-deposit}}
 ```
 
 ### ethers (providers + signer)
 
 ```ts
-import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+{{#include ../../snippets/ethers/overview/adapter.test.ts:ethers-adapter-imports}}
 
-const l1 = new JsonRpcProvider(process.env.L1_RPC!);
-const l2 = new JsonRpcProvider(process.env.L2_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+{{#include ../../snippets/ethers/overview/adapter-basic.test.ts:init-ethers-adapter}}
 
-const client = await createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
-
-const params = {
-  amount: parseEther('0.01'),
-  to: await signer.getAddress(),
-  token: ETH_ADDRESS,
-} as const;
-
-const handle = await sdk.deposits.create(params);
-await sdk.deposits.wait(handle, { for: 'l2' }); // funds available on L2
+{{#include ../../snippets/ethers/overview/adapter.test.ts:ethers-deposit}}
 ```
 
 ---

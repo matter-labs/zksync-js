@@ -28,7 +28,14 @@ A fast path to deposit **ETH / ERC-20** from L1 → ZKsync (L2) using the **viem
 ## Fast path (one-shot)
 
 ```ts
-{{#include ../../../snippets/viem/deposit-eth.ts}}
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:imports}}
+
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:main}}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
 ```
 
 - `create()` prepares **and** sends.
@@ -42,21 +49,21 @@ A fast path to deposit **ETH / ERC-20** from L1 → ZKsync (L2) using the **viem
 Preview fees/steps and whether an approve is required.
 
 ```ts
-const quote = await sdk.deposits.quote(params);
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:quote}}
 ```
 
 **2. Prepare (build txs, don’t send)**
 Get `TransactionRequest[]` for signing/UX.
 
 ```ts
-const plan = await sdk.deposits.prepare(params);
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:prepare}}
 ```
 
 **3. Create (send)**
 Use defaults, or send your prepared txs if you customized.
 
 ```ts
-const handle = await sdk.deposits.create(params);
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:create}}
 ```
 
 ## Track progress (status vs wait)
@@ -64,15 +71,13 @@ const handle = await sdk.deposits.create(params);
 **Non-blocking snapshot**
 
 ```ts
-const s = await sdk.deposits.status(handle /* or l1TxHash */);
-// 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+{{#include ../../../snippets/viem/guides/deposit-eth-guide.test.ts:status}}
 ```
 
 **Block until checkpoint**
 
 ```ts
-const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
-const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
+{{#include ../../../snippets/viem/overview/adapter.test.ts:deposit-wait}}
 ```
 
 ## Error handling patterns
@@ -80,11 +85,7 @@ const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
 **Exceptions**
 
 ```ts
-try {
-  const handle = await sdk.deposits.create(params);
-} catch (e) {
-  // normalized error envelope (type, operation, message, context, revert?)
-}
+{{#include ../../../snippets/viem/overview/adapter.test.ts:try-deposit}}
 ```
 
 **No-throw style**
@@ -98,16 +99,7 @@ These never throw—so you don’t need a `try/catch`. Instead they return:
 This is useful for **UI flows** or **services** where you want explicit control over errors.
 
 ```ts
-const r = await sdk.deposits.tryCreate(params);
-
-if (!r.ok) {
-  // handle the error gracefully
-  console.error('Deposit failed:', r.error);
-  // maybe show a toast, retry, etc.
-} else {
-  const handle = r.value;
-  console.log('Deposit sent. L1 tx hash:', handle.l1TxHash);
-}
+{{#include ../../../snippets/viem/overview/adapter.test.ts:try-create}}
 ```
 
 ## Troubleshooting

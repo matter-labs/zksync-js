@@ -21,31 +21,9 @@ When the SDK throws, it throws an instance of `ZKsyncError`.
 Use `isZKsyncError(e)` to narrow and read the **error envelope**.
 
 ```ts
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+{{#include ../../../snippets/core/errors.test.ts:error-import}}
 
-try {
-  const handle = await sdk.deposits.create(params);
-} catch (e) {
-  if (isZKsyncError(e)) {
-    const err = e; // type-narrowed
-    const { type, resource, operation, message, context, revert } = err.envelope;
-
-    switch (type) {
-      case 'VALIDATION':
-      case 'STATE':
-        // user/action fixable (bad input, not-ready, etc.)
-        break;
-      case 'EXECUTION':
-      case 'RPC':
-        // network/tx/provider issues
-        break;
-    }
-
-    console.error(JSON.stringify(err.toJSON())); // structured log
-  } else {
-    throw e; // non-SDK error
-  }
-}
+{{#include ../../../snippets/core/errors.test.ts:zksync-error}}
 ```
 
 ## Envelope Shape
@@ -59,34 +37,7 @@ try {
 ### `ZKsyncError.envelope: ErrorEnvelope`
 
 ```ts
-type ErrorEnvelope = {
-  /** Resource surface that raised the error. */
-  resource: 'deposits' | 'withdrawals' | 'withdrawal-finalization' | 'helpers' | 'zksrpc';
-
-  /** Specific operation, e.g. "withdrawals.finalize" or "deposits.create". */
-  operation: string;
-
-  /** Broad category (see table below). */
-  type: 'VALIDATION' | 'STATE' | 'EXECUTION' | 'RPC' | 'INTERNAL' | 'VERIFICATION' | 'CONTRACT';
-
-  /** Stable, human-readable message for developers. */
-  message: string;
-
-  /** Optional contextual fields (tx hash, nonce, step key, etc.). */
-  context?: Record<string, unknown>;
-
-  /** If the error is a contract revert, adapters include decoded info when available. */
-  revert?: {
-    selector: `0x${string}`; // 4-byte selector
-    name?: string; // Decoded Solidity error name
-    args?: unknown[]; // Decoded args
-    contract?: string; // Best-effort contract label
-    fn?: string; // Best-effort function label
-  };
-
-  /** Originating error (provider/transport/etc.), sanitized for safe logging. */
-  cause?: unknown;
-};
+{{#include ../../../snippets/core/errors.test.ts:envelope-type}}
 ```
 
 ### Categories (When to Expect Them)
@@ -106,13 +57,7 @@ type ErrorEnvelope = {
 Every resource method has a `try*` sibling that never throws and returns a `TryResult<T>`.
 
 ```ts
-const res = await sdk.withdrawals.tryCreate(params);
-if (!res.ok) {
-  // res.error is a ZKsyncError
-  console.warn(res.error.envelope.message, res.error.envelope.operation);
-} else {
-  console.log('l2TxHash', res.value.l2TxHash);
-}
+{{#include ../../../snippets/core/errors.test.ts:try-create}}
 ```
 
 This is especially useful for **UI flows** where you want inline validation/state messages without `try/catch`.
@@ -122,14 +67,7 @@ This is especially useful for **UI flows** where you want inline validation/stat
 If the provider exposes revert data, the adapters decode common error types and ABIs so you can branch on them:
 
 ```ts
-try {
-  await sdk.withdrawals.finalize(l2TxHash);
-} catch (e) {
-  if (isZKsyncError(e) && e.envelope.revert) {
-    const { selector, name, args } = e.envelope.revert;
-    // e.g., name === 'InvalidProof' or 'TransferAmountExceedsBalance'
-  }
-}
+{{#include ../../../snippets/core/errors.test.ts:revert-details}}
 ```
 
 **Notes**
@@ -144,21 +82,12 @@ try {
 <summary><strong>Ethers</strong></summary>
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+{{#include ../../../snippets/ethers/overview/adapter-basic.test.ts:ethers-basic-imports}}
+{{#include ../../../snippets/core/errors.test.ts:error-import}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+{{#include ../../../snippets/ethers/overview/adapter-basic.test.ts:init-ethers-adapter}}
 
-const client = createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
-
-const res = await sdk.deposits.tryCreate({ token, amount, to });
-if (!res.ok) {
-  console.error(res.error.envelope); // structured envelope
-}
+{{#include ../../../snippets/core/errors.test.ts:envelope-error}}
 ```
 
 </details>
@@ -167,28 +96,12 @@ if (!res.ok) {
 <summary><strong>Viem</strong></summary>
 
 ```ts
-import { createPublicClient, http, createWalletClient, privateKeyToAccount } from 'viem';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
-import { isZKsyncError } from '@matterlabs/zksync-js/core';
+{{#include ../../../snippets/ethers/overview/adapter.test.ts:ethers-adapter-imports}}
+{{#include ../../../snippets/core/errors.test.ts:error-import}}
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-const l1Wallet = createWalletClient({ account, transport: http(process.env.ETH_RPC!) });
-const l2Wallet = createWalletClient({ account, transport: http(process.env.ZKSYNC_RPC!) });
+{{#include ../../../snippets/ethers/overview/adapter-basic.test.ts:init-ethers-adapter}}
 
-const client = createViemClient({ l1, l2, l1Wallet, l2Wallet });
-const sdk = createViemSdk(client);
-
-try {
-  await sdk.withdrawals.finalize(l2TxHash);
-} catch (e) {
-  if (isZKsyncError(e)) {
-    console.log(e.envelope.message, e.envelope.operation);
-  } else {
-    throw e;
-  }
-}
+{{#include ../../../snippets/core/errors.test.ts:envelope-error}}
 ```
 
 </details>

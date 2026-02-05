@@ -49,21 +49,7 @@ Withdrawals are a **two-step process**:
 <summary><code>finalize-by-handle.ts</code></summary>
 
 ```ts
-// 1) Create on L2
-const withdrawal = await sdk.withdrawals.create({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.1'),
-  to: myAddress,
-});
-
-// 2) Wait until finalizable (no side effects)
-await sdk.withdrawals.wait(withdrawal, { for: 'ready', pollMs: 5500 });
-
-// 3) Finalize on L1
-const { status, receipt } = await sdk.withdrawals.finalize(withdrawal.l2TxHash);
-
-console.log(status.phase); // "FINALIZED"
-console.log(receipt?.transactionHash); // L1 finalize tx hash
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-short}}
 ```
 
 </details>
@@ -75,28 +61,15 @@ console.log(receipt?.transactionHash); // L1 finalize tx hash
 // If you only have the L2 tx hash:
 const l2TxHash = '0x...';
 
-// Optionally confirm readiness first
-const s = await sdk.withdrawals.status(l2TxHash);
-if (s.phase !== 'READY_TO_FINALIZE') {
-  await sdk.withdrawals.wait(l2TxHash, { for: 'ready', timeoutMs: 30 * 60_000 });
-}
-
-// Then finalize
-const { status, receipt } = await sdk.withdrawals.finalize(l2TxHash);
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-by-hash}}
 ```
 
 </details>
 
-
 Prefer "no-throw" variants in UI/services that need explicit flow control.
 
 ```ts
-const r = await sdk.withdrawals.tryFinalize(l2TxHash);
-if (!r.ok) {
-  console.error('Finalize failed:', r.error);
-} else {
-  console.log('Finalized on L1:', r.value.receipt?.transactionHash);
-}
+{{#include ../../snippets/viem/overview/adapter.test.ts:withdraw-try-finalize}}
 ```
 
 ## Operational Tips

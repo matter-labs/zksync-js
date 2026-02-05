@@ -15,31 +15,9 @@ L1 → L2 deposits for ETH and ERC-20 tokens with quote, prepare, create, status
 ## Import
 
 ```ts
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseEther,
-  type Account,
-  type Chain,
-  type Transport,
-  type WalletClient,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/deposits.test.ts:imports}}
 
-const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
-const l1 = createPublicClient({ transport: http(L1_RPC) });
-const l2 = createPublicClient({ transport: http(L2_RPC) });
-const l1Wallet: WalletClient<Transport, Chain, Account> = createWalletClient({
-  account,
-  transport: http(L1_RPC),
-});
-
-// Initialize
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
-// sdk.deposits → DepositsResource
+{{#include ../../../snippets/viem/reference/deposits.test.ts:init-sdk}}
 ```
 
 ---
@@ -49,13 +27,7 @@ const sdk = createViemSdk(client);
 Deposit **0.1 ETH** from L1 → L2 and wait for **L2 execution**:
 
 ```ts
-const handle = await sdk.deposits.create({
-  token: ETH_ADDRESS, // 0x…00 for ETH
-  amount: parseEther('0.1'),
-  to: account.address,
-});
-
-const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' }); // null only if no L1 hash
+{{#include ../../../snippets/viem/reference/deposits.test.ts:create-deposit}}
 ```
 
 > [!TIP]
@@ -96,32 +68,7 @@ Estimate the deposit operation (route, approvals, gas hints). Does **not** send 
 **Returns:** `DepositQuote`
 
 ```ts
-const q = await sdk.deposits.quote({
-  token: ETH_L1,
-  amount: parseEther('0.25'),
-  to: account.address,
-});
-/*
-{
-  route: "eth-base" | "eth-nonbase" | "erc20-base" | "erc20-nonbase",
-  summary: {
-    route,
-    approvalsNeeded: [{ token, spender, amount }],
-    amounts: {
-      transfer: { token, amount }
-    },
-    fees: {
-      token,
-      maxTotal,
-      mintValue,
-      l1: { gasLimit, maxFeePerGas, maxPriorityFeePerGas, maxTotal },
-      l2: { total, baseCost, operatorTip, gasLimit, maxFeePerGas, maxPriorityFeePerGas, gasPerPubdata }
-    },
-    baseCost,
-    mintValue
-  }
-}
-*/
+{{#include ../../../snippets/viem/reference/deposits.test.ts:quote-deposit}}
 ```
 
 > [!TIP]
@@ -138,17 +85,7 @@ Build a plan (ordered steps + unsigned txs) without sending.
 **Returns:** `DepositPlan`
 
 ```ts
-const plan = await sdk.deposits.prepare({ token: ETH_L1, amount: parseEther('0.05'), to });
-/*
-{
-  route,
-  summary: DepositQuote,
-  steps: [
-    { key: "approve:USDC", kind: "approve", tx: TransactionRequest },
-    { key: "bridge",       kind: "bridge",  tx: TransactionRequest }
-  ]
-}
-*/
+{{#include ../../../snippets/viem/reference/deposits.test.ts:plan-deposit}}
 ```
 
 ### `tryPrepare(p) → Promise<{ ok: true; value: DepositPlan } | { ok: false; error }>`
@@ -163,15 +100,7 @@ Returns a handle with the L1 tx hash and per-step hashes.
 **Returns:** `DepositHandle`
 
 ```ts
-const handle = await sdk.deposits.create({ token, amount, to });
-/*
-{
-  kind: "deposit",
-  l1TxHash: Hex,
-  stepHashes: Record<string, Hex>,
-  plan: DepositPlan
-}
-*/
+{{#include ../../../snippets/viem/reference/deposits.test.ts:handle}}
 ```
 
 > [!WARNING]
@@ -196,8 +125,7 @@ Accepts either a `DepositHandle` or a raw L1 tx hash.
 | `L2_FAILED`   | L2 receipt found with `status !== 1`      |
 
 ```ts
-const s = await sdk.deposits.status(handle);
-// { phase, l1TxHash, l2TxHash? }
+{{#include ../../../snippets/viem/reference/deposits.test.ts:status}}
 ```
 
 ### `wait(handleOrHash, { for: 'l1' | 'l2' }) → Promise<TransactionReceipt | null>`
@@ -208,8 +136,7 @@ Block until a checkpoint is reached.
 * `{ for: 'l2' }` → L2 receipt after canonical execution (or `null` if no L1 hash)
 
 ```ts
-const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
-const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
+{{#include ../../../snippets/viem/reference/deposits.test.ts:wait}}
 ```
 
 ### `tryWait(handleOrHash, opts) → Result<TransactionReceipt>`
@@ -223,103 +150,46 @@ Result-style `wait`.
 ### ETH Deposit (Typical)
 
 ```ts
-const handle = await sdk.deposits.create({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.1'),
-  to: account.address,
-});
-
-await sdk.deposits.wait(handle, { for: 'l2' });
+{{#include ../../../snippets/viem/reference/deposits.test.ts:create-eth-deposit}}
 ```
 
 ### ERC-20 Deposit (with Automatic Approvals)
 
 ```ts
-const handle = await sdk.deposits.create({
-  token: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC example
-  amount: 1_000_000n, // 1 USDC (6 dp)
-  to: account.address,
-});
-
-const l1Receipt = await sdk.deposits.wait(handle, { for: 'l1' });
+{{#include ../../../snippets/viem/reference/deposits.test.ts:token-address}}
+{{#include ../../../snippets/viem/reference/deposits.test.ts:create-token-deposit}}
 ```
 
 ## Types (Overview)
 
+### Deposit Params
+
 ```ts
-export interface DepositParams {
-  token: Address; // 0x…00 for ETH
-  amount: bigint; // wei
-  to?: Address; // L2 recipient
-  refundRecipient?: Address;
-  l2GasLimit?: bigint;
-  gasPerPubdata?: bigint;
-  operatorTip?: bigint;
-  l1TxOverrides?: Eip1559GasOverrides;
-}
+{{#include ../../../snippets/ethers/reference/deposits.test.ts:params-type}}
+```
 
-export interface Eip1559GasOverrides {
-  gasLimit?: bigint;
-  maxFeePerGas?: bigint;
-  maxPriorityFeePerGas?: bigint;
-}
+### Deposit Quote
 
-export interface DepositQuote {
-  route: 'eth-base' | 'eth-nonbase' | 'erc20-base' | 'erc20-nonbase';
-  summary: {
-    route: 'eth-base' | 'eth-nonbase' | 'erc20-base' | 'erc20-nonbase';
-    approvalsNeeded: Array<{ token: Address; spender: Address; amount: bigint }>;
-    amounts: {
-      transfer: {
-        token: Address;
-        amount: bigint;
-      };
-    };
-    fees: {
-      token: Address;
-      maxTotal: bigint;
-      mintValue: bigint;
-      l1: {
-        gasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        maxTotal: bigint;
-      };
-      l2: {
-        total: bigint;
-        baseCost: bigint;
-        operatorTip: bigint;
-        gasLimit: bigint;
-        maxFeePerGas: bigint;
-        maxPriorityFeePerGas: bigint;
-        gasPerPubdata: bigint;
-      };
-    };
-    baseCost: bigint;
-    mintValue: bigint;
-  };
-}
+```ts
+{{#include ../../../snippets/ethers/reference/deposits.test.ts:quote-type}}
+```
 
-export interface DepositPlan<TTx = TransactionRequest> {
-  route: DepositQuote['route'];
-  summary: DepositQuote;
-  steps: Array<{ key: string; kind: string; tx: TTx }>;
-}
+### Deposit Plan
 
-export interface DepositHandle<TTx = TransactionRequest> {
-  kind: 'deposit';
-  l1TxHash: Hex;
-  stepHashes: Record<string, Hex>;
-  plan: DepositPlan<TTx>;
-}
+```ts
+{{#include ../../../snippets/ethers/reference/deposits.test.ts:plan-type}}
+```
 
-export type DepositStatus =
-  | { phase: 'UNKNOWN'; l1TxHash: Hex }
-  | { phase: 'L1_PENDING'; l1TxHash: Hex }
-  | { phase: 'L1_INCLUDED'; l1TxHash: Hex }
-  | { phase: 'L2_PENDING'; l1TxHash: Hex; l2TxHash: Hex }
-  | { phase: 'L2_EXECUTED'; l1TxHash: Hex; l2TxHash: Hex }
-  | { phase: 'L2_FAILED'; l1TxHash: Hex; l2TxHash: Hex };
+### Deposit Waitable
+
+```ts
+{{#include ../../../snippets/ethers/reference/deposits.test.ts:wait-type}}
+```
+
+### Deposit Status
+
+```ts
+{{#include ../../../snippets/ethers/reference/deposits.test.ts:status-type}}
 ```
 
 > [!TIP]
