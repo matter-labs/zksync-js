@@ -74,26 +74,21 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       }
 
       // Compute assetId + assetData
-      const resolved =
-        ctx.resolvedToken ??
-        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l2' }) : undefined);
-      const assetId =
-        resolved?.assetId ??
-        (await wrapAs(
-          'CONTRACT',
-          OP_WITHDRAWALS.erc20.ensureRegistered,
-          async () => {
-            const ntv = await ctx.contracts.l2NativeTokenVault();
-            const ensured = (await ntv
-              .getFunction('ensureTokenIsRegistered')
-              .staticCall(p.token)) as `0x${string}`;
-            return ensured;
-          },
-          {
-            ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
-            message: 'Failed to ensure token is registered in L2NativeTokenVault.',
-          },
-        ));
+      const assetId = await wrapAs(
+        'CONTRACT',
+        OP_WITHDRAWALS.erc20.ensureRegistered,
+        async () => {
+          const ntv = await ctx.contracts.l2NativeTokenVault();
+          const ensured = (await ntv
+            .getFunction('ensureTokenIsRegistered')
+            .staticCall(p.token)) as `0x${string}`;
+          return ensured;
+        },
+        {
+          ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
+          message: 'Failed to ensure token is registered in L2NativeTokenVault.',
+        },
+      );
       const assetData = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.erc20.encodeAssetData,
@@ -126,7 +121,10 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         from: ctx.sender,
       };
 
-      const withdrawGas = await quoteL2Gas({ ctx, tx: withdrawTx });
+      // Only estimate withdraw gas when allowance is already sufficient.
+      // Otherwise the estimation can revert (pre-approval) and produce noisy logs.
+      const withdrawGas =
+        current >= p.amount ? await quoteL2Gas({ ctx, tx: withdrawTx }) : undefined;
       if (withdrawGas) {
         withdrawTx.gasLimit = withdrawGas.gasLimit;
         withdrawTx.maxFeePerGas = withdrawGas.maxFeePerGas;

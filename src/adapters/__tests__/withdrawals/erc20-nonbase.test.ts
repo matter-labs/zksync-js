@@ -24,6 +24,7 @@ const ROUTES = {
 const TOKEN = '0x6666666666666666666666666666666666666666' as const;
 const RECEIVER = '0x7777777777777777777777777777777777777777' as const;
 const ASSET_ID = ('0x' + 'aa'.repeat(32)) as `0x${string}`;
+const RESOLVED_ASSET_ID = ('0x' + 'bb'.repeat(32)) as `0x${string}`;
 
 const L2_NATIVE_VAULT = L2_NATIVE_TOKEN_VAULT_ADDRESS;
 
@@ -84,6 +85,63 @@ describeForAdapters('adapters/withdrawals/routeErc20NonBase', (kind, factory) =>
       const tx = step.tx as any;
       const args = tx.args as unknown[];
       expect(args?.[0] ?? '').toBe(ASSET_ID);
+    }
+  });
+
+  it('uses L2 NTV assetId even when resolved token assetId mismatches', async () => {
+    const harness = factory();
+    const ctx = makeWithdrawalContext(harness, {
+      l2NativeTokenVault: L2_NATIVE_VAULT,
+      l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
+    });
+    (ctx as any).resolvedToken = { assetId: RESOLVED_ASSET_ID };
+
+    const amount = 1_234n;
+
+    setErc20Allowance(harness, TOKEN, ctx.sender, ctx.l2NativeTokenVault, amount);
+    setL2TokenRegistration(harness, ctx.l2NativeTokenVault, TOKEN, ASSET_ID);
+
+    if (kind === 'viem') {
+      harness.queueSimulateResponses(
+        [
+          (args) => ({
+            request: {
+              address: args.address,
+              abi: L2NativeTokenVaultABI,
+              functionName: 'ensureTokenIsRegistered',
+              args: args.args,
+              account: args.account,
+            },
+            result: ASSET_ID,
+          }),
+          (args) => ({
+            request: {
+              address: args.address,
+              abi: IL2AssetRouterABI,
+              functionName: 'withdraw',
+              args: args.args,
+              account: args.account,
+            },
+          }),
+        ],
+        'l2',
+      );
+    }
+
+    const res = await ROUTES[kind].build({ token: TOKEN, amount, to: RECEIVER } as any, ctx as any);
+    const step = res.steps.at(-1);
+    expect(step?.key).toBe('l2-asset-router:withdraw');
+
+    if (kind === 'ethers') {
+      const tx = step?.tx as any;
+      const decoded = decodeAssetRouterWithdraw(tx.data);
+      expect(decoded.assetId).toBe(ASSET_ID);
+      expect(decoded.assetId).not.toBe(RESOLVED_ASSET_ID);
+    } else {
+      const tx = step?.tx as any;
+      const args = tx.args as unknown[];
+      expect(args?.[0] ?? '').toBe(ASSET_ID);
+      expect(args?.[0] ?? '').not.toBe(RESOLVED_ASSET_ID);
     }
   });
 

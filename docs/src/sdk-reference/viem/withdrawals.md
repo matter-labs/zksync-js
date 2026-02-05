@@ -66,6 +66,12 @@ Estimate the operation (route, approvals, gas hints). Does **not** send transact
 {{#include ../../../snippets/viem/reference/withdrawals.test.ts:quote}}
 ```
 
+**Fee estimation notes**
+
+- If `approvalsNeeded` is non-empty, the withdraw gas estimate may be unavailable and `fees.l2` can be zeros. Treat this as **unknown**, not free.
+- After the approval transaction is confirmed, call `quote` or `prepare` again to get a withdraw fee estimate.
+- `quote` only covers the withdraw transaction. Approval gas is not included in the fee breakdown.
+
 ### `tryQuote(p) → Promise<{ ok: true; value: WithdrawQuote } | { ok: false; error }>`
 
 Result-style `quote`.
