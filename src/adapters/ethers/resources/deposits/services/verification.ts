@@ -1,6 +1,6 @@
 import { Interface, type Log, type Provider, type TransactionReceipt } from 'ethers';
 import type { Hex } from '../../../../../core/types/primitives';
-import { isHash66 } from '../../../../../core/utils/addr';
+import { isHash66 } from '../../../../../core/utils/hash';
 import { TOPIC_CANONICAL_ASSIGNED, TOPIC_CANONICAL_SUCCESS } from '../../../../../core/constants';
 
 import { createError } from '../../../../../core/errors/factory.ts';

@@ -1,6 +1,7 @@
 // src/core/types/flows/interop.ts
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
+import { isHash, isHash66, isHash66Array, isAddress, isBigint, isNumber } from '../../utils';
 
 /** Encoded call attributes for interop */
 export type EncodedCallAttributes = readonly Hex[];
@@ -164,6 +165,16 @@ export interface InteropExpectedRoot {
 }
 
 /**
+ * Type guard to safely check if an object is InteropExpectedRoot.
+ * Validates all required and nested fields.
+ */
+export function isInteropExpectedRoot(obj: unknown): obj is InteropExpectedRoot {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const root = obj as InteropExpectedRoot;
+  return isBigint(root.rootChainId) && isBigint(root.batchNumber) && isHash(root.expectedRoot);
+}
+
+/**
  * Interop message proof.
  */
 export interface InteropMessageProof {
@@ -184,6 +195,26 @@ export interface InteropMessageProof {
   };
   /** Merkle proof path for verification */
   proof: Hex[];
+}
+
+/**
+ * Type guard to safely check if an object is InteropMessageProof.
+ * Validates all required and nested fields.
+ */
+export function isInteropMessageProof(obj: unknown): obj is InteropMessageProof {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const proof = obj as InteropMessageProof;
+  return (
+    isBigint(proof.chainId) &&
+    isBigint(proof.l1BatchNumber) &&
+    isBigint(proof.l2MessageIndex) &&
+    typeof proof.message === 'object' &&
+    proof.message !== null &&
+    isNumber(proof.message.txNumberInBatch) &&
+    isAddress(proof.message.sender) &&
+    isHash(proof.message.data) &&
+    isHash66Array(proof.proof)
+  );
 }
 
 /**
@@ -212,24 +243,12 @@ export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizat
   if (typeof obj !== 'object' || obj === null) return false;
   const info = obj as InteropFinalizationInfo;
   return (
-    typeof info.l2SrcTxHash === 'string' &&
-    typeof info.bundleHash === 'string' &&
-    typeof info.dstChainId === 'bigint' &&
-    typeof info.encodedData === 'string' &&
-    typeof info.expectedRoot === 'object' &&
-    info.expectedRoot !== null &&
-    typeof info.expectedRoot.rootChainId === 'bigint' &&
-    typeof info.expectedRoot.batchNumber === 'bigint' &&
-    typeof info.expectedRoot.expectedRoot === 'string' &&
-    typeof info.proof === 'object' &&
-    info.proof !== null &&
-    typeof info.proof.chainId === 'bigint' &&
-    typeof info.proof.l1BatchNumber === 'bigint' &&
-    typeof info.proof.l2MessageIndex === 'bigint' &&
-    typeof info.proof.message === 'object' &&
-    info.proof.message !== null &&
-    typeof info.proof.message.txNumberInBatch === 'number' &&
-    typeof info.proof.message.sender === 'string'
+    isHash66(info.l2SrcTxHash) &&
+    isHash66(info.bundleHash) &&
+    isBigint(info.dstChainId) &&
+    isHash(info.encodedData) &&
+    isInteropExpectedRoot(info.expectedRoot) &&
+    isInteropMessageProof(info.proof)
   );
 }
 
