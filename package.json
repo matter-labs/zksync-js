@@ -145,7 +145,8 @@
     "test:e2e:viem": "bun test ./src/adapters/viem/e2e/*.e2e.ts",
     "test:watch": "bun test --watch",
     "test:cov": "bun test --coverage",
-    "test:core": "bun test src/core"
+    "test:core": "bun test src/core",
+    "test:docs": "bun test docs/snippets --timeout 100000"
   },
   "sideEffects": false,
   "type": "module",

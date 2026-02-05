@@ -15,19 +15,9 @@ Resolved addresses and connected core contracts for the Viem adapter.
 ## Import
 
 ```ts
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/contracts.test.ts:imports}}
 
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-const l1Wallet = createWalletClient({
-  account: /* your L1 Account */,
-  transport: http(process.env.ETH_RPC!),
-});
-
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
-// sdk.contracts → ContractsResource
+{{#include ../../../snippets/viem/reference/contracts.test.ts:init-sdk}}
 ```
 
 ## Quick Start
@@ -35,10 +25,7 @@ const sdk = createViemSdk(client);
 Resolve addresses and contract handles:
 
 ```ts
-const addresses = await sdk.contracts.addresses();
-const { l1NativeTokenVault, l2AssetRouter } = await sdk.contracts.instances();
-
-const ntv = await sdk.contracts.l1NativeTokenVault();
+{{#include ../../../snippets/viem/reference/contracts.test.ts:ntv}}
 ```
 
 ## Method Reference
@@ -48,18 +35,7 @@ const ntv = await sdk.contracts.l1NativeTokenVault();
 Resolve core addresses (Bridgehub, routers, vaults, base-token system).
 
 ```ts
-const a = await sdk.contracts.addresses();
-/*
-{
-  bridgehub,
-  l1AssetRouter,
-  l1Nullifier,
-  l1NativeTokenVault,
-  l2AssetRouter,
-  l2NativeTokenVault,
-  l2BaseTokenSystem
-}
-*/
+{{#include ../../../snippets/viem/reference/contracts.test.ts:addresses}}
 ```
 
 ### `instances() → Promise<{ ...contracts }>`
@@ -67,8 +43,7 @@ const a = await sdk.contracts.addresses();
 Return **typed** Viem contracts for all core components (each exposes `.read` / `.write` / `.simulate`).
 
 ```ts
-const c = await sdk.contracts.instances();
-const bridgehub = c.bridgehub;
+{{#include ../../../snippets/viem/reference/contracts.test.ts:instances}}
 ```
 
 ### One-off Contract Getters
@@ -84,7 +59,7 @@ const bridgehub = c.bridgehub;
 | `l2BaseTokenSystem()`  | `Promise<Contract>` | Connected L2 Base Token System.     |
 
 ```ts
-const router = await sdk.contracts.l2AssetRouter();
+{{#include ../../../snippets/viem/reference/contracts.test.ts:router}}
 ```
 
 ## Notes & Pitfalls

@@ -30,6 +30,7 @@ List all files you expect to modify. Consider:
 - Adapter implementations (`adapters/viem/`, `adapters/ethers/`)
 - Tests (`__tests__/`, `*.test.ts`)
 - Docs (`docs/src/`)
+- Docs examples tests (`docs/snippets`)
 
 ### 3. Implement with Minimal Diff
 
@@ -38,6 +39,8 @@ List all files you expect to modify. Consider:
 - Don't rename unless required
 - Don't "improve" unrelated code
 - Follow existing patterns exactly
+- Don't add hardcoded code examples directly in any markdown docs.
+  Use imported code snippets from tests in `docs/snippets` in markdown docs files
 
 ### 4. Run Required Scripts
 
@@ -57,18 +60,20 @@ If your change affects public API or behavior:
 - [ ] Update `docs/src/SUMMARY.md` (if adding new pages)
 - [ ] Update SDK reference docs (`docs/src/sdk-reference/viem/`, `docs/src/sdk-reference/ethers/`)
 - [ ] Add/update quickstart guide if new resource (follow deposits/withdrawals structure)
+- [ ] Update the relevant docs examples tests in `docs/snippets`
 - [ ] Update LLM docs (`llm/`) if applicable
 
 ---
 
 ## Minimal Diff Principle
 
-| Do                         | Don't                           |
-| -------------------------- | ------------------------------- |
-| Change only required lines | Reformat entire file            |
-| Fix the specific bug       | Refactor "while you're there"   |
-| Add the specific feature   | Add "nice to have" improvements |
-| Update affected tests      | Rewrite unrelated tests         |
+| Do                            | Don't                                           |
+| ----------------------------- | ----------------------------------------------- |
+| Change only required lines    | Reformat entire file                            |
+| Fix the specific bug          | Refactor "while you're there"                   |
+| Add the specific feature      | Add "nice to have" improvements                 |
+| Update affected tests         | Rewrite unrelated tests                         |
+| Update affected docs snippets | Add hardcoded code examples into markdown files |
 
 ---
 
@@ -80,14 +85,14 @@ If your change affects public API or behavior:
 2. Write a failing test (if possible)
 3. Fix the bug
 4. Verify tests pass
-5. Update docs if behavior changed
+5. Update docs markdown files (`docs/src`) and relevant snippets (`docs/snippets`) if behavior changed
 
 ### Add Method to Existing Resource
 
 1. Add type to `core/types/flows/<resource>.ts`
 2. Implement in both adapters
 3. Add tests
-4. Update SDK reference docs
+4. Update SDK reference docs markdown files (`docs/src/sdk-reference`) and relevant snippets (`docs/snippets`)
 
 ### Add New Resource
 

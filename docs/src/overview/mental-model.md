@@ -80,24 +80,7 @@ For more robust error handling without `try/catch` blocks, **every core method h
 Instead of throwing an error on failure, these methods return a result object that enforces explicit error handling:
 
 ```ts
-// Instead of this:
-try {
-  const handle = await sdk.withdrawals.create(params);
-  // ... happy path
-} catch (error) {
-  // ... sad path
-}
-
-// You can do this:
-const result = await sdk.withdrawals.tryCreate(params);
-
-if (result.ok) {
-  // Safe to use result.value, which is the WithdrawHandle
-  const handle = result.value;
-} else {
-  // Handle the error explicitly
-  console.error('Withdrawal failed:', result.error);
-}
+{{#include ../../snippets/ethers/overview/adapter.test.ts:mental-model}}
 ```
 
 ➡️ **Best for:** Applications that prefer a functional error-handling pattern and want to avoid uncaught exceptions.
@@ -111,11 +94,5 @@ These primitives allow you to compose flows that are as simple or as complex as 
 Use `create` and `wait` for the most straightforward path.
 
 ```ts
-// 1. Create the deposit
-const depositHandle = await sdk.deposits.create(params);
-
-// 2. Wait for it to be finalized on L2
-const receipt = await sdk.deposits.wait(depositHandle, { for: 'l2' });
-
-console.log('Deposit complete!');
+{{#include ../../snippets/ethers/overview/adapter.test.ts:simple-flow}}
 ```

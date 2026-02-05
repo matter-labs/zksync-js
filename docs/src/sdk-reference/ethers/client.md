@@ -14,26 +14,16 @@ Carries providers/signer, resolves core contract addresses, and exposes connecte
 ## Import
 
 ```ts
-import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/client.test.ts:client-import}}
 ```
 
 ## Quick Start
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/reference/client.test.ts:ethers-import}}
+{{#include ../../../snippets/ethers/reference/client.test.ts:client-import}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
-
-const client = createEthersClient({ l1, l2, signer });
-
-// Resolve core addresses (cached)
-const addrs = await client.ensureAddresses();
-
-// Connected contracts
-const { bridgehub, l1AssetRouter } = await client.contracts();
+{{#include ../../../snippets/ethers/reference/client.test.ts:init-client}}
 ```
 
 > [!TIP]
@@ -69,13 +59,7 @@ const { bridgehub, l1AssetRouter } = await client.contracts();
 Resolve and cache core contract addresses from chain state (merges any `overrides`).
 
 ```ts
-const a = await client.ensureAddresses();
-/*
-{
-  bridgehub, l1AssetRouter, l1Nullifier, l1NativeTokenVault,
-  l2AssetRouter, l2NativeTokenVault, l2BaseTokenSystem
-}
-*/
+{{#include ../../../snippets/ethers/reference/client.test.ts:ensureAddresses}}
 ```
 
 ### `contracts() → Promise<{ ...contracts }>`
@@ -83,9 +67,7 @@ const a = await client.ensureAddresses();
 Return connected `ethers.Contract` instances for all core contracts.
 
 ```ts
-const c = await client.contracts();
-const bh = c.bridgehub;
-await bh.getAddress();
+{{#include ../../../snippets/ethers/reference/client.test.ts:contracts}}
 ```
 
 ### `refresh(): void`
@@ -93,8 +75,7 @@ await bh.getAddress();
 Clear cached addresses/contracts. Subsequent calls re-resolve.
 
 ```ts
-client.refresh();
-await client.ensureAddresses();
+{{#include ../../../snippets/ethers/reference/client.test.ts:refresh}}
 ```
 
 ### `baseToken(chainId: bigint) → Promise<Address>`
@@ -102,7 +83,7 @@ await client.ensureAddresses();
 Return the **L1 base-token address** for a given L2 chain via `Bridgehub.baseToken(chainId)`.
 
 ```ts
-const base = await client.baseToken(324n);
+{{#include ../../../snippets/ethers/reference/client.test.ts:base}}
 ```
 
 ## Types
@@ -110,15 +91,7 @@ const base = await client.baseToken(324n);
 ### `ResolvedAddresses`
 
 ```ts
-type ResolvedAddresses = {
-  bridgehub: Address;
-  l1AssetRouter: Address;
-  l1Nullifier: Address;
-  l1NativeTokenVault: Address;
-  l2AssetRouter: Address;
-  l2NativeTokenVault: Address;
-  l2BaseTokenSystem: Address;
-};
+{{#include ../../../snippets/ethers/reference/client.test.ts:resolved-type}}
 ```
 
 ## Notes & Pitfalls
