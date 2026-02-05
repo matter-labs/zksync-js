@@ -19,6 +19,7 @@ export type { ZksRpc } from './rpc/zks';
 export { makeTransportFromEthers, makeTransportFromViem } from './rpc/transport';
 
 export * from './utils/addr';
+export * from './utils/hash';
 
 // Core resources (routes, events, logs)
 export * from './resources/deposits/route';

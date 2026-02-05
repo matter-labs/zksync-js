@@ -36,10 +36,9 @@ export type GenesisContractDeployment = {
   bytecode: Hex;
 };
 
-export type GenesisStorageEntry = {
-  key: Hex;
-  value: Hex;
-};
+export type GenesisStorageEntry =
+  | { format: 'raw'; key: Hex; value: Hex } // key = hashed_key
+  | { format: 'pretty'; address: Address; key: Hex; value: Hex }; // key = slot
 
 export type GenesisInput = {
   initialContracts: GenesisContractDeployment[];

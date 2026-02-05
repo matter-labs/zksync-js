@@ -1,8 +1,10 @@
-import type { Address, Hex } from '../types/primitives.ts';
-import { FORMAL_ETH_ADDRESS, ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../constants.ts';
+import type { Address, Hex } from '../types/primitives';
+import { FORMAL_ETH_ADDRESS, ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../constants';
+import { isHash } from './hash';
 
-// Returns true if the string is a 0x-prefixed hex of length 66 (32 bytes + '0x')
-export const isHash66 = (x?: string): x is Hex => !!x && x.startsWith('0x') && x.length === 66;
+export function isAddress(x: unknown): x is Address {
+  return isHash(x, 42); // 40 hex chars + '0x' prefix
+}
 
 // Compares two addresses for equality, ignoring case
 export function isAddressEq(a: Address, b: Address): boolean {

@@ -28,6 +28,7 @@ import {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
 } from '../../core/constants';
+import { isBigint } from '../../core/utils';
 
 const IBridgehub = new Interface(IBridgehubABI as any);
 const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
@@ -63,9 +64,7 @@ class CallRegistry {
   }
 
   private argsKey(args: unknown[]) {
-    return JSON.stringify(args, (_, value) =>
-      typeof value === 'bigint' ? value.toString() : value,
-    );
+    return JSON.stringify(args, (_, value) => (isBigint(value) ? value.toString() : value));
   }
 }
 
@@ -153,7 +152,7 @@ function makeEthersL1(state: EthersL1State) {
       state.estimateGasSpy?.(tx);
       const { estimateGasValue } = state;
       if (estimateGasValue instanceof Error) throw estimateGasValue;
-      if (typeof estimateGasValue === 'bigint') return estimateGasValue;
+      if (isBigint(estimateGasValue)) return estimateGasValue;
       return 100_000n;
     },
     async getFeeData() {
@@ -189,7 +188,7 @@ function makeEthersL2(state: EthersL2State) {
       state.estimateGasSpy?.(tx);
       const { estimateGasValue } = state;
       if (estimateGasValue instanceof Error) throw estimateGasValue;
-      if (typeof estimateGasValue === 'bigint') return estimateGasValue;
+      if (isBigint(estimateGasValue)) return estimateGasValue;
       return 100_000n;
     },
     async getNetwork() {
@@ -311,7 +310,7 @@ function makeViemClient(state: ViemClientState): PublicClient {
       state.lastArgs = args;
       const val = state.estimateGasValue;
       if (val instanceof Error) throw val;
-      if (typeof val === 'bigint') return val;
+      if (isBigint(val)) return val;
       return 100_000n;
     },
     async estimateFeesPerGas() {
