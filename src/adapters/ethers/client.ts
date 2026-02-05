@@ -1,6 +1,6 @@
 // src/adapters/ethers/client.ts
 import type { AbstractProvider, Signer } from 'ethers';
-import { BrowserProvider, Contract, Interface } from 'ethers';
+import { BrowserProvider, Contract, Interface, JsonRpcProvider } from 'ethers';
 import type { Address } from '../../core/types/primitives';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromEthers } from './rpc';
@@ -8,6 +8,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 
 import {
@@ -18,6 +21,9 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
+  InteropCenterABI,
+  IInteropHandlerABI,
+  L2MessageVerificationABI,
 } from '../../core/abi';
 import { createError } from '../../core/errors/factory';
 import { OP_DEPOSITS } from '../../core/types';
@@ -34,6 +40,9 @@ export interface ResolvedAddresses {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
 }
 
 export interface EthersClient {
@@ -64,6 +73,9 @@ export interface EthersClient {
     l2AssetRouter: Contract;
     l2NativeTokenVault: Contract;
     l2BaseTokenSystem: Contract;
+    interopCenter: Contract;
+    interopHandler: Contract;
+    l2MessageVerification: Contract;
   }>;
 
   /** Clear all cached addresses/contracts. */
@@ -71,6 +83,16 @@ export interface EthersClient {
 
   /** Lookup the base token for a given chain ID via Bridgehub.baseToken(chainId) */
   baseToken(chainId: bigint): Promise<Address>;
+
+  /** Chain registry for interop destinations */
+  registerChain(chainId: bigint, providerOrUrl: AbstractProvider | string): void;
+  registerChains(map: Record<string, AbstractProvider | string>): void;
+  getProvider(chainId: bigint): AbstractProvider | undefined;
+  requireProvider(chainId: bigint): AbstractProvider;
+  listChains(): bigint[];
+
+  /** Get a signer connected to L1 or a specific L2 */
+  signerFor(target?: 'l1' | bigint): Signer;
 }
 
 type InitArgs = {
@@ -80,6 +102,10 @@ type InitArgs = {
   l2: AbstractProvider;
   /** Signer for sending txs. */
   signer: Signer;
+
+  /** Optional pre-seeded chain registry (eip155 → provider) for interop destinations */
+  chains?: Record<string, AbstractProvider>;
+
   /** Optional manual overrides */
   overrides?: Partial<ResolvedAddresses>;
 };
@@ -89,7 +115,7 @@ type InitArgs = {
  * resolves the minimal addresses needed by resources.
  */
 export function createEthersClient(args: InitArgs): EthersClient {
-  const { l1, l2, signer } = args;
+  const { l1, l2, signer, chains } = args;
 
   // -------------------------------------------------------------------------
   // Signer binding logic
@@ -136,6 +162,16 @@ export function createEthersClient(args: InitArgs): EthersClient {
     })();
   }
 
+  // Chain registry for interop destinations
+  const chainMap = new Map<bigint, AbstractProvider>();
+  if (chains) {
+    for (const [k, p] of Object.entries(chains)) {
+      const id = BigInt(k);
+      const provider = typeof p === 'string' ? new JsonRpcProvider(p) : p;
+      chainMap.set(id, provider);
+    }
+  }
+
   // lazily bind zks rpc to the L2 provider
   const zks = zksRpcFromEthers(l2);
 
@@ -150,6 +186,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
         l2AssetRouter: Contract;
         l2NativeTokenVault: Contract;
         l2BaseTokenSystem: Contract;
+        interopCenter: Contract;
+        interopHandler: Contract;
+        l2MessageVerification: Contract;
       }
     | undefined;
 
@@ -184,6 +223,16 @@ export function createEthersClient(args: InitArgs): EthersClient {
     // L2BaseToken
     const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
+    // InteropCenter
+    const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+
+    // InteropHandler
+    const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+
+    // L2MessageVerification
+    const l2MessageVerification =
+      args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
+
     addrCache = {
       bridgehub,
       l1AssetRouter,
@@ -192,6 +241,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter,
       l2NativeTokenVault,
       l2BaseTokenSystem,
+      interopCenter,
+      interopHandler,
+      l2MessageVerification,
     };
     return addrCache;
   }
@@ -209,6 +261,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter: new Contract(a.l2AssetRouter, IL2AssetRouterABI, l2),
       l2NativeTokenVault: new Contract(a.l2NativeTokenVault, L2NativeTokenVaultABI, l2),
       l2BaseTokenSystem: new Contract(a.l2BaseTokenSystem, IBaseTokenABI, l2),
+      interopCenter: new Contract(a.interopCenter, InteropCenterABI, l2),
+      interopHandler: new Contract(a.interopHandler, IInteropHandlerABI, l2),
+      l2MessageVerification: new Contract(a.l2MessageVerification, L2MessageVerificationABI, l2),
     };
     return cCache;
   }
@@ -247,9 +302,44 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const bh = new Contract(bridgehub, IBridgehubABI, l1);
 
     return (await wrapAs('CONTRACT', OP_DEPOSITS.base.baseToken, () => bh.baseToken(chainId), {
-      ctx: { where: 'bridgehub.baseToken', chainIdL2: chainId },
+      ctx: { where: 'bridgehub.baseToken', chainId: chainId },
       message: 'Failed to read base token.',
     })) as Address;
+  }
+
+  /** Chain registry utilities (for interop destinations) */
+  function registerChain(chainId: bigint, providerOrUrl: AbstractProvider | string) {
+    const provider =
+      typeof providerOrUrl === 'string' ? new JsonRpcProvider(providerOrUrl) : providerOrUrl;
+    chainMap.set(chainId, provider);
+  }
+
+  function registerChains(map: Record<string, AbstractProvider | string>) {
+    for (const [k, p] of Object.entries(map)) {
+      registerChain(BigInt(k), p);
+    }
+  }
+
+  /** Chain registry utilities (for interop destinations) */
+  function getProvider(chainId: bigint) {
+    return chainMap.get(chainId);
+  }
+  function requireProvider(chainId: bigint) {
+    const p = chainMap.get(chainId);
+    if (!p) throw new Error(`No provider registered for destination chainId ${chainId}`);
+    return p;
+  }
+  function listChains(): bigint[] {
+    return [...chainMap.keys()];
+  }
+
+  /** Signer helpers */
+  function signerFor(target?: 'l1' | bigint): Signer {
+    if (target === 'l1') {
+      return boundSigner.provider === l1 ? boundSigner : boundSigner.connect(l1);
+    }
+    const provider = typeof target === 'bigint' ? requireProvider(target) : l2; // default to current/source L2
+    return boundSigner.provider === provider ? boundSigner : boundSigner.connect(provider);
   }
 
   const client: EthersClient = {
@@ -268,6 +358,12 @@ export function createEthersClient(args: InitArgs): EthersClient {
     contracts,
     refresh,
     baseToken,
+    registerChain,
+    registerChains,
+    getProvider,
+    requireProvider,
+    listChains,
+    signerFor,
   };
 
   return client;

@@ -4,3 +4,5 @@
 export type Address = `0x${string}`;
 export type Hex = `0x${string}`;
 export type Hash = Hex;
+
+export const ZERO_HASH: Hash = '0x0000000000000000000000000000000000000000000000000000000000000000';

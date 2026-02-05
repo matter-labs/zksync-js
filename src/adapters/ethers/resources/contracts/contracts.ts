@@ -57,6 +57,21 @@ export function createContractsResource(client: EthersClient): ContractsResource
     return l2BaseTokenSystem;
   }
 
+  async function interopCenter() {
+    const { interopCenter } = await instances();
+    return interopCenter;
+  }
+
+  async function interopHandler() {
+    const { interopHandler } = await instances();
+    return interopHandler;
+  }
+
+  async function l2MessageVerification() {
+    const { l2MessageVerification } = await instances();
+    return l2MessageVerification;
+  }
+
   return {
     addresses,
     instances,
@@ -67,5 +82,8 @@ export function createContractsResource(client: EthersClient): ContractsResource
     l2AssetRouter,
     l2NativeTokenVault,
     l2BaseTokenSystem,
+    interopCenter,
+    interopHandler,
+    l2MessageVerification,
   };
 }

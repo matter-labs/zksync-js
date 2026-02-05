@@ -2,36 +2,13 @@
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
 import { isHash, isHash66, isHash66Array, isAddress, isBigint, isNumber } from '../../utils';
+import type { TxOverrides } from '../fees';
 
 /** Encoded call attributes for interop */
 export type EncodedCallAttributes = readonly Hex[];
 
 /** Encoded bundle attributes for interop */
 export type EncodedBundleAttributes = readonly Hex[];
-
-/**
- * A decoded interop attribute with its function selector and arguments.
- */
-export interface DecodedAttribute {
-  /** Function selector (0x + 8 hex chars, representing 4 bytes) */
-  selector: Hex;
-  /** Name of the attribute function */
-  name: string;
-  /** Full function signature (e.g. "interopCallValue(uint256)") when ABI is known */
-  signature?: string;
-  /** Decoded arguments array (types vary based on function) */
-  args: unknown[];
-}
-
-/**
- * Summary of all decoded attributes for both call-level and bundle-level attributes.
- */
-export interface DecodedAttributesSummary {
-  /** Attributes that apply to individual interop calls */
-  call: DecodedAttribute[];
-  /** Attributes that apply to the entire interop bundle */
-  bundle: DecodedAttribute[];
-}
 
 /**
  * The routing mechanism for interop execution.
@@ -63,6 +40,8 @@ export interface InteropParams {
   execution?: { only: Address };
   /** Optional: Specify who can unbundle actions */
   unbundling?: { by: Address };
+  /** Optional: Gas overrides for L2 transaction */
+  txOverrides?: TxOverrides;
 }
 
 /**

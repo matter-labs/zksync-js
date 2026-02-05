@@ -14,6 +14,9 @@ export interface ContractInstances {
   l2AssetRouter: Contract;
   l2NativeTokenVault: Contract;
   l2BaseTokenSystem: Contract;
+  interopCenter: Contract;
+  interopHandler: Contract;
+  l2MessageVerification: Contract;
 }
 
 /**
@@ -77,4 +80,19 @@ export interface ContractsResource {
    * Returns the L2 Base Token System contract instance.
    */
   l2BaseTokenSystem(): Promise<Contract>;
+
+  /**
+   * Returns the Interop Center contract instance.
+   */
+  interopCenter(): Promise<Contract>;
+
+  /**
+   * Returns the Interop Handler contract instance.
+   */
+  interopHandler(): Promise<Contract>;
+
+  /**
+   * Returns the L2 Message Verification contract instance.
+   */
+  l2MessageVerification(): Promise<Contract>;
 }
