@@ -17,7 +17,7 @@ export * from './core/resources/interop/attributes';
 // Core resources (routes, events, logs)
 export * from './core/resources/deposits/route';
 export * from './core/resources/withdrawals/route';
-export * from './core/resources/withdrawals/events';
+export * from './core/utils/events';
 export * from './core/resources/withdrawals/logs';
 
 // Core types (type-only so we don't emit)

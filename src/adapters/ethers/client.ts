@@ -179,17 +179,17 @@ export function createEthersClient(args: InitArgs): EthersClient {
   let addrCache: ResolvedAddresses | undefined;
   let cCache:
     | {
-      bridgehub: Contract;
-      l1AssetRouter: Contract;
-      l1Nullifier: Contract;
-      l1NativeTokenVault: Contract;
-      l2AssetRouter: Contract;
-      l2NativeTokenVault: Contract;
-      l2BaseTokenSystem: Contract;
-      interopCenter: Contract;
-      interopHandler: Contract;
-      l2MessageVerification: Contract;
-    }
+        bridgehub: Contract;
+        l1AssetRouter: Contract;
+        l1Nullifier: Contract;
+        l1NativeTokenVault: Contract;
+        l2AssetRouter: Contract;
+        l2NativeTokenVault: Contract;
+        l2BaseTokenSystem: Contract;
+        interopCenter: Contract;
+        interopHandler: Contract;
+        l2MessageVerification: Contract;
+      }
     | undefined;
 
   async function ensureAddresses(): Promise<ResolvedAddresses> {
@@ -341,7 +341,6 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const provider = typeof target === 'bigint' ? requireProvider(target) : l2; // default to current/source L2
     return boundSigner.provider === provider ? boundSigner : boundSigner.connect(provider);
   }
-
 
   const client: EthersClient = {
     kind: 'ethers',

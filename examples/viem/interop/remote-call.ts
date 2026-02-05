@@ -53,7 +53,10 @@ async function main() {
   const l1Balance = await l1.getBalance({ address: me });
   console.log('L1 balance:', l1Balance.toString());
   console.log('L2 source balance:', (await l2Source.getBalance({ address: me })).toString());
-  console.log('L2 destination balance:', (await l2Destination.getBalance({ address: me })).toString());
+  console.log(
+    'L2 destination balance:',
+    (await l2Destination.getBalance({ address: me })).toString(),
+  );
 
   // ---- Deploy Greeting on destination ----
   console.log('=== DEPLOYING GREETER ON DESTINATION ===');
@@ -73,14 +76,11 @@ async function main() {
   console.log('Greeting before:', greetingBefore);
 
   const newGreeting = 'hello from example!';
-  const data = encodeAbiParameters(
-    [{ type: 'string', name: 'greeting' }],
-    [newGreeting],
-  );
+  const data = encodeAbiParameters([{ type: 'string', name: 'greeting' }], [newGreeting]);
 
   const params = {
     sender: me,
-    dst: BigInt(dstChainId),
+    dstChainId: BigInt(dstChainId),
     actions: [
       {
         type: 'call' as const,

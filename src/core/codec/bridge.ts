@@ -30,11 +30,7 @@ export function createBridgeCodec(deps: BridgeCodecDeps) {
     return deps.encode(['address', 'uint256', 'address'], [token, amount, l2Receiver]);
   }
 
-  function encodeSecondBridgeErc20Args(
-    token: Address,
-    amount: bigint,
-    l2Receiver: Address,
-  ): Hex {
+  function encodeSecondBridgeErc20Args(token: Address, amount: bigint, l2Receiver: Address): Hex {
     return encodeSecondBridgeArgs(token, amount, l2Receiver);
   }
 

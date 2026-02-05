@@ -9,6 +9,7 @@ import type {
   InteropFinalizationInfo,
   InteropPhase,
 } from '../../../../../core/types/flows/interop';
+import { createError } from '../../../../../core/errors/factory';
 
 import { createErrorHandlers, toZKsyncError } from '../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../core/types';
@@ -20,12 +21,10 @@ import {
   buildFinalizationInfo,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
-  ZERO_HASH,
-  createTimeoutError,
-  createStateError,
-  type InteropLog,
   type BundleReceiptInfo,
 } from '../../../../../core/resources/interop/finalization';
+import type { Log } from '../../../../../core/types/transactions';
+import { ZERO_HASH } from '../../../../../core/types/primitives';
 import { InteropRootStorageABI } from '../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../core/constants';
 import { sleep } from '../../../../../core/utils';
@@ -89,7 +88,7 @@ function decodeInteropBundleSent(log: { data: Hex; topics: Hex[] }): {
   };
 }
 
-function decodeL1MessageData(log: InteropLog): Hex {
+function decodeL1MessageData(log: Log): Hex {
   const [message] = decodeAbiParameters([{ type: 'bytes' }], log.data);
   return message;
 }
@@ -120,7 +119,7 @@ async function getDstLogs(
   client: ViemClient,
   topics: InteropTopics,
   args: { dstChainId: bigint; address: Address; topics: Hex[] },
-): Promise<InteropLog[]> {
+): Promise<Log[]> {
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
@@ -146,17 +145,17 @@ async function getDstLogs(
       const rawLogs =
         event && bundleHash
           ? await dstClient.getLogs({
-            address: args.address,
-            fromBlock: 0n,
-            toBlock: 'latest',
-            event,
-            args: { bundleHash },
-          })
+              address: args.address,
+              fromBlock: 0n,
+              toBlock: 'latest',
+              event,
+              args: { bundleHash },
+            })
           : await dstClient.getLogs({
-            address: args.address,
-            fromBlock: 0n,
-            toBlock: 'latest',
-          });
+              address: args.address,
+              fromBlock: 0n,
+              toBlock: 'latest',
+            });
 
       return rawLogs.map((log) => ({
         address: log.address,
@@ -247,11 +246,12 @@ async function waitForLogProof(
   // Wait for the block to be finalized first
   while (true) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for block to be finalized.',
-        { l2SrcTxHash, logIndex, blockNumber },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for block to be finalized.',
+        context: { l2SrcTxHash, logIndex, blockNumber },
+      });
     }
 
     const finalizedBlock = await client.l2.getBlock({ blockTag: 'finalized' });
@@ -275,11 +275,12 @@ async function waitUntilRootAvailable(
 ): Promise<void> {
   while (true) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for interop root to become available.',
-        { dstChainId, expectedRoot },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for interop root to become available.',
+        context: { dstChainId, expectedRoot },
+      });
     }
 
     let root: Hex | null = null;
@@ -300,10 +301,15 @@ async function waitUntilRootAvailable(
       if (root.toLowerCase() === expectedRoot.expectedRoot.toLowerCase()) {
         return;
       }
-      throw createStateError(OP_INTEROP.wait, 'Interop root mismatch on destination chain.', {
-        expected: expectedRoot.expectedRoot,
-        got: root,
-        dstChainId,
+      throw createError('STATE', {
+        resource: 'interop',
+        operation: OP_INTEROP.wait,
+        message: 'Interop root mismatch on destination chain.',
+        context: {
+          expected: expectedRoot.expectedRoot,
+          got: root,
+          dstChainId,
+        },
       });
     }
 
@@ -337,21 +343,20 @@ async function deriveInteropStatus(
 
     const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
     if (!receipt) {
-      throw createStateError(
-        OP_INTEROP.svc.status.sourceReceipt,
-        'Source transaction receipt not found.',
-        { l2SrcTxHash: baseIds.l2SrcTxHash },
-      );
+      throw createError('STATE', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.status.sourceReceipt,
+        message: 'Source transaction receipt not found.',
+        context: { l2SrcTxHash: baseIds.l2SrcTxHash },
+      });
     }
 
-    const { bundleHash, dstChainId } = parseBundleSentFromReceipt(
-      {
-        receipt: { logs: receipt.logs as InteropLog[] },
-        interopCenter,
-        interopBundleSentTopic: topics.interopBundleSent,
-        decodeInteropBundleSent,
-      },
-    );
+    const { bundleHash, dstChainId } = parseBundleSentFromReceipt({
+      receipt: { logs: receipt.logs as Log[] },
+      interopCenter,
+      interopBundleSentTopic: topics.interopBundleSent,
+      decodeInteropBundleSent,
+    });
 
     return { ...baseIds, bundleHash, dstChainId };
   })();
@@ -395,11 +400,12 @@ async function waitForInteropFinalization(
 
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {
-    throw createStateError(
-      OP_INTEROP.wait,
-      'Cannot wait for interop finalization: missing l2SrcTxHash.',
-      { input },
-    );
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.wait,
+      message: 'Cannot wait for interop finalization: missing l2SrcTxHash.',
+      context: { input },
+    });
   }
 
   const { interopCenter } = await wrap(
@@ -414,11 +420,12 @@ async function waitForInteropFinalization(
   let bundleInfo: BundleReceiptInfo | null = null;
   while (!bundleInfo) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for source receipt to be available.',
-        { l2SrcTxHash: ids.l2SrcTxHash },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for source receipt to be available.',
+        context: { l2SrcTxHash: ids.l2SrcTxHash },
+      });
     }
 
     const rawReceipt = await wrap(
@@ -435,16 +442,14 @@ async function waitForInteropFinalization(
       continue;
     }
 
-    bundleInfo = parseBundleReceiptInfo(
-      {
-        rawReceipt,
-        interopCenter,
-        interopBundleSentTopic: topics.interopBundleSent,
-        decodeInteropBundleSent,
-        decodeL1MessageData,
-        l2SrcTxHash: ids.l2SrcTxHash,
-      },
-    );
+    bundleInfo = parseBundleReceiptInfo({
+      rawReceipt,
+      interopCenter,
+      interopBundleSentTopic: topics.interopBundleSent,
+      decodeInteropBundleSent,
+      decodeL1MessageData,
+      l2SrcTxHash: ids.l2SrcTxHash,
+    });
   }
 
   const proof = await waitForLogProof(
@@ -463,7 +468,13 @@ async function waitForInteropFinalization(
     bundleInfo.l1MessageData,
   );
 
-  await waitUntilRootAvailable(client, bundleInfo.dstChainId, info.expectedRoot, pollMs, deadlineMs);
+  await waitUntilRootAvailable(
+    client,
+    bundleInfo.dstChainId,
+    info.expectedRoot,
+    pollMs,
+    deadlineMs,
+  );
 
   return info;
 }
@@ -478,28 +489,27 @@ async function executeInteropBundle(
   const dstStatus = await queryDstBundleLifecycle(client, topics, bundleHash, dstChainId);
 
   if (dstStatus.phase === 'EXECUTED') {
-    throw createStateError(OP_INTEROP.finalize, 'Interop bundle has already been executed.', {
-      bundleHash,
-      dstChainId,
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.finalize,
+      message: 'Interop bundle has already been executed.',
+      context: { bundleHash, dstChainId },
     });
   }
 
   if (dstStatus.phase === 'UNBUNDLED') {
-    throw createStateError(
-      OP_INTEROP.finalize,
-      'Interop bundle has been unbundled and cannot be executed as a whole.',
-      { bundleHash, dstChainId },
-    );
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.finalize,
+      message: 'Interop bundle has been unbundled and cannot be executed as a whole.',
+      context: { bundleHash, dstChainId },
+    });
   }
 
-  const wallet = await wrap(
-    OP_INTEROP.exec.sendStep,
-    () => client.walletFor(dstChainId),
-    {
-      ctx: { dstChainId },
-      message: 'Failed to resolve destination wallet.',
-    },
-  );
+  const wallet = await wrap(OP_INTEROP.exec.sendStep, () => client.walletFor(dstChainId), {
+    ctx: { dstChainId },
+    message: 'Failed to resolve destination wallet.',
+  });
 
   const dstClient = await wrap(
     OP_INTEROP.svc.status.requireDstProvider,
@@ -538,11 +548,12 @@ async function executeInteropBundle(
           })) as TransactionReceipt | null;
 
           if (!receipt || receipt.status !== 'success') {
-            throw createStateError(
-              OP_INTEROP.exec.waitStep,
-              'Interop bundle execution reverted on destination.',
-              { dstChainId, txHash: hash },
-            );
+            throw createError('STATE', {
+              resource: 'interop',
+              operation: OP_INTEROP.exec.waitStep,
+              message: 'Interop bundle execution reverted on destination.',
+              context: { dstChainId, txHash: hash },
+            });
           }
           return receipt;
         } catch (e) {
@@ -591,9 +602,7 @@ export interface InteropFinalizationServices {
   ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
 }
 
-export function createInteropFinalizationServices(
-  client: ViemClient,
-): InteropFinalizationServices {
+export function createInteropFinalizationServices(client: ViemClient): InteropFinalizationServices {
   return {
     async deriveStatus(input) {
       return await deriveInteropStatus(client, input);
@@ -634,4 +643,3 @@ export async function wait(
     },
   );
 }
-

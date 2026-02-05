@@ -11,7 +11,7 @@ import {
 
 import { IL1NullifierABI } from '../../../../../core/abi.ts';
 import { L2_ASSET_ROUTER_ADDRESS, L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
-import { findL1MessageSentLog } from '../../../../../core/resources/withdrawals/events';
+import { findL1MessageSentLog } from '../../../../../core/utils/events';
 import { messengerLogIndex } from '../../../../../core/resources/withdrawals/logs';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { classifyReadinessFromRevert } from '../../../errors/revert';

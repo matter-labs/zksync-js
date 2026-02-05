@@ -208,7 +208,11 @@ export function createViemClient(args: InitArgs): ViemClient {
         client: l2,
       }),
       interopCenter: getContract({ address: a.interopCenter, abi: InteropCenterABI, client: l2 }),
-      interopHandler: getContract({ address: a.interopHandler, abi: IInteropHandlerABI, client: l2 }),
+      interopHandler: getContract({
+        address: a.interopHandler,
+        abi: IInteropHandlerABI,
+        client: l2,
+      }),
       l2MessageVerification: getContract({
         address: a.l2MessageVerification,
         abi: L2MessageVerificationABI,
@@ -249,7 +253,9 @@ export function createViemClient(args: InitArgs): ViemClient {
 
   function registerChain(chainId: bigint, clientOrUrl: PublicClient | string) {
     const client =
-      typeof clientOrUrl === 'string' ? createPublicClient({ transport: http(clientOrUrl) }) : clientOrUrl;
+      typeof clientOrUrl === 'string'
+        ? createPublicClient({ transport: http(clientOrUrl) })
+        : clientOrUrl;
     chainMap.set(chainId, client);
   }
 

@@ -54,7 +54,7 @@ async function main() {
 
   const params = {
     sender: me,
-    dst: dstNet.chainId,
+    dstChainId: dstNet.chainId,
     actions: [
       {
         type: 'sendErc20' as const,

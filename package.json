@@ -1,6 +1,6 @@
 {
   "name": "@matterlabs/zksync-js",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "devDependencies": {
@@ -42,6 +42,9 @@
     "access": "public"
   },
   "exports": {
+    "./types/flows/interop": null,
+    "./core/types/flows/interop": null,
+    "./core/resources/interop/*": null,
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

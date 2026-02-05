@@ -22,12 +22,10 @@ import {
   buildFinalizationInfo,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
-  ZERO_HASH,
-  createTimeoutError,
-  createStateError,
-  type InteropLog,
   type BundleReceiptInfo,
 } from '../../../../../core/resources/interop/finalization';
+import { ZERO_HASH } from '../../../../../core/types/primitives';
+import { type Log } from '../../../../../core/types/transactions';
 import { sleep } from '../../../../../core/utils';
 
 // ABIs we need to decode events / send executeBundle()
@@ -89,7 +87,7 @@ function decodeInteropBundleSent(
   };
 }
 
-function decodeL1MessageData(log: InteropLog): Hex {
+function decodeL1MessageData(log: Log): Hex {
   const decoded = AbiCoder.defaultAbiCoder().decode(['bytes'], log.data);
   return decoded[0] as Hex;
 }
@@ -121,7 +119,7 @@ async function getSourceReceipt(client: EthersClient, txHash: Hex) {
 async function getDstLogs(
   client: EthersClient,
   args: { dstChainId: bigint; address: Address; topics: Hex[] },
-): Promise<InteropLog[]> {
+): Promise<Log[]> {
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
@@ -225,11 +223,12 @@ async function waitForLogProof(
   // Wait for the block to be finalized first
   while (true) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for block to be finalized.',
-        { l2SrcTxHash, logIndex, blockNumber },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for block to be finalized.',
+        context: { l2SrcTxHash, logIndex, blockNumber },
+      });
     }
 
     const finalizedBlock = await client.l2.getBlock('finalized');
@@ -253,11 +252,12 @@ async function waitUntilRootAvailable(
 ): Promise<void> {
   while (true) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for interop root to become available.',
-        { dstChainId, expectedRoot },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for interop root to become available.',
+        context: { dstChainId, expectedRoot },
+      });
     }
 
     let root: Hex | null = null;
@@ -278,10 +278,15 @@ async function waitUntilRootAvailable(
       if (root.toLowerCase() === expectedRoot.expectedRoot.toLowerCase()) {
         return;
       }
-      throw createStateError(OP_INTEROP.wait, 'Interop root mismatch on destination chain.', {
-        expected: expectedRoot.expectedRoot,
-        got: root,
-        dstChainId,
+      throw createError('STATE', {
+        resource: 'interop',
+        operation: OP_INTEROP.wait,
+        message: 'Interop root mismatch on destination chain.',
+        context: {
+          expected: expectedRoot.expectedRoot,
+          got: root,
+          dstChainId,
+        },
       });
     }
 
@@ -315,21 +320,20 @@ async function deriveInteropStatus(
 
     const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
     if (!receipt) {
-      throw createStateError(
-        OP_INTEROP.svc.status.sourceReceipt,
-        'Source transaction receipt not found.',
-        { l2SrcTxHash: baseIds.l2SrcTxHash },
-      );
+      throw createError('STATE', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.status.sourceReceipt,
+        message: 'Source transaction receipt not found.',
+        context: { l2SrcTxHash: baseIds.l2SrcTxHash },
+      });
     }
 
-    const { bundleHash, dstChainId } = parseBundleSentFromReceipt(
-      {
-        receipt: { logs: receipt.logs as InteropLog[] },
-        interopCenter,
-        interopBundleSentTopic: topics.interopBundleSent,
-        decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
-      },
-    );
+    const { bundleHash, dstChainId } = parseBundleSentFromReceipt({
+      receipt: { logs: receipt.logs as Log[] },
+      interopCenter,
+      interopBundleSentTopic: topics.interopBundleSent,
+      decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
+    });
 
     return { ...baseIds, bundleHash, dstChainId };
   })();
@@ -373,11 +377,12 @@ async function waitForInteropFinalization(
 
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {
-    throw createStateError(
-      OP_INTEROP.wait,
-      'Cannot wait for interop finalization: missing l2SrcTxHash.',
-      { input },
-    );
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.svc.status.sourceReceipt,
+      message: 'Cannot wait for interop finalization: missing l2SrcTxHash.',
+      context: { input },
+    });
   }
 
   const { interopCenter } = await wrap(
@@ -392,11 +397,12 @@ async function waitForInteropFinalization(
   let bundleInfo: BundleReceiptInfo | null = null;
   while (!bundleInfo) {
     if (Date.now() > deadlineMs) {
-      throw createTimeoutError(
-        OP_INTEROP.svc.wait.timeout,
-        'Timed out waiting for source receipt to be available.',
-        { l2SrcTxHash: ids.l2SrcTxHash },
-      );
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for source receipt to be available.',
+        context: { l2SrcTxHash: ids.l2SrcTxHash },
+      });
     }
 
     const rawReceipt = await wrap(
@@ -413,16 +419,14 @@ async function waitForInteropFinalization(
       continue;
     }
 
-    bundleInfo = parseBundleReceiptInfo(
-      {
-        rawReceipt,
-        interopCenter,
-        interopBundleSentTopic: topics.interopBundleSent,
-        decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
-        decodeL1MessageData,
-        l2SrcTxHash: ids.l2SrcTxHash,
-      },
-    );
+    bundleInfo = parseBundleReceiptInfo({
+      rawReceipt,
+      interopCenter,
+      interopBundleSentTopic: topics.interopBundleSent,
+      decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
+      decodeL1MessageData,
+      l2SrcTxHash: ids.l2SrcTxHash,
+    });
   }
 
   const proof = await waitForLogProof(
@@ -441,7 +445,13 @@ async function waitForInteropFinalization(
     bundleInfo.l1MessageData,
   );
 
-  await waitUntilRootAvailable(client, bundleInfo.dstChainId, info.expectedRoot, pollMs, deadlineMs);
+  await waitUntilRootAvailable(
+    client,
+    bundleInfo.dstChainId,
+    info.expectedRoot,
+    pollMs,
+    deadlineMs,
+  );
 
   return info;
 }
@@ -456,28 +466,30 @@ async function executeInteropBundle(
   const dstStatus = await queryDstBundleLifecycle(client, topics, bundleHash, dstChainId);
 
   if (dstStatus.phase === 'EXECUTED') {
-    throw createStateError(OP_INTEROP.finalize, 'Interop bundle has already been executed.', {
-      bundleHash,
-      dstChainId,
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.finalize,
+      message: 'Interop bundle has already been executed.',
+      context: {
+        bundleHash,
+        dstChainId,
+      },
     });
   }
 
   if (dstStatus.phase === 'UNBUNDLED') {
-    throw createStateError(
-      OP_INTEROP.finalize,
-      'Interop bundle has been unbundled and cannot be executed as a whole.',
-      { bundleHash, dstChainId },
-    );
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.finalize,
+      message: 'Interop bundle has been unbundled and cannot be executed as a whole.',
+      context: { bundleHash, dstChainId },
+    });
   }
 
-  const signer = await wrap(
-    OP_INTEROP.exec.sendStep,
-    () => client.signerFor(dstChainId),
-    {
-      ctx: { dstChainId },
-      message: 'Failed to resolve destination signer.',
-    },
-  );
+  const signer = await wrap(OP_INTEROP.exec.sendStep, () => client.signerFor(dstChainId), {
+    ctx: { dstChainId },
+    message: 'Failed to resolve destination signer.',
+  });
 
   const { interopHandler } = await wrap(
     OP_INTEROP.svc.status.ensureAddresses,

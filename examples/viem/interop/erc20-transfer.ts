@@ -1,10 +1,4 @@
-import {
-  createPublicClient,
-  createWalletClient,
-  formatUnits,
-  http,
-  parseUnits,
-} from 'viem';
+import { createPublicClient, createWalletClient, formatUnits, http, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { createViemClient, createViemSdk } from '../../../src/adapters/viem';
@@ -73,7 +67,7 @@ async function main() {
 
   const params = {
     sender: me,
-    dst: BigInt(dstChainId),
+    dstChainId: BigInt(dstChainId),
     actions: [
       {
         type: 'sendErc20' as const,

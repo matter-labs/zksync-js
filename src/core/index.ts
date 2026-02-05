@@ -23,7 +23,7 @@ export * from './utils/addr';
 // Core resources (routes, events, logs)
 export * from './resources/deposits/route';
 export * from './resources/withdrawals/route';
-export * from './resources/withdrawals/events';
+export * from './utils/events';
 export * from './resources/withdrawals/logs';
 export * from './resources/interop/attributes';
 

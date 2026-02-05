@@ -97,7 +97,13 @@ export function createInteropResource(
   // It does not execute any transactions.
   async function buildPlan(params: InteropParams): Promise<InteropPlan<TransactionRequest>> {
     // 1) Build adapter context (providers, signer, addresses, ABIs, topics, base tokens)
-    const ctx = await commonCtx(params, client, tokensResource, contractsResource, attributesResource);
+    const ctx = await commonCtx(
+      params,
+      client,
+      tokensResource,
+      contractsResource,
+      attributesResource,
+    );
 
     // // 2) Compute sender and select route
     // const sender = (p.sender ?? client.signer) as Address;
@@ -123,7 +129,7 @@ export function createInteropResource(
       () => ROUTES[route].preflight?.(params, ctx),
       {
         message: 'Interop preflight failed.',
-        ctx: { where: `routes.${route}.preflight`, dst: params.dst },
+        ctx: { where: `routes.${route}.preflight`, dstChainId: params.dstChainId },
       },
     );
 
@@ -133,7 +139,7 @@ export function createInteropResource(
       () => ROUTES[route].build(params, ctx),
       {
         message: 'Failed to build interop route plan.',
-        ctx: { where: `routes.${route}.build`, dst: params.dst },
+        ctx: { where: `routes.${route}.build`, dstChainId: params.dstChainId },
       },
     );
 
@@ -162,7 +168,7 @@ export function createInteropResource(
   const prepare = (params: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(params), {
       message: 'Internal error while preparing a deposit plan.',
-      ctx: { where: 'interop.prepare', dst: params.dst },
+      ctx: { where: 'interop.prepare', dstChainId: params.dstChainId },
     });
 
   const tryPrepare = (params: InteropParams) =>
@@ -177,7 +183,13 @@ export function createInteropResource(
         // Build plan (like before)
         const plan = await prepare(params);
         // Build the SAME interop context we used to build that plan
-        const ctx = await commonCtx(params, client, tokensResource, contractsResource, attributesResource);
+        const ctx = await commonCtx(
+          params,
+          client,
+          tokensResource,
+          contractsResource,
+          attributesResource,
+        );
         // source signer MUST be bound to ctx.srcChainId
         const signer = ctx.client.signerFor(ctx.chainId);
         const srcProvider = ctx.client.getProvider(ctx.chainId)!;
@@ -204,8 +216,7 @@ export function createInteropResource(
                 from,
               });
               step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-            } catch {
-            }
+            } catch {}
           }
 
           let hash: Hex | undefined;
@@ -245,12 +256,12 @@ export function createInteropResource(
           stepHashes,
           plan,
           l2SrcTxHash: last ?? ('0x' as Hex),
-          dstChainId: params.dst,
+          dstChainId: params.dstChainId,
         };
       },
       {
         message: 'Internal error while creating interop bundle.',
-        ctx: { where: 'interop.create', dst: params.dst },
+        ctx: { where: 'interop.create', dstChainId: params.dstChainId },
       },
     );
 
@@ -282,7 +293,9 @@ export function createInteropResource(
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,
   // returns finalization metadata for UI / explorers.
-  const finalize = (h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult> =>
+  const finalize = (
+    h: InteropWaitable | InteropFinalizationInfo,
+  ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {

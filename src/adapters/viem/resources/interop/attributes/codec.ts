@@ -27,7 +27,10 @@ export function createViemAttributesAbiCodec(): ViemAttributesAbiCodec {
       let signature: string | undefined;
 
       try {
-        const item = getAbiItem({ abi, name }) as { name?: string; inputs?: Array<{ type?: string }> };
+        const item = getAbiItem({ abi, name }) as {
+          name?: string;
+          inputs?: Array<{ type?: string }>;
+        };
         if (item?.name) {
           const inputs = Array.isArray(item.inputs) ? item.inputs : [];
           const types = inputs.map((input) => input.type ?? '').join(',');

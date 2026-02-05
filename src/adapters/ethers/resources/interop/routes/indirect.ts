@@ -10,10 +10,7 @@ import type {
 import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants';
 import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
-import {
-  buildIndirectBundle,
-  preflightIndirect,
-} from '../../../../../core/resources/interop/plan';
+import { buildIndirectBundle, preflightIndirect } from '../../../../../core/resources/interop/plan';
 import { formatInteropEvmAddress, formatInteropEvmChain } from '../address';
 
 const interopCodec = {
@@ -43,13 +40,21 @@ async function getInteropData(
   for (const action of params.actions) {
     if (action.type === 'sendErc20') {
       const assetId = await ctx.tokens.assetIdOfL2(action.token);
-      const transferData = encodeNativeTokenVaultTransferData(action.amount, action.to, FORMAL_ETH_ADDRESS);
+      const transferData = encodeNativeTokenVaultTransferData(
+        action.amount,
+        action.to,
+        FORMAL_ETH_ADDRESS,
+      );
       const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData);
       precomputed.push({ assetRouterPayload });
       callAttributes.push([ctx.attributes.call.indirectCall(0n)]);
     } else if (action.type === 'sendNative' && !baseMatches) {
       const assetId = await ctx.tokens.baseTokenAssetId();
-      const transferData = encodeNativeTokenVaultTransferData(action.amount, action.to, FORMAL_ETH_ADDRESS);
+      const transferData = encodeNativeTokenVaultTransferData(
+        action.amount,
+        action.to,
+        FORMAL_ETH_ADDRESS,
+      );
       const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData);
       precomputed.push({ assetRouterPayload });
       callAttributes.push([ctx.attributes.call.indirectCall(action.amount)]);
@@ -58,7 +63,11 @@ async function getInteropData(
       callAttributes.push([ctx.attributes.call.interopCallValue(action.amount)]);
     } else if (action.type === 'call') {
       precomputed.push({});
-      callAttributes.push(action.value && action.value > 0n ? [ctx.attributes.call.interopCallValue(action.value)] : []);
+      callAttributes.push(
+        action.value && action.value > 0n
+          ? [ctx.attributes.call.interopCallValue(action.value)]
+          : [],
+      );
     } else {
       precomputed.push({});
       callAttributes.push([]);
@@ -128,7 +137,10 @@ export function routeIndirect(): InteropRouteStrategy {
       // Check allowance and only approve what's needed
       for (const approval of built.approvals) {
         const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
-        const currentAllowance = (await erc20.allowance(ctx.sender, ctx.l2NativeTokenVault)) as bigint;
+        const currentAllowance = (await erc20.allowance(
+          ctx.sender,
+          ctx.l2NativeTokenVault,
+        )) as bigint;
 
         if (currentAllowance < approval.amount) {
           const approveAmount = approval.amount - currentAllowance;

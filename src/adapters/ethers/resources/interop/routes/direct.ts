@@ -4,10 +4,7 @@ import type { BuildCtx } from '../context';
 import type { TransactionRequest } from 'ethers';
 import type { InteropRouteStrategy } from './types';
 import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
-import {
-  buildDirectBundle,
-  preflightDirect,
-} from '../../../../../core/resources/interop/plan';
+import { buildDirectBundle, preflightDirect } from '../../../../../core/resources/interop/plan';
 import { formatInteropEvmAddress, formatInteropEvmChain } from '../address';
 
 const interopCodec = {
@@ -17,7 +14,7 @@ const interopCodec = {
 
 function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {
   const bundleAttributes: Hex[] = [];
-  if (params.execution?.only) { 
+  if (params.execution?.only) {
     bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
   }
   if (params.unbundling?.by) {
@@ -32,7 +29,7 @@ function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttr
       return [ctx.attributes.call.interopCallValue(action.value)];
     }
     return [];
-});
+  });
 
   return { bundleAttributes, callAttributes };
 }

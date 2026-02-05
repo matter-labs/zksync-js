@@ -46,7 +46,7 @@ export async function commonCtx(
 ): Promise<BuildCtx & { route: InteropRoute }> {
   const sender = client.account.address;
   const chainId = BigInt(await client.l2.getChainId());
-  const dstChainId = params.dst;
+  const dstChainId = params.dstChainId;
 
   const {
     bridgehub,

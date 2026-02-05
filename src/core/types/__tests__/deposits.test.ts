@@ -11,6 +11,7 @@ import type {
   DepositStatus,
 } from '../flows/deposits';
 import type { ApprovalNeed, Plan } from '../flows/base';
+import { assertNever } from '../../utils/index';
 
 // ------------------------ Type-only helpers ------------------------
 
@@ -19,12 +20,6 @@ function expectType<T>(_value: T): void {
   // no-op at runtime; compile-time only
   void _value;
 }
-
-// Exhaustiveness helper for discriminated unions
-function assertNever(x: never): never {
-  throw new Error('Unexpected object: ' + String(x));
-}
-
 // ------------------------ Tests ------------------------
 
 describe('types/flows/deposits — basic shapes', () => {

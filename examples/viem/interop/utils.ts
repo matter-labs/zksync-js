@@ -24,10 +24,7 @@ export async function getGreetingTokenAddress(args: {
   requireAccount(args.wallet);
 
   const greeting = args.greeting ?? 'hello from destination';
-  const constructorArgs = encodeAbiParameters(
-    [{ type: 'string', name: 'greeting' }],
-    [greeting],
-  );
+  const constructorArgs = encodeAbiParameters([{ type: 'string', name: 'greeting' }], [greeting]);
   const deployData = (GREETING_BYTECODE + constructorArgs.slice(2)) as Hex;
 
   const hash = await args.wallet.sendTransaction({

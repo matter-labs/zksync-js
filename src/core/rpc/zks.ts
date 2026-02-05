@@ -7,6 +7,7 @@ import type {
   GenesisInput,
   GenesisContractDeployment,
   GenesisStorageEntry,
+  BlockMetadata,
 } from './types';
 import type { Hex, Address } from '../types/primitives';
 import { createError, shapeCause } from '../errors/factory';
@@ -18,11 +19,17 @@ export interface ZksRpc {
   // Fetches the Bridgehub contract address.
   getBridgehubAddress(): Promise<Address>;
 
+  // Fetches the Bytecode Supplier contract address.
+  getBytecodeSupplierAddress(): Promise<Address>;
+
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
   getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
 
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
+
+  // Fetches block metadata for the given block number.
+  getBlockMetadataByNumber(blockNumber: number): Promise<BlockMetadata | null>;
 
   // Fetches the genesis configuration returned by `zks_getGenesis`.
   getGenesis(): Promise<GenesisInput>;
@@ -32,6 +39,8 @@ const METHODS = {
   getBridgehub: 'zks_getBridgehubContract',
   getL2ToL1LogProof: 'zks_getL2ToL1LogProof',
   getReceipt: 'eth_getTransactionReceipt',
+  getBytecodeSupplier: 'zks_getBytecodeSupplierContract',
+  getBlockMetadataByNumber: 'zks_getBlockMetadataByNumber',
   getGenesis: 'zks_getGenesis',
 } as const;
 
@@ -73,27 +82,11 @@ export function normalizeProof(p: unknown): ProofNormalized {
                   context: { valueType: typeof x },
                 });
               })();
-
-    const rootRaw = raw?.root ?? raw?.root_hash;
-    const root =
-      rootRaw == null
-        ? undefined
-        : typeof rootRaw === 'string' && rootRaw.startsWith('0x')
-          ? (rootRaw as Hex)
-          : (() => {
-              throw createError('RPC', {
-                resource: 'zksrpc' as Resource,
-                operation: 'zksrpc.normalizeProof',
-                message: 'Malformed proof: invalid root field.',
-                context: { valueType: typeof rootRaw },
-              });
-            })();
-
     return {
       id: toBig(idRaw),
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
-      ...(root ? { root } : {}),
+      root: raw.root as Hex,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;
@@ -117,7 +110,16 @@ function ensureHex(value: unknown, field: string, context: Record<string, unknow
   });
 }
 
-function ensureNumber(value: unknown, field: string): number {
+// Core RPC stays adapter-agnostic; these helpers normalize RPC scalars without viem/ethers deps.
+// We keep small, local parsers here so `createZksRpc` can expose a stable typed surface.
+function ensureNumber(
+  value: unknown,
+  field: string,
+  opts?: { operation: string; messagePrefix: string },
+): number {
+  const operation = opts?.operation ?? 'zksrpc.normalizeGenesis';
+  const messagePrefix = opts?.messagePrefix ?? 'Malformed genesis response';
+
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'string' && value.trim() !== '') {
@@ -126,8 +128,46 @@ function ensureNumber(value: unknown, field: string): number {
   }
   throw createError('RPC', {
     resource: 'zksrpc' as Resource,
-    operation: 'zksrpc.normalizeGenesis',
-    message: 'Malformed genesis response: expected numeric value.',
+    operation,
+    message: `${messagePrefix}: expected numeric value.`,
+    context: { field, valueType: typeof value },
+  });
+}
+
+// BigInt parsing mirrors JSON-RPC quantities (hex strings), but stays dependency-free in core/.
+// Adapter helpers like viem/ethers are not available here by design.
+function ensureBigInt(
+  value: unknown,
+  field: string,
+  opts?: { operation: string; messagePrefix: string },
+): bigint {
+  const operation = opts?.operation ?? 'zksrpc.normalizeBlockMetadata';
+  const messagePrefix = opts?.messagePrefix ?? 'Malformed block metadata response';
+
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (!Number.isInteger(value)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation,
+        message: `${messagePrefix}: expected integer value.`,
+        context: { field, valueType: typeof value },
+      });
+    }
+    return BigInt(value);
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      return BigInt(value);
+    } catch {
+      // fall through to error
+    }
+  }
+
+  throw createError('RPC', {
+    resource: 'zksrpc' as Resource,
+    operation,
+    message: `${messagePrefix}: expected bigint-compatible value.`,
     context: { field, valueType: typeof value },
   });
 }
@@ -226,6 +266,61 @@ export function normalizeGenesis(raw: unknown): GenesisInput {
   }
 }
 
+// Normalizes block metadata response into camel-cased fields.
+export function normalizeBlockMetadata(raw: unknown): BlockMetadata {
+  try {
+    if (!raw || typeof raw !== 'object') {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: 'zksrpc.normalizeBlockMetadata',
+        message: 'Malformed block metadata response: expected object.',
+        context: { receivedType: typeof raw },
+      });
+    }
+
+    const record = raw as Record<string, unknown>;
+    const pubdataPricePerByte = ensureBigInt(
+      record['pubdata_price_per_byte'] ?? record['pubdataPricePerByte'],
+      'pubdata_price_per_byte',
+      {
+        operation: 'zksrpc.normalizeBlockMetadata',
+        messagePrefix: 'Malformed block metadata response',
+      },
+    );
+    const nativePrice = ensureBigInt(
+      record['native_price'] ?? record['nativePrice'],
+      'native_price',
+      {
+        operation: 'zksrpc.normalizeBlockMetadata',
+        messagePrefix: 'Malformed block metadata response',
+      },
+    );
+    const executionVersion = ensureNumber(
+      record['execution_version'] ?? record['executionVersion'],
+      'execution_version',
+      {
+        operation: 'zksrpc.normalizeBlockMetadata',
+        messagePrefix: 'Malformed block metadata response',
+      },
+    );
+
+    return {
+      pubdataPricePerByte,
+      nativePrice,
+      executionVersion,
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: 'zksrpc.normalizeBlockMetadata',
+      message: 'Failed to normalize block metadata response.',
+      context: { receivedType: typeof raw },
+      cause: shapeCause(e),
+    });
+  }
+}
+
 // Constructs a ZksRpc instance using the given transport function.
 export function createZksRpc(transport: RpcTransport): ZksRpc {
   return {
@@ -243,6 +338,27 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
               resource: 'zksrpc' as Resource,
               operation: 'zksrpc.getBridgehubAddress',
               message: 'Unexpected Bridgehub address response.',
+              context: { valueType: typeof addrRaw },
+            });
+          }
+          return addrRaw as Address;
+        },
+      );
+    },
+
+    // Fetches the Bytecode Supplier contract address.
+    async getBytecodeSupplierAddress() {
+      return withRpcOp(
+        'zksrpc.getBytecodeSupplierAddress',
+        'Failed to fetch Bytecode Supplier address.',
+        {},
+        async () => {
+          const addrRaw = (await transport(METHODS.getBytecodeSupplier, [])) as unknown;
+          if (typeof addrRaw !== 'string' || !addrRaw.startsWith('0x')) {
+            throw createError('RPC', {
+              resource: 'zksrpc' as Resource,
+              operation: 'zksrpc.getBytecodeSupplierAddress',
+              message: 'Unexpected Bytecode Supplier address response.',
               context: { valueType: typeof addrRaw },
             });
           }
@@ -288,6 +404,20 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
             : [];
           rcptObj['l2ToL1Logs'] = logs;
           return rcptObj as ReceiptWithL2ToL1;
+        },
+      );
+    },
+
+    // Fetches block metadata for the given block number.
+    async getBlockMetadataByNumber(blockNumber) {
+      return withRpcOp(
+        'zksrpc.getBlockMetadataByNumber',
+        'Failed to fetch block metadata.',
+        { blockNumber },
+        async () => {
+          const raw: unknown = await transport(METHODS.getBlockMetadataByNumber, [blockNumber]);
+          if (raw == null) return null;
+          return normalizeBlockMetadata(raw);
         },
       );
     },

@@ -49,7 +49,9 @@ export interface InteropResource {
 
   tryPrepare(
     params: InteropParams,
-  ): Promise<{ ok: true; value: InteropPlan<ViemPlanWriteRequest> } | { ok: false; error: unknown }>;
+  ): Promise<
+    { ok: true; value: InteropPlan<ViemPlanWriteRequest> } | { ok: false; error: unknown }
+  >;
 
   create(params: InteropParams): Promise<InteropHandle<ViemPlanWriteRequest>>;
 
@@ -96,7 +98,7 @@ export function createInteropResource(
       () => ROUTES[route].preflight?.(params, ctx),
       {
         message: 'Interop preflight failed.',
-        ctx: { where: `routes.${route}.preflight`, dst: params.dst },
+        ctx: { where: `routes.${route}.preflight`, dstChainId: params.dstChainId },
       },
     );
 
@@ -105,7 +107,7 @@ export function createInteropResource(
       () => ROUTES[route].build(params, ctx),
       {
         message: 'Failed to build interop route plan.',
-        ctx: { where: `routes.${route}.build`, dst: params.dst },
+        ctx: { where: `routes.${route}.build`, dstChainId: params.dstChainId },
       },
     );
 
@@ -131,7 +133,7 @@ export function createInteropResource(
   const prepare = (params: InteropParams): Promise<InteropPlan<ViemPlanWriteRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(params), {
       message: 'Internal error while preparing an interop plan.',
-      ctx: { where: 'interop.prepare', dst: params.dst },
+      ctx: { where: 'interop.prepare', dstChainId: params.dstChainId },
     });
 
   const tryPrepare = (params: InteropParams) =>
@@ -196,12 +198,12 @@ export function createInteropResource(
           stepHashes,
           plan,
           l2SrcTxHash: last ?? ('0x' as Hex),
-          dstChainId: params.dst,
+          dstChainId: params.dstChainId,
         };
       },
       {
         message: 'Internal error while creating interop bundle.',
-        ctx: { where: 'interop.create', dst: params.dst },
+        ctx: { where: 'interop.create', dstChainId: params.dstChainId },
       },
     );
 
@@ -228,7 +230,9 @@ export function createInteropResource(
     opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
-  const finalize = (h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult> =>
+  const finalize = (
+    h: InteropWaitable | InteropFinalizationInfo,
+  ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {

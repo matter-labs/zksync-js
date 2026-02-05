@@ -9,8 +9,7 @@ import { buildDirectRequestStruct as buildDirectRequestStructCore } from '../../
 
 const coder = AbiCoder.defaultAbiCoder();
 const bridgeCodec = createBridgeCodec({
-  encode: (types: string[], values: unknown[]) =>
-    coder.encode(types, values) as Hex,
+  encode: (types: string[], values: unknown[]) => coder.encode(types, values) as Hex,
 });
 
 // Encodes the data for a transfer of a token through the Native Token Vault

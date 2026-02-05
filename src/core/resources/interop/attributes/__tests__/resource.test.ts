@@ -19,12 +19,11 @@ describe('interop/attributes/resource', () => {
       }),
     };
 
-    it('creates resource with call, bundle, and decode methods', () => {
+    it('creates resource with call and bundle methods', () => {
       const resource = createAttributesResource(mockCodec);
 
       expect(resource.call).toBeDefined();
       expect(resource.bundle).toBeDefined();
-      expect(resource.decode).toBeDefined();
     });
 
     it('call methods are functional', () => {
@@ -39,21 +38,6 @@ describe('interop/attributes/resource', () => {
 
       expect(resource.bundle.executionAddress(ADDR_A)).toBe('0xenc:executionAddress');
       expect(resource.bundle.unbundlerAddress(ADDR_A)).toBe('0xenc:unbundlerAddress');
-    });
-
-    it('decode methods are functional', () => {
-      const resource = createAttributesResource(mockCodec);
-
-      const callResult = resource.decode.call(['0x11112222' as Hex]);
-      expect(callResult).toHaveLength(1);
-      expect(callResult[0].name).toBe('decoded');
-
-      const bundleResult = resource.decode.bundle(['0x33334444' as Hex]);
-      expect(bundleResult).toHaveLength(1);
-
-      const summary = resource.decode.summarize(['0xaaaa' as Hex], ['0xbbbb' as Hex]);
-      expect(summary.call).toHaveLength(1);
-      expect(summary.bundle).toHaveLength(1);
     });
 
     it('uses the same codec instance for all sub-resources', () => {
@@ -85,12 +69,6 @@ describe('interop/attributes/resource', () => {
         'executionAddress',
         'unbundlerAddress',
       ]);
-
-      // Use all decode methods
-      resource.decode.call(['0x1111' as Hex]);
-      resource.decode.bundle(['0x2222' as Hex]);
-
-      expect(decodeCalls).toEqual(['0x1111', '0x2222']);
     });
   });
 });

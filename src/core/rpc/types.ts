@@ -28,7 +28,7 @@ export type ProofNormalized = {
   id: bigint;
   batchNumber: bigint;
   proof: Hex[];
-  root?: Hex;
+  root: Hex;
 };
 
 export type GenesisContractDeployment = {
@@ -46,6 +46,12 @@ export type GenesisInput = {
   additionalStorage: GenesisStorageEntry[];
   executionVersion: number;
   genesisRoot: Hex;
+};
+
+export type BlockMetadata = {
+  pubdataPricePerByte: bigint;
+  nativePrice: bigint;
+  executionVersion: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

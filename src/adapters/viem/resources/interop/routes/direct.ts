@@ -4,10 +4,7 @@ import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy } from './types';
 import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import { InteropCenterABI } from '../../../../../core/abi';
-import {
-  buildDirectBundle,
-  preflightDirect,
-} from '../../../../../core/resources/interop/plan';
+import { buildDirectBundle, preflightDirect } from '../../../../../core/resources/interop/plan';
 import { formatInteropEvmAddress, formatInteropEvmChain } from '../address';
 
 const interopCodec = {
@@ -22,7 +19,7 @@ function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttr
   }
   if (params.unbundling?.by) {
     bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
-  } 
+  }
 
   const callAttributes = params.actions.map((action) => {
     if (action.type === 'sendNative') {

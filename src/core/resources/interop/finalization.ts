@@ -6,24 +6,12 @@ import type {
   InteropMessageProof,
   InteropWaitable,
 } from '../../types/flows/interop';
+import type { Log, TxReceipt } from '../../types/transactions';
 import type { ProofNormalized, ReceiptWithL2ToL1 } from '../../rpc/types';
-import {
-  BUNDLE_IDENTIFIER,
-  L1_MESSENGER_ADDRESS,
-  L2_INTEROP_CENTER_ADDRESS,
-  TOPIC_L1_MESSAGE_SENT_LEG,
-} from '../../constants';
+import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../constants';
 import { OP_INTEROP } from '../../types/errors';
 import { createError } from '../../errors/factory';
-
-export type InteropLog = {
-  address: Address;
-  topics: Hex[];
-  data: Hex;
-  transactionHash: Hex;
-};
-
-export type InteropReceipt = { logs: InteropLog[] };
+import { isL1MessageSentLog } from '../../utils/events';
 
 export interface BundleReceiptInfo {
   bundleHash: Hex;
@@ -37,7 +25,6 @@ export interface BundleReceiptInfo {
 
 export const DEFAULT_POLL_MS = 1_000;
 export const DEFAULT_TIMEOUT_MS = 300_000;
-export const ZERO_HASH: Hex = `0x${'0'.repeat(64)}`;
 
 interface ResolvedInteropIds {
   l2SrcTxHash?: Hex;
@@ -59,15 +46,8 @@ export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropI
   };
 }
 
-export function isL1MessageSentLog(log: InteropLog): boolean {
-  return (
-    log.address.toLowerCase() === L1_MESSENGER_ADDRESS.toLowerCase() &&
-    log.topics[0].toLowerCase() === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase()
-  );
-}
-
 export interface ParseBundleSentInput {
-  receipt: InteropReceipt;
+  receipt: TxReceipt;
   interopCenter: Address;
   interopBundleSentTopic: Hex;
   decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
@@ -77,9 +57,10 @@ export interface ParseBundleSentInput {
   };
 }
 
-export function parseBundleSentFromReceipt(
-  input: ParseBundleSentInput,
-): { bundleHash: Hex; dstChainId: bigint } {
+export function parseBundleSentFromReceipt(input: ParseBundleSentInput): {
+  bundleHash: Hex;
+  dstChainId: bigint;
+} {
   const { receipt, interopCenter, interopBundleSentTopic, decodeInteropBundleSent } = input;
 
   const bundleSentLog = receipt.logs.find(
@@ -114,13 +95,11 @@ export interface ParseBundleReceiptParams {
     sourceChainId: bigint;
     destinationChainId: bigint;
   };
-  decodeL1MessageData: (log: InteropLog) => Hex;
-  l2SrcTxHash: Hex,
+  decodeL1MessageData: (log: Log) => Hex;
+  l2SrcTxHash: Hex;
 }
 
-export function parseBundleReceiptInfo(
-  params: ParseBundleReceiptParams,
-): BundleReceiptInfo {
+export function parseBundleReceiptInfo(params: ParseBundleReceiptParams): BundleReceiptInfo {
   const {
     rawReceipt,
     interopCenter,
@@ -153,7 +132,8 @@ export function parseBundleReceiptInfo(
     if (
       log.address.toLowerCase() !== interopCenter.toLowerCase() ||
       log.topics[0].toLowerCase() !== interopBundleSentTopic.toLowerCase()
-    ) continue;
+    )
+      continue;
 
     const decoded = decodeInteropBundleSent({
       data: log.data,
@@ -223,7 +203,7 @@ export function buildFinalizationInfo(
   const expectedRoot: InteropExpectedRoot = {
     rootChainId: bundleInfo.sourceChainId,
     batchNumber: proof.batchNumber,
-    expectedRoot: proof.root!,
+    expectedRoot: proof.root,
   };
 
   const messageProof: InteropMessageProof = {
@@ -246,31 +226,4 @@ export function buildFinalizationInfo(
     proof: messageProof,
     encodedData: getBundleEncodedData(messageData),
   };
-}
-
-// Error helpers
-export function createTimeoutError(
-  operation: string,
-  message: string,
-  context: Record<string, unknown>,
-): Error {
-  return createError('TIMEOUT', {
-    resource: 'interop',
-    operation,
-    message,
-    context,
-  });
-}
-
-export function createStateError(
-  operation: string,
-  message: string,
-  context: Record<string, unknown>,
-): Error {
-  return createError('STATE', {
-    resource: 'interop',
-    operation,
-    message,
-    context,
-  });
 }

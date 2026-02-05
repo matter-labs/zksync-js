@@ -299,26 +299,12 @@ export const OP_INTEROP = {
     direct: {
       preflight: 'interop.routes.direct:preflight',
       build: 'interop.routes.direct:build',
-      // encodeSendCall: 'interop.routes.direct:encodeSendCall',
-      // encodeSendBundle: 'interop.routes.direct:encodeSendBundle',
     },
     indirect: {
       preflight: 'interop.routes.indirect:preflight',
       build: 'interop.routes.indirect:build',
-      // approvals: 'interop.routes.indirect:approvals',
-      // encodeApprove: 'interop.routes.indirect:encodeApprove',
-      // encodeSendBundle: 'interop.routes.indirect:encodeSendBundle',
     },
   },
-
-  // // attributes helpers (if you surface any encoding issues separately)
-  // attrs: {
-  //   interopCallValue: 'interop.attrs:interopCallValue',
-  //   indirectCall: 'interop.attrs:indirectCall',
-  //   executionAddress: 'interop.attrs:executionAddress',
-  //   unbundlerAddress: 'interop.attrs:unbundlerAddress',
-  // },
-
   // execution path (nonce, gas, send, wait) – mirrors deposits’ style
   exec: {
     sendStep: 'interop.exec:sendStep',
@@ -330,7 +316,6 @@ export const OP_INTEROP = {
     status: {
       sourceReceipt: 'interop.svc.status:sourceReceipt',
       ensureAddresses: 'interop.svc.status:ensureAddresses',
-      // buildTopics: 'interop.svc.status:buildTopics',
       parseSentLog: 'interop.svc.status:parseSentLog',
       requireDstProvider: 'interop.svc.status:requireDstProvider',
       dstLogs: 'interop.svc.status:dstLogs',

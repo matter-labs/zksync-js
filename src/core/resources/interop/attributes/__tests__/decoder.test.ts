@@ -36,7 +36,11 @@ describe('interop/attributes/decoder', () => {
 
       it('decodes multiple call attributes', () => {
         const decoder = createAttributesDecoder(createMockCodec());
-        const result = decoder.call(['0x11111111' as Hex, '0x22222222' as Hex, '0x33333333' as Hex]);
+        const result = decoder.call([
+          '0x11111111' as Hex,
+          '0x22222222' as Hex,
+          '0x33333333' as Hex,
+        ]);
 
         expect(result).toHaveLength(3);
         expect(result[0].name).toBe('decoded_1111');

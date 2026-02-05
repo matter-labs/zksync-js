@@ -101,15 +101,3 @@ export interface FinalizationEstimate {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
 }
-
-// Parsed L1 receipt and logs
-export type ParsedLog = {
-  address: string;
-  topics: Hex[];
-  data: Hex;
-};
-
-// Parsed L1 receipt
-export type ParsedReceipt = {
-  logs: ParsedLog[];
-};

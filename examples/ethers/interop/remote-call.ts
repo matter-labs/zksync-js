@@ -1,8 +1,5 @@
 import { AbiCoder, Contract, JsonRpcProvider, Wallet } from 'ethers';
-import {
-  createEthersClient,
-  createEthersSdk,
-} from '../../../src/adapters/ethers';
+import { createEthersClient, createEthersSdk } from '../../../src/adapters/ethers';
 import { type Address } from '../../../src/core';
 import { getGreetingTokenAddress } from './utils';
 
@@ -11,9 +8,7 @@ const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-const GREETING_ABI = [
-  'function message() view returns (string)',
-] as const;
+const GREETING_ABI = ['function message() view returns (string)'] as const;
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in env');
@@ -62,11 +57,11 @@ async function main() {
   const greetingBefore = (await greeter.message()) as string;
   console.log('Greeting before:', greetingBefore);
   const newGreeting = 'hello from example!';
-  const data = AbiCoder.defaultAbiCoder().encode(["string"], [newGreeting]) as `0x${string}`;
+  const data = AbiCoder.defaultAbiCoder().encode(['string'], [newGreeting]) as `0x${string}`;
 
   const params = {
     sender: me,
-    dst: dstNet.chainId,
+    dstChainId: dstNet.chainId,
     actions: [
       {
         type: 'call' as const,
@@ -101,7 +96,7 @@ async function main() {
   console.log('CREATE:', created);
 
   // --------------------------
-  // 4. STATUS 
+  // 4. STATUS
   // --------------------------
   // Non-blocking lifecycle inspection.
   const st0 = await sdk.interop.status(created);
