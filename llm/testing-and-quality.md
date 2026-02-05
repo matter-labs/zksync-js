@@ -8,18 +8,19 @@
 
 All commands are in `package.json`. Run with `bun run <script>`:
 
-| Script         | Purpose                        |
-| -------------- | ------------------------------ |
-| `format`       | Auto-fix formatting (Prettier) |
-| `format:check` | Check formatting               |
-| `lint`         | Check lint (ESLint)            |
-| `lint:fix`     | Auto-fix lint issues           |
-| `test`         | Run unit tests                 |
-| `test:cov`     | Run tests with coverage        |
-| `test:core`    | Run core tests only            |
-| `typecheck`    | Type check without emitting    |
-| `build`        | Clean + build types + build JS |
-| `build:types`  | Build TypeScript declarations  |
+| Script         | Purpose                          |
+| -------------- | -------------------------------- |
+| `format`       | Auto-fix formatting (Prettier)   |
+| `format:check` | Check formatting                 |
+| `lint`         | Check lint (ESLint)              |
+| `lint:fix`     | Auto-fix lint issues             |
+| `test`         | Run unit and docs snippets tests |
+| `test:cov`     | Run tests with coverage          |
+| `test:core`    | Run core tests only              |
+| `test:docs`    | Run docs snippets tests only     |
+| `typecheck`    | Type check without emitting      |
+| `build`        | Clean + build types + build JS   |
+| `build:types`  | Build TypeScript declarations    |
 
 > [!NOTE]
 > E2E tests (`test:e2e:ethers`, `test:e2e:viem`) require a local zksyncos + L1 environment.
