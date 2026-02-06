@@ -74,38 +74,23 @@ async function main() {
     // unbundling: { by: someUnbundlerAddress },
   };
 
-  // --------
-  // 1. QUOTE
-  // --------
-  // Build and return the summary.
+  // QUOTE: Build and return the summary.
   const quote = await sdk.interop.quote(params);
   console.log('QUOTE:', quote);
 
-  // ---------
-  // 2. PREPARE
-  // ---------
-  // Build plan without executing.
+  // PREPARE: Build plan without executing.
   const prepared = await sdk.interop.prepare(params);
   console.log('PREPARE:', prepared);
 
-  // --------------
-  // 3. CREATE
-  // --------------
-  // Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0).
+  // CREATE: Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0).
   const created = await sdk.interop.create(params);
   console.log('CREATE:', created);
 
-  // --------------------------
-  // 4. STATUS
-  // --------------------------
-  // Non-blocking lifecycle inspection.
+  // STATUS: Non-blocking lifecycle inspection.
   const st0 = await sdk.interop.status(created);
   console.log('STATUS after create:', st0);
 
-  // -------------------------------------------------
-  // 5. WAIT FOR SOURCE FINALIZATION + DEST ROOT AVAILABILITY
-  // -------------------------------------------------
-  // This waits until the L2->L1 proof is available on source and the interop root
+  // WAIT: waits until the L2->L1 proof is available on source and the interop root
   // becomes available on the destination chain. It returns the proof payload needed
   // to execute the bundle later.
   const finalizationInfo = await sdk.interop.wait(created, {
@@ -113,17 +98,13 @@ async function main() {
     timeoutMs: 30 * 60 * 1_000,
   });
   console.log('Bundle is finalized on source; root available on destination.');
-  // -----------------------------------------------------
-  // 6. FINALIZE (EXECUTE ON DESTINATION AND BLOCK UNTIL DONE)
-  // -----------------------------------------------------
+  // FINALIZE: Execute on destination and block until done.
   // finalize() calls executeBundle(...) on the destination chain,
   // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
   const finalizationResult = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
 
-  // --------------------------------
-  // 7. STATUS (terminal: EXECUTED)
-  // --------------------------------
+  // STATUS: Terminal status (EXECUTED).
   const st1 = await sdk.interop.status(created);
   console.log('STATUS after finalize:', st1);
 

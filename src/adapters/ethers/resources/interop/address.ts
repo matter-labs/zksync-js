@@ -52,3 +52,11 @@ export function formatInteropEvmAddress(address: Address): Hex {
   const payload = concat([PREFIX_EVM_ADDRESS, addrBytes]);
   return hexlify(payload) as Hex;
 }
+
+/**
+ * Codec for interop address encoding used by route builders.
+ */
+export const interopCodec = {
+  formatChain: formatInteropEvmChain,
+  formatAddress: formatInteropEvmAddress,
+};

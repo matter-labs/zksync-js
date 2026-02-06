@@ -12,7 +12,6 @@ export { createFinalizationServices } from './resources/withdrawals';
 export type { WithdrawalsResource, FinalizationServices } from './resources/withdrawals';
 export { createTokensResource } from './resources/tokens';
 export { createInteropResource } from './resources/interop';
-export { createEthersAttributesResource } from './resources/interop/attributes';
 export type { InteropResource } from './resources/interop';
 
 // Errors adapted for ethers

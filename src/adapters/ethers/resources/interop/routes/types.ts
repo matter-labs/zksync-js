@@ -3,14 +3,7 @@ import type { TransactionRequest } from 'ethers';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
-
-// Quote add-ons a route can compute
-export interface QuoteExtras {
-  // Sum of msg.value across actions (sendNative + call.value).
-  totalActionValue: bigint;
-  // Sum of ERC-20 amounts across actions (for approvals/bridging).
-  bridgedTokenTotal: bigint;
-}
+import type { QuoteExtras } from '../../../../../core/types/flows/interop';
 
 export interface InteropRouteStrategy {
   // Optional preflight checks. Throw with a descriptive message on invalid inputs.

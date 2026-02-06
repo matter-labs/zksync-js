@@ -1,7 +1,7 @@
 // src/adapters/ethers/resources/interop/index.ts
 import type { EthersClient } from '../../client';
 import type { Hex } from '../../../../core/types/primitives';
-import { createEthersAttributesResource } from './attributes';
+import { createEthersAttributesResource } from './attributes/resource';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type {
   InteropParams,
@@ -25,7 +25,7 @@ import type { InteropRouteStrategy } from './routes/types';
 import type { TransactionRequest } from 'ethers';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
 import { createErrorHandlers } from '../../errors/error-ops';
-import { commonCtx } from './context';
+import { commonCtx, type BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
 import {
@@ -36,9 +36,7 @@ import {
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
-// --------------------
 // Interop Route map
-// --------------------
 export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
   direct: routeDirect(),
   indirect: routeIndirect(),
@@ -93,10 +91,11 @@ export function createInteropResource(
   const contractsResource = contracts ?? createContractsResource(client);
   const attributesResource = attributes ?? createEthersAttributesResource();
 
-  // Internal helper: buildPlan constructs an InteropPlan for the given params.
-  // It does not execute any transactions.
-  async function buildPlan(params: InteropParams): Promise<InteropPlan<TransactionRequest>> {
-    // 1) Build adapter context (providers, signer, addresses, ABIs, topics, base tokens)
+  // Internal helper: builds an InteropPlan along with the context used.
+  // Returns both so create() can reuse the context without rebuilding.
+  async function buildPlanWithCtx(
+    params: InteropParams,
+  ): Promise<{ plan: InteropPlan<TransactionRequest>; ctx: BuildCtx }> {
     const ctx = await commonCtx(
       params,
       client,
@@ -105,8 +104,6 @@ export function createInteropResource(
       attributesResource,
     );
 
-    // // 2) Compute sender and select route
-    // const sender = (p.sender ?? client.signer) as Address;
     const route = pickInteropRoute({
       actions: params.actions,
       ctx: {
@@ -118,14 +115,9 @@ export function createInteropResource(
       },
     });
 
-    // 3) Extend context so indirect route can embed sender into payloads
-    //const ctx = { ...ethCtx, route, sender } as const;
-
-    // 4) Route-level preflight
+    // Route-level preflight
     await wrap(
-      route === 'direct'
-        ? OP_INTEROP.routes.direct.preflight
-        : OP_INTEROP.routes.indirect.preflight,
+      OP_INTEROP.routes[route].preflight,
       () => ROUTES[route].preflight?.(params, ctx),
       {
         message: 'Interop preflight failed.',
@@ -133,9 +125,9 @@ export function createInteropResource(
       },
     );
 
-    // 5) Build concrete steps, approvals, and quote extras
+    // Build concrete steps, approvals, and quote extras
     const { steps, approvals, quoteExtras } = await wrap(
-      route === 'direct' ? OP_INTEROP.routes.direct.build : OP_INTEROP.routes.indirect.build,
+      OP_INTEROP.routes[route].build,
       () => ROUTES[route].build(params, ctx),
       {
         message: 'Failed to build interop route plan.',
@@ -143,7 +135,7 @@ export function createInteropResource(
       },
     );
 
-    // 6) Assemble plan summary
+    // Assemble plan summary
     const summary: InteropQuote = {
       route,
       approvalsNeeded: approvals,
@@ -151,7 +143,12 @@ export function createInteropResource(
       bridgedTokenTotal: quoteExtras.bridgedTokenTotal,
     };
 
-    return { route, summary, steps };
+    return { plan: { route, summary, steps }, ctx };
+  }
+
+  async function buildPlan(params: InteropParams): Promise<InteropPlan<TransactionRequest>> {
+    const { plan } = await buildPlanWithCtx(params);
+    return plan;
   }
 
   // quote → build and return the summary
@@ -180,17 +177,8 @@ export function createInteropResource(
     wrap(
       OP_INTEROP.create,
       async () => {
-        // Build plan (like before)
-        const plan = await prepare(params);
-        // Build the SAME interop context we used to build that plan
-        const ctx = await commonCtx(
-          params,
-          client,
-          tokensResource,
-          contractsResource,
-          attributesResource,
-        );
-        // source signer MUST be bound to ctx.srcChainId
+        // Build plan and reuse the context
+        const { plan, ctx } = await buildPlanWithCtx(params);
         const signer = ctx.client.signerFor(ctx.chainId);
         const srcProvider = ctx.client.getProvider(ctx.chainId)!;
 
@@ -216,7 +204,9 @@ export function createInteropResource(
                 from,
               });
               step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-            } catch {}
+            } catch {
+              // Intentionally empty: gas estimation is best-effort
+            }
           }
 
           let hash: Hex | undefined;

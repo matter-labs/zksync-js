@@ -4,12 +4,6 @@ import type { ApprovalNeed, Plan, Handle } from './base';
 import { isHash, isHash66, isHash66Array, isAddress, isBigint, isNumber } from '../../utils';
 import type { TxOverrides } from '../fees';
 
-/** Encoded call attributes for interop */
-export type EncodedCallAttributes = readonly Hex[];
-
-/** Encoded bundle attributes for interop */
-export type EncodedBundleAttributes = readonly Hex[];
-
 /**
  * The routing mechanism for interop execution.
  */
@@ -61,6 +55,16 @@ export interface InteropQuote {
   l1Fee?: bigint;
   /** Optional: Estimated L2 fee */
   l2Fee?: bigint;
+}
+
+/**
+ * Quote add-ons a route can compute
+ */
+export interface QuoteExtras {
+  /** Sum of msg.value across actions (sendNative + call.value). */
+  totalActionValue: bigint;
+  /** Sum of ERC-20 amounts across actions (for approvals/bridging). */
+  bridgedTokenTotal: bigint;
 }
 
 /**

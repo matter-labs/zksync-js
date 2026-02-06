@@ -8,73 +8,89 @@ import type {
   InteropAttributes,
 } from '../../../../../core/resources/interop/plan';
 import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
-import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants';
 import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import { buildIndirectBundle, preflightIndirect } from '../../../../../core/resources/interop/plan';
-import { formatInteropEvmAddress, formatInteropEvmChain } from '../address';
+import { interopCodec } from '../address';
+import { extractBundleAttributes } from '../attributes/resource';
+import { assertNever } from '../../../../../core/utils';
 
-const interopCodec = {
-  formatChain: formatInteropEvmChain,
-  formatAddress: formatInteropEvmAddress,
-};
+async function ensureTokensRegistered(params: InteropParams, ctx: BuildCtx): Promise<void> {
+  const erc20Tokens = new Map<string, string>();
+  for (const action of params.actions) {
+    if (action.type !== 'sendErc20') continue;
+    erc20Tokens.set(action.token.toLowerCase(), action.token);
+  }
+
+  if (erc20Tokens.size > 0) {
+    const ntv = new Contract(
+      ctx.l2NativeTokenVault,
+      L2NativeTokenVaultABI,
+      ctx.client.getL2Signer(),
+    );
+
+    for (const token of erc20Tokens.values()) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const ensureTx = await ntv.ensureTokenIsRegistered(token);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      await ensureTx.wait();
+    }
+  }
+}
 
 async function getInteropData(
   params: InteropParams,
   ctx: BuildCtx,
-): Promise<{ attrs: InteropAttributes; precomputed: InteropStarterData[] }> {
+): Promise<{ attrs: InteropAttributes; starterData: InteropStarterData[] }> {
   const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
+  const bundleAttributes = extractBundleAttributes(params, ctx);
 
-  // Pre-compute bundle attributes
-  const bundleAttributes: Hex[] = [];
-  if (params.execution?.only) {
-    bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
-  }
-  if (params.unbundling?.by) {
-    bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
-  }
-
-  // Pre-compute per-action data and call attributes
-  const precomputed: InteropStarterData[] = [];
+  const starterData: InteropStarterData[] = [];
   const callAttributes: Hex[][] = [];
 
   for (const action of params.actions) {
-    if (action.type === 'sendErc20') {
-      const assetId = await ctx.tokens.assetIdOfL2(action.token);
-      const transferData = encodeNativeTokenVaultTransferData(
-        action.amount,
-        action.to,
-        FORMAL_ETH_ADDRESS,
-      );
-      const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
-      precomputed.push({ assetRouterPayload });
-      callAttributes.push([ctx.attributes.call.indirectCall(0n)]);
-    } else if (action.type === 'sendNative' && !baseMatches) {
-      const assetId = await ctx.tokens.baseTokenAssetId();
-      const transferData = encodeNativeTokenVaultTransferData(
-        action.amount,
-        action.to,
-        FORMAL_ETH_ADDRESS,
-      );
-      const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
-      precomputed.push({ assetRouterPayload });
-      callAttributes.push([ctx.attributes.call.indirectCall(action.amount)]);
-    } else if (action.type === 'sendNative') {
-      precomputed.push({});
-      callAttributes.push([ctx.attributes.call.interopCallValue(action.amount)]);
-    } else if (action.type === 'call') {
-      precomputed.push({});
-      callAttributes.push(
-        action.value && action.value > 0n
-          ? [ctx.attributes.call.interopCallValue(action.value)]
-          : [],
-      );
-    } else {
-      precomputed.push({});
-      callAttributes.push([]);
+    switch (action.type) {
+      case 'sendErc20': {
+        const assetId = await ctx.tokens.assetIdOfL2(action.token);
+        const transferData = encodeNativeTokenVaultTransferData(
+          action.amount,
+          action.to,
+          action.token,
+        );
+        const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
+        starterData.push({ assetRouterPayload });
+        callAttributes.push([ctx.attributes.call.indirectCall(0n)]);
+        break;
+      }
+      case 'sendNative':
+        if (!baseMatches) {
+          const assetId = await ctx.tokens.baseTokenAssetId();
+          const transferData = encodeNativeTokenVaultTransferData(
+            action.amount,
+            action.to,
+            ctx.baseTokens.src,
+          );
+          const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
+          starterData.push({ assetRouterPayload });
+          callAttributes.push([ctx.attributes.call.indirectCall(action.amount)]);
+        } else {
+          starterData.push({});
+          callAttributes.push([ctx.attributes.call.interopCallValue(action.amount)]);
+        }
+        break;
+      case 'call':
+        starterData.push({});
+        callAttributes.push(
+          action.value && action.value > 0n
+            ? [ctx.attributes.call.interopCallValue(action.value)]
+            : [],
+        );
+        break;
+      default:
+        assertNever(action);
     }
   }
 
-  return { attrs: { bundleAttributes, callAttributes }, precomputed };
+  return { attrs: { bundleAttributes, callAttributes }, starterData };
 }
 
 export function routeIndirect(): InteropRouteStrategy {
@@ -97,30 +113,7 @@ export function routeIndirect(): InteropRouteStrategy {
         tx: TransactionRequest;
       }> = [];
 
-      const erc20Tokens = new Map<string, string>();
-      for (const action of params.actions) {
-        if (action.type !== 'sendErc20') continue;
-        erc20Tokens.set(action.token.toLowerCase(), action.token);
-      }
-
-      if (erc20Tokens.size > 0) {
-        const ntv = new Contract(
-          ctx.l2NativeTokenVault,
-          L2NativeTokenVaultABI,
-          ctx.client.getL2Signer(),
-        );
-
-        for (const token of erc20Tokens.values()) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const ensureTx = await ntv.ensureTokenIsRegistered(token);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          await ensureTx.wait();
-        }
-      }
-
-      // Pre-compute all data in adapter before calling core
-      const { attrs, precomputed } = await getInteropData(params, ctx);
-
+      const { attrs, starterData } = await getInteropData(params, ctx);
       const built = buildIndirectBundle(
         params,
         {
@@ -131,9 +124,11 @@ export function routeIndirect(): InteropRouteStrategy {
           codec: interopCodec,
         },
         attrs,
-        precomputed,
+        starterData,
       );
 
+      // Ensure all ERC20 tokens are registered in the native token vault
+      await ensureTokensRegistered(params, ctx);
       // Check allowance and only approve what's needed
       for (const approval of built.approvals) {
         const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
@@ -180,9 +175,6 @@ export function routeIndirect(): InteropRouteStrategy {
         },
       });
 
-      //
-      // 6. Return route plan
-      //
       return {
         steps,
         approvals: built.approvals,

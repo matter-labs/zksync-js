@@ -1,34 +1,32 @@
-import type { Hex } from '../../../../../core/types/primitives';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { TransactionRequest } from 'ethers';
 import type { InteropRouteStrategy } from './types';
 import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import { buildDirectBundle, preflightDirect } from '../../../../../core/resources/interop/plan';
-import { formatInteropEvmAddress, formatInteropEvmChain } from '../address';
-
-const interopCodec = {
-  formatChain: formatInteropEvmChain,
-  formatAddress: formatInteropEvmAddress,
-};
+import { interopCodec } from '../address';
+import { extractBundleAttributes } from '../attributes/resource';
+import { assertNever } from '../../../../../core/utils';
 
 function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {
-  const bundleAttributes: Hex[] = [];
-  if (params.execution?.only) {
-    bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
-  }
-  if (params.unbundling?.by) {
-    bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
-  }
+  const bundleAttributes = extractBundleAttributes(params, ctx);
 
   const callAttributes = params.actions.map((action) => {
-    if (action.type === 'sendNative') {
-      return [ctx.attributes.call.interopCallValue(action.amount)];
+    switch (action.type) {
+      case 'sendNative':
+        return [ctx.attributes.call.interopCallValue(action.amount)];
+      case 'call':
+        if (action.value && action.value > 0n) {
+          return [ctx.attributes.call.interopCallValue(action.value)];
+        }
+        return [];
+      case 'sendErc20':
+        throw new Error(
+          `route "direct" does not support sendErc20 actions; use the indirect route.`,
+        );
+      default:
+        assertNever(action);
     }
-    if (action.type === 'call' && action.value && action.value > 0n) {
-      return [ctx.attributes.call.interopCallValue(action.value)];
-    }
-    return [];
   });
 
   return { bundleAttributes, callAttributes };
@@ -88,9 +86,6 @@ export function routeDirect(): InteropRouteStrategy {
         },
       });
 
-      //
-      // Return route plan
-      //
       return {
         steps,
         approvals: built.approvals,

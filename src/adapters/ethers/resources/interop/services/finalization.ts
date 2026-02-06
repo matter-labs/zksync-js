@@ -28,31 +28,12 @@ import {
 import { ZERO_HASH } from '../../../../../core/types/primitives';
 import { type Log } from '../../../../../core/types/transactions';
 import { sleep } from '../../../../../core/utils';
-
+import { getTopics } from '../services/topics';
 // ABIs we need to decode events / send executeBundle()
-import InteropCenterAbi from '../../../../../core/internal/abis/InteropCenter';
 import IInteropHandlerAbi from '../../../../../core/internal/abis/IInteropHandler';
 
 // error handling
 const { wrap } = createErrorHandlers('interop');
-
-// ---------------------------------------------------------------------------
-// Event topics and decoding
-// ---------------------------------------------------------------------------
-
-function getTopics(): { topics: InteropTopics; centerIface: Interface } {
-  const centerIface = new Interface(InteropCenterAbi);
-  const handlerIface = new Interface(IInteropHandlerAbi);
-
-  const topics = {
-    interopBundleSent: centerIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: handlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: handlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: handlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
-  };
-
-  return { topics, centerIface };
-}
 
 function decodeInteropBundleSent(
   centerIface: Interface,
@@ -85,10 +66,6 @@ function decodeL1MessageData(log: Log): Hex {
   const decoded = AbiCoder.defaultAbiCoder().decode(['bytes'], log.data);
   return decoded[0] as Hex;
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers using client directly
-// ---------------------------------------------------------------------------
 
 async function getSourceReceipt(client: EthersClient, txHash: Hex) {
   const receipt = await wrap(
@@ -288,10 +265,7 @@ async function waitUntilRootAvailable(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Public API: deriveStatus, waitForFinalization, executeBundle
-// ---------------------------------------------------------------------------
-
 async function deriveInteropStatus(
   client: EthersClient,
   input: InteropWaitable,
@@ -548,10 +522,7 @@ async function executeInteropBundle(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Exported service interface
-// ---------------------------------------------------------------------------
-
 export interface InteropFinalizationServices {
   deriveStatus(input: InteropWaitable): Promise<InteropStatus>;
 
@@ -583,9 +554,7 @@ export function createInteropFinalizationServices(
   };
 }
 
-// -----------------------------
 // Thin wrappers that the resource factory calls
-// -----------------------------
 export async function status(client: EthersClient, h: InteropWaitable): Promise<InteropStatus> {
   return wrap(OP_INTEROP.status, () => deriveInteropStatus(client, h), {
     message: 'Internal error while checking interop status.',
