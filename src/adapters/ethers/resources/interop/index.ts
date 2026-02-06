@@ -31,6 +31,7 @@ import { pickInteropRoute } from '../../../../core/resources/interop/route';
 import { getStatus } from './services/finalization/status';
 import { waitForFinalization } from './services/finalization/polling';
 import { executeBundle } from './services/finalization/bundle';
+import { INTEROP_SUPPORTED_CHAINS } from '../../../../core/resources/interop/chains';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -88,6 +89,12 @@ export function createInteropResource(
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
   const attributesResource = attributes ?? createEthersAttributesResource();
+
+  Object.entries(INTEROP_SUPPORTED_CHAINS).forEach(([chainId, providerUrl]) => {
+    if (!client.getProvider(BigInt(chainId))) {
+      client.registerChain(BigInt(chainId), providerUrl);
+    }
+  });
 
   // Internal helper: builds an InteropPlan along with the context used.
   // Returns both so create() can reuse the context without rebuilding.
