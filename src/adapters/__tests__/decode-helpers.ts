@@ -1,11 +1,18 @@
 import { Interface, AbiCoder } from 'ethers';
 
-import { IBridgehubABI, IL2AssetRouterABI, IBaseTokenABI, IERC20ABI } from '../../core/abi.ts';
+import {
+  IBridgehubABI,
+  IL2AssetRouterABI,
+  IBaseTokenABI,
+  IERC20ABI,
+  InteropCenterABI,
+} from '../../core/abi.ts';
 
 const Bridgehub = new Interface(IBridgehubABI as any);
 const L2AssetRouter = new Interface(IL2AssetRouterABI as any);
 const BaseToken = new Interface(IBaseTokenABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
+const InteropCenter = new Interface(InteropCenterABI as any);
 const coder = new AbiCoder();
 
 export function decodeTwoBridgeOuter(data: string) {
@@ -90,5 +97,45 @@ export function parseApproveTx(kind: AdapterKind, tx: any) {
     to: (viemTx.address as string | undefined)?.toLowerCase?.(),
     spender: (args[0] as string | undefined)?.toLowerCase() ?? '',
     amount: BigInt((args[1] as bigint | undefined) ?? 0n),
+  };
+}
+
+export interface SendBundleDecoded {
+  to: string | undefined;
+  value: bigint;
+  destinationChainId: string;
+  callStarters: Array<{
+    to: string;
+    data: string;
+    callAttributes: string[];
+  }>;
+  bundleAttributes: string[];
+}
+
+export function decodeSendBundle(data: string): SendBundleDecoded {
+  const [destinationChainId, callStarters, bundleAttributes] = InteropCenter.decodeFunctionData(
+    'sendBundle',
+    data,
+  ) as [string, Array<[string, string, string[]]>, string[]];
+
+  return {
+    to: undefined,
+    value: 0n,
+    destinationChainId,
+    callStarters: callStarters.map(([to, callData, attrs]) => ({
+      to,
+      data: callData,
+      callAttributes: attrs,
+    })),
+    bundleAttributes,
+  };
+}
+
+export function parseSendBundleTx(tx: any): SendBundleDecoded {
+  const decoded = decodeSendBundle(tx.data as string);
+  return {
+    ...decoded,
+    to: (tx.to as string | undefined)?.toLowerCase(),
+    value: BigInt((tx.value as bigint | undefined) ?? 0n),
   };
 }

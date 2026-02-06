@@ -27,6 +27,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 import { isBigint } from '../../core/utils';
 
@@ -569,6 +572,55 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
       ...(extras.fee ?? {}),
     },
   } as WithdrawalTestContext<T>;
+}
+
+export type InteropTestContext<T extends AdapterHarness> = {
+  client: T['client'];
+  contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
+  sender: Address;
+  chainId: bigint;
+  dstChainId: bigint;
+  bridgehub: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
+  l2AssetRouter: Address;
+  l2NativeTokenVault: Address;
+  baseTokens: { src: Address; dst: Address };
+  gasOverrides?: Record<string, unknown>;
+} & Record<string, unknown>;
+
+export function makeInteropContext<T extends AdapterHarness>(
+  harness: T,
+  extras: Partial<InteropTestContext<T>> = {},
+): InteropTestContext<T> {
+  const contracts =
+    harness.kind === 'ethers'
+      ? createEthersContractsResource(harness.client)
+      : createViemContractsResource(harness.client);
+
+  const baseCtx: InteropTestContext<T> = {
+    client: harness.client as InteropTestContext<T>['client'],
+    contracts: contracts as InteropTestContext<T>['contracts'],
+    sender: ADAPTER_TEST_ADDRESSES.signer,
+    chainId: 324n,
+    dstChainId: 325n,
+    bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
+    interopCenter: L2_INTEROP_CENTER_ADDRESS,
+    interopHandler: L2_INTEROP_HANDLER_ADDRESS,
+    l2MessageVerification: L2_MESSAGE_VERIFICATION_ADDRESS,
+    l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
+    l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    baseTokens: {
+      src: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+      dst: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+    },
+  };
+
+  return {
+    ...baseCtx,
+    ...extras,
+  } as InteropTestContext<T>;
 }
 
 type BaseCostCtx<T extends AdapterHarness> = Pick<
