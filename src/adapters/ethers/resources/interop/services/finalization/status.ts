@@ -31,15 +31,7 @@ export async function deriveInteropStatus(
     if (baseIds.bundleHash && baseIds.dstChainId) return baseIds;
     if (!baseIds.l2SrcTxHash) return baseIds;
 
-    const { interopCenter } = await wrap(
-      OP_INTEROP.svc.status.ensureAddresses,
-      () => client.ensureAddresses(),
-      {
-        ctx: { where: 'ensureAddresses' },
-        message: 'Failed to ensure interop addresses.',
-      },
-    );
-
+    const { interopCenter } = await client.ensureAddresses();
     const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
     if (!receipt) {
       throw createError('STATE', {

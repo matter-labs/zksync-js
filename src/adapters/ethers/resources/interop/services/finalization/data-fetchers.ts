@@ -62,22 +62,19 @@ export async function getInteropRoot(
   client: EthersClient,
   dstChainId: bigint, rootChainId: bigint, batchNumber: bigint,
 ): Promise<Hex> {
-  const dstProvider = await wrap(
-    OP_INTEROP.svc.status.requireDstProvider,
-    () => client.requireProvider(dstChainId),
-    {
-      ctx: { where: 'requireProvider', dstChainId },
-      message: 'Failed to acquire destination provider.',
-    },
-  );
+  return await wrap(
+    OP_INTEROP.svc.status.getRoot,
+    async () => {
+      const dstProvider = client.requireProvider(dstChainId);
+      const rootStorage = new Contract(
+        L2_INTEROP_ROOT_STORAGE_ADDRESS,
+        InteropRootStorageABI,
+        dstProvider,
+      );
 
-  const rootStorage = new Contract(
-    L2_INTEROP_ROOT_STORAGE_ADDRESS,
-    InteropRootStorageABI,
-    dstProvider,
-  ) as Contract & {
-    interopRoots: (chainId: bigint, batchNumber: bigint) => Promise<Hex>;
-  };
-
-  return await rootStorage.interopRoots(rootChainId, batchNumber);
+      return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;
+    }, {
+    ctx: { dstChainId, rootChainId, batchNumber },
+    message: 'Failed to get interop root from the destination chain.',
+  });
 }

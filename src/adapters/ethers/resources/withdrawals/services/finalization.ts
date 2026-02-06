@@ -172,29 +172,12 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
         merkleProof: proof.proof,
       };
 
-      const { l1Nullifier } = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.ensureAddresses,
-        () => client.ensureAddresses(),
-        {
-          ctx: { where: 'ensureAddresses' },
-          message: 'Failed to ensure L1 Nullifier address.',
-        },
-      );
+      const { l1Nullifier } = await client.ensureAddresses();
       return { params, nullifier: l1Nullifier };
     },
 
     async simulateFinalizeReadiness(params: FinalizeDepositParams): Promise<FinalizeReadiness> {
-      const { l1Nullifier } = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.readiness.ensureAddresses,
-        () => client.ensureAddresses(),
-        {
-          ctx: { where: 'ensureAddresses' },
-          message: 'Failed to ensure L1 Nullifier address.',
-        },
-      );
-
+      const { l1Nullifier } = await client.ensureAddresses();
       // check if the withdrawal is already finalized
       const done = await (async (): Promise<boolean> => {
         try {
@@ -234,15 +217,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
     },
 
     async isWithdrawalFinalized(key: WithdrawalKey) {
-      const { l1Nullifier } = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.ensureAddresses,
-        () => client.ensureAddresses(),
-        {
-          ctx: { where: 'ensureAddresses' },
-          message: 'Failed to ensure L1 Nullifier address.',
-        },
-      );
+      const { l1Nullifier } = await client.ensureAddresses();
       const c = new Contract(l1Nullifier, IL1NullifierMini, l1);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return await wrapAs(
@@ -257,15 +232,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
     },
 
     async estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate> {
-      const { l1Nullifier } = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.estimate,
-        () => client.ensureAddresses(),
-        {
-          ctx: { where: 'ensureAddresses' },
-          message: 'Failed to ensure L1 Nullifier address.',
-        },
-      );
+      const { l1Nullifier } = await client.ensureAddresses();
 
       const signer = client.getL1Signer();
       const c = new Contract(l1Nullifier, IL1NullifierABI, signer);
@@ -315,15 +282,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
     },
 
     async finalizeDeposit(params: FinalizeDepositParams) {
-      const { l1Nullifier } = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.ensureAddresses,
-        () => client.ensureAddresses(),
-        {
-          ctx: { where: 'ensureAddresses' },
-          message: 'Failed to ensure L1 Nullifier address.',
-        },
-      );
+      const { l1Nullifier } = await client.ensureAddresses();
       const c = new Contract(l1Nullifier, IL1NullifierABI, signer);
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

@@ -174,6 +174,10 @@ export function isReceiptNotFound(e: unknown): boolean {
 // TryResult type for operations that can fail without throwing
 export type TryResult<T> = { ok: true; value: T } | { ok: false; error: ZKsyncError };
 
+export const OP_CLIENT = {
+  ensureAddresses: 'client.ensureAddresses',
+} as const;
+
 // Operation constants for Deposit error contexts
 export const OP_DEPOSITS = {
   // high-level flow ops
@@ -265,10 +269,8 @@ export const OP_WITHDRAWALS = {
       messengerIndex: 'withdrawals.finalize.fetchParams:messengerIndex',
       proof: 'withdrawals.finalize.fetchParams:proof',
       network: 'withdrawals.finalize.fetchParams:network',
-      ensureAddresses: 'withdrawals.finalize.fetchParams:ensureAddresses',
     },
     readiness: {
-      ensureAddresses: 'withdrawals.finalize.readiness:ensureAddresses',
       isFinalized: 'withdrawals.finalize.readiness:isWithdrawalFinalized',
       simulate: 'withdrawals.finalize.readiness:simulate',
     },
@@ -315,11 +317,10 @@ export const OP_INTEROP = {
   svc: {
     status: {
       sourceReceipt: 'interop.svc.status:sourceReceipt',
-      ensureAddresses: 'interop.svc.status:ensureAddresses',
       parseSentLog: 'interop.svc.status:parseSentLog',
-      requireDstProvider: 'interop.svc.status:requireDstProvider',
       dstLogs: 'interop.svc.status:dstLogs',
       derive: 'interop.svc.status:derive',
+      getRoot: 'interop.svc.status:getRoot',
     },
     wait: {
       poll: 'interop.svc.wait:poll',

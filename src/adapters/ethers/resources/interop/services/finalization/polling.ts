@@ -125,15 +125,7 @@ export async function waitForInteropFinalization(
     });
   }
 
-  const { interopCenter } = await wrap(
-    OP_INTEROP.svc.status.ensureAddresses,
-    () => client.ensureAddresses(),
-    {
-      ctx: { where: 'ensureAddresses' },
-      message: 'Failed to ensure interop addresses.',
-    },
-  );
-
+  const { interopCenter } = await client.ensureAddresses();
   let bundleInfo: Awaited<ReturnType<typeof parseBundleReceiptInfo>> | null = null;
   while (!bundleInfo) {
     if (Date.now() > deadlineMs) {

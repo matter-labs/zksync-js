@@ -1,9 +1,7 @@
 import { Contract, type TransactionReceipt } from 'ethers';
-
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropFinalizationInfo } from '../../../../../../core/types/flows/interop';
 import type { EthersClient } from '../../../../client';
-
 import { createErrorHandlers, toZKsyncError } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { createError } from '../../../../../../core/errors/factory';
@@ -49,14 +47,7 @@ export async function executeInteropBundle(
     message: 'Failed to resolve destination signer.',
   });
 
-  const { interopHandler } = await wrap(
-    OP_INTEROP.svc.status.ensureAddresses,
-    () => client.ensureAddresses(),
-    {
-      ctx: { where: 'ensureAddresses' },
-      message: 'Failed to ensure interop handler address.',
-    },
-  );
+  const { interopHandler } = await client.ensureAddresses();
 
   const handler = new Contract(interopHandler, IInteropHandlerAbi, signer) as Contract & {
     executeBundle: (

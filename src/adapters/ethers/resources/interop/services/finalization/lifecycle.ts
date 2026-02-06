@@ -2,7 +2,6 @@ import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropPhase } from '../../../../../../core/types/flows/interop';
 import type { InteropTopics } from '../../../../../../core/resources/interop/events';
 import type { EthersClient } from '../../../../client';
-
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { getDestinationLogs } from './data-fetchers';
@@ -15,15 +14,7 @@ export async function queryDstBundleLifecycle(
   bundleHash: Hex,
   dstChainId: bigint,
 ): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
-  const { interopHandler } = await wrap(
-    OP_INTEROP.svc.status.ensureAddresses,
-    () => client.ensureAddresses(),
-    {
-      ctx: { where: 'ensureAddresses' },
-      message: 'Failed to ensure interop addresses.',
-    },
-  );
-
+  const { interopHandler } = await client.ensureAddresses();
   const fetchLogsFor = async (eventTopic: Hex) => {
     return await getDestinationLogs(client, dstChainId, interopHandler, [eventTopic, bundleHash]);
   };

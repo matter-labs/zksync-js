@@ -26,11 +26,11 @@ import {
   L2MessageVerificationABI,
 } from '../../core/abi';
 import { createError } from '../../core/errors/factory';
-import { OP_DEPOSITS } from '../../core/types';
+import { OP_DEPOSITS, OP_CLIENT } from '../../core/types';
 import { createErrorHandlers } from './errors/error-ops';
 
 // error handling
-const { wrapAs } = createErrorHandlers('client');
+const { wrapAs, wrap } = createErrorHandlers('client');
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -179,73 +179,82 @@ export function createEthersClient(args: InitArgs): EthersClient {
   let addrCache: ResolvedAddresses | undefined;
   let cCache:
     | {
-        bridgehub: Contract;
-        l1AssetRouter: Contract;
-        l1Nullifier: Contract;
-        l1NativeTokenVault: Contract;
-        l2AssetRouter: Contract;
-        l2NativeTokenVault: Contract;
-        l2BaseTokenSystem: Contract;
-        interopCenter: Contract;
-        interopHandler: Contract;
-        l2MessageVerification: Contract;
-      }
+      bridgehub: Contract;
+      l1AssetRouter: Contract;
+      l1Nullifier: Contract;
+      l1NativeTokenVault: Contract;
+      l2AssetRouter: Contract;
+      l2NativeTokenVault: Contract;
+      l2BaseTokenSystem: Contract;
+      interopCenter: Contract;
+      interopHandler: Contract;
+      l2MessageVerification: Contract;
+    }
     | undefined;
 
   async function ensureAddresses(): Promise<ResolvedAddresses> {
     if (addrCache) return addrCache;
 
-    // Bridgehub
-    const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
+    return await wrap(
+      OP_CLIENT.ensureAddresses,
+      async () => {
+        // Bridgehub
+        const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
 
-    // L1 AssetRouter via Bridgehub.assetRouter()
-    const IBridgehub = new Interface(IBridgehubABI);
-    const bh = new Contract(bridgehub, IBridgehub, l1);
-    const l1AssetRouter = args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
+        // L1 AssetRouter via Bridgehub.assetRouter()
+        const IBridgehub = new Interface(IBridgehubABI);
+        const bh = new Contract(bridgehub, IBridgehub, l1);
+        const l1AssetRouter = args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
 
-    // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
-    const IL1AssetRouter = new Interface(IL1AssetRouterABI);
-    const ar = new Contract(l1AssetRouter, IL1AssetRouter, l1);
-    const l1Nullifier = args.overrides?.l1Nullifier ?? ((await ar.L1_NULLIFIER()) as Address);
+        // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
+        const IL1AssetRouter = new Interface(IL1AssetRouterABI);
+        const ar = new Contract(l1AssetRouter, IL1AssetRouter, l1);
+        const l1Nullifier = args.overrides?.l1Nullifier ?? ((await ar.L1_NULLIFIER()) as Address);
 
-    // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
-    const IL1Nullifier = new Interface(IL1NullifierABI);
-    const nf = new Contract(l1Nullifier, IL1Nullifier, l1);
-    const l1NativeTokenVault =
-      args.overrides?.l1NativeTokenVault ?? ((await nf.l1NativeTokenVault()) as Address);
+        // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
+        const IL1Nullifier = new Interface(IL1NullifierABI);
+        const nf = new Contract(l1Nullifier, IL1Nullifier, l1);
+        const l1NativeTokenVault =
+          args.overrides?.l1NativeTokenVault ?? ((await nf.l1NativeTokenVault()) as Address);
 
-    // L2AssetRouter
-    const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
+        // L2AssetRouter
+        const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
 
-    // L2NativeTokenVault
-    const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
+        // L2NativeTokenVault
+        const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
 
-    // L2BaseToken
-    const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
+        // L2BaseToken
+        const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
-    // InteropCenter
-    const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+        // InteropCenter
+        const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
 
-    // InteropHandler
-    const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+        // InteropHandler
+        const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
 
-    // L2MessageVerification
-    const l2MessageVerification =
-      args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
+        // L2MessageVerification
+        const l2MessageVerification =
+          args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
 
-    addrCache = {
-      bridgehub,
-      l1AssetRouter,
-      l1Nullifier,
-      l1NativeTokenVault,
-      l2AssetRouter,
-      l2NativeTokenVault,
-      l2BaseTokenSystem,
-      interopCenter,
-      interopHandler,
-      l2MessageVerification,
-    };
-    return addrCache;
+        addrCache = {
+          bridgehub,
+          l1AssetRouter,
+          l1Nullifier,
+          l1NativeTokenVault,
+          l2AssetRouter,
+          l2NativeTokenVault,
+          l2BaseTokenSystem,
+          interopCenter,
+          interopHandler,
+          l2MessageVerification,
+        };
+        return addrCache;
+      },
+      {
+        ctx: { where: 'ensureAddresses' },
+        message: 'Failed to ensure contract addresses.',
+      },
+    );
   }
 
   // lazily create connected contract instances for convenience

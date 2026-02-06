@@ -1,5 +1,4 @@
 import { AbiCoder, type Interface } from 'ethers';
-
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 
