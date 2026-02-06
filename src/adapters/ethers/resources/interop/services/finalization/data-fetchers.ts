@@ -31,7 +31,9 @@ export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
 
 export async function getDestinationLogs(
   client: EthersClient,
-  dstChainId: bigint, address: Address, topics: Hex[],
+  dstChainId: bigint,
+  address: Address,
+  topics: Hex[],
 ): Promise<Log[]> {
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
@@ -60,7 +62,9 @@ export async function getDestinationLogs(
 
 export async function getInteropRoot(
   client: EthersClient,
-  dstChainId: bigint, rootChainId: bigint, batchNumber: bigint,
+  dstChainId: bigint,
+  rootChainId: bigint,
+  batchNumber: bigint,
 ): Promise<Hex> {
   return await wrap(
     OP_INTEROP.svc.status.getRoot,
@@ -73,8 +77,10 @@ export async function getInteropRoot(
       );
 
       return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;
-    }, {
-    ctx: { dstChainId, rootChainId, batchNumber },
-    message: 'Failed to get interop root from the destination chain.',
-  });
+    },
+    {
+      ctx: { dstChainId, rootChainId, batchNumber },
+      message: 'Failed to get interop root from the destination chain.',
+    },
+  );
 }

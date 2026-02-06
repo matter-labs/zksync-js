@@ -88,14 +88,14 @@ export function createViemClient(args: InitArgs): ViemClient {
   let addrCache: ResolvedAddresses | undefined;
   let cCache:
     | {
-      bridgehub: GetContractReturnType<typeof IBridgehubABI, PublicClient>;
-      l1AssetRouter: GetContractReturnType<typeof IL1AssetRouterABI, PublicClient>;
-      l1Nullifier: GetContractReturnType<typeof IL1NullifierABI, PublicClient>;
-      l1NativeTokenVault: GetContractReturnType<typeof L1NativeTokenVaultABI, PublicClient>;
-      l2AssetRouter: GetContractReturnType<typeof IL2AssetRouterABI, PublicClient>;
-      l2NativeTokenVault: GetContractReturnType<typeof L2NativeTokenVaultABI, PublicClient>;
-      l2BaseTokenSystem: GetContractReturnType<typeof IBaseTokenABI, PublicClient>;
-    }
+        bridgehub: GetContractReturnType<typeof IBridgehubABI, PublicClient>;
+        l1AssetRouter: GetContractReturnType<typeof IL1AssetRouterABI, PublicClient>;
+        l1Nullifier: GetContractReturnType<typeof IL1NullifierABI, PublicClient>;
+        l1NativeTokenVault: GetContractReturnType<typeof L1NativeTokenVaultABI, PublicClient>;
+        l2AssetRouter: GetContractReturnType<typeof IL2AssetRouterABI, PublicClient>;
+        l2NativeTokenVault: GetContractReturnType<typeof L2NativeTokenVaultABI, PublicClient>;
+        l2BaseTokenSystem: GetContractReturnType<typeof IBaseTokenABI, PublicClient>;
+      }
     | undefined;
 
   async function ensureAddresses(): Promise<ResolvedAddresses> {
@@ -136,7 +136,8 @@ export function createViemClient(args: InitArgs): ViemClient {
 
         // L2 addresses from constants (overridable)
         const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
-        const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
+        const l2NativeTokenVault =
+          args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
         const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
         addrCache = {

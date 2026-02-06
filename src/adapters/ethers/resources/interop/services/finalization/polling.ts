@@ -4,7 +4,6 @@ import type {
   InteropFinalizationInfo,
 } from '../../../../../../core/types/flows/interop';
 import type { EthersClient } from '../../../../client';
-
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { createError } from '../../../../../../core/errors/factory';
 import { OP_INTEROP } from '../../../../../../core/types';
@@ -16,24 +15,26 @@ import {
   buildFinalizationInfo,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
+  type BundleReceiptInfo,
 } from '../../../../../../core/resources/interop/finalization';
-import { getTopics } from '../topics';
+import { getTopics } from './topics';
 import { decodeInteropBundleSent, decodeL1MessageData } from './decoders';
 import { getInteropRoot } from './data-fetchers';
+import { type ReceiptWithL2ToL1 } from '../../../../../../core/rpc/types';
 
 const { wrap } = createErrorHandlers('interop');
 
-async function waitForLogProof(
+async function waitForProof(
   client: EthersClient,
   l2SrcTxHash: Hex,
   logIndex: number,
   blockNumber: bigint,
   pollMs: number,
-  deadlineMs: number,
+  deadline: number,
 ) {
   // Wait for the block to be finalized first
   while (true) {
-    if (Date.now() > deadlineMs) {
+    if (Date.now() > deadline) {
       throw createError('TIMEOUT', {
         resource: 'interop',
         operation: OP_INTEROP.svc.wait.timeout,
@@ -54,15 +55,15 @@ async function waitForLogProof(
   return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
 }
 
-async function waitUntilRootAvailable(
+async function waitForRoot(
   client: EthersClient,
   dstChainId: bigint,
   expectedRoot: { rootChainId: bigint; batchNumber: bigint; expectedRoot: Hex },
   pollMs: number,
-  deadlineMs: number,
+  deadline: number,
 ): Promise<void> {
   while (true) {
-    if (Date.now() > deadlineMs) {
+    if (Date.now() > deadline) {
       throw createError('TIMEOUT', {
         resource: 'interop',
         operation: OP_INTEROP.svc.wait.timeout,
@@ -73,7 +74,8 @@ async function waitUntilRootAvailable(
 
     let interopRoot: Hex | null = null;
     try {
-      const root = await getInteropRoot(client,
+      const root = await getInteropRoot(
+        client,
         dstChainId,
         expectedRoot.rootChainId,
         expectedRoot.batchNumber,
@@ -105,7 +107,40 @@ async function waitUntilRootAvailable(
   }
 }
 
-export async function waitForInteropFinalization(
+async function waitForTxReceipt(
+  client: EthersClient,
+  txHash: Hex,
+  pollMs: number,
+  deadline: number,
+): Promise<ReceiptWithL2ToL1> {
+  while (true) {
+    if (Date.now() > deadline) {
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for source receipt to be available.',
+        context: { txHash },
+      });
+    }
+
+    const receipt = await wrap(
+      OP_INTEROP.svc.status.sourceReceipt,
+      () => client.zks.getReceiptWithL2ToL1(txHash),
+      {
+        ctx: { where: 'zks.getReceiptWithL2ToL1', txHash },
+        message: 'Failed to fetch source L2 receipt (with L2->L1 logs) for interop tx.',
+      },
+    );
+
+    if (receipt) {
+      return receipt;
+    }
+
+    await sleep(pollMs);
+  }
+}
+
+export async function waitForFinalization(
   client: EthersClient,
   input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
@@ -113,7 +148,7 @@ export async function waitForInteropFinalization(
   const { topics, centerIface } = getTopics();
   const pollMs = opts?.pollMs ?? DEFAULT_POLL_MS;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const deadlineMs = Date.now() + timeoutMs;
+  const deadline = Date.now() + timeoutMs;
 
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {
@@ -126,9 +161,9 @@ export async function waitForInteropFinalization(
   }
 
   const { interopCenter } = await client.ensureAddresses();
-  let bundleInfo: Awaited<ReturnType<typeof parseBundleReceiptInfo>> | null = null;
+  let bundleInfo: BundleReceiptInfo | null = null;
   while (!bundleInfo) {
-    if (Date.now() > deadlineMs) {
+    if (Date.now() > deadline) {
       throw createError('TIMEOUT', {
         resource: 'interop',
         operation: OP_INTEROP.svc.wait.timeout,
@@ -136,23 +171,9 @@ export async function waitForInteropFinalization(
         context: { l2SrcTxHash: ids.l2SrcTxHash },
       });
     }
-
-    const rawReceipt = await wrap(
-      OP_INTEROP.svc.status.sourceReceipt,
-      () => client.zks.getReceiptWithL2ToL1(ids.l2SrcTxHash!),
-      {
-        ctx: { where: 'zks.getReceiptWithL2ToL1', l2SrcTxHash: ids.l2SrcTxHash },
-        message: 'Failed to fetch source L2 receipt (with L2->L1 logs) for interop tx.',
-      },
-    );
-
-    if (!rawReceipt) {
-      await sleep(pollMs);
-      continue;
-    }
-
+    const txReceipt = await waitForTxReceipt(client, ids.l2SrcTxHash, pollMs, deadline);
     bundleInfo = parseBundleReceiptInfo({
-      rawReceipt,
+      rawReceipt: txReceipt,
       interopCenter,
       interopBundleSentTopic: topics.interopBundleSent,
       decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
@@ -161,29 +182,23 @@ export async function waitForInteropFinalization(
     });
   }
 
-  const proof = await waitForLogProof(
+  const proof = await waitForProof(
     client,
     ids.l2SrcTxHash,
     bundleInfo.l2ToL1LogIndex,
     BigInt(bundleInfo.rawReceipt.blockNumber!),
     pollMs,
-    deadlineMs,
+    deadline,
   );
 
-  const info = buildFinalizationInfo(
+  const finalizationInfo = buildFinalizationInfo(
     { l2SrcTxHash: ids.l2SrcTxHash, bundleHash: ids.bundleHash },
     bundleInfo,
     proof,
     bundleInfo.l1MessageData,
   );
 
-  await waitUntilRootAvailable(
-    client,
-    bundleInfo.dstChainId,
-    info.expectedRoot,
-    pollMs,
-    deadlineMs,
-  );
+  await waitForRoot(client, bundleInfo.dstChainId, finalizationInfo.expectedRoot, pollMs, deadline);
 
-  return info;
+  return finalizationInfo;
 }

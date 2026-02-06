@@ -179,17 +179,17 @@ export function createEthersClient(args: InitArgs): EthersClient {
   let addrCache: ResolvedAddresses | undefined;
   let cCache:
     | {
-      bridgehub: Contract;
-      l1AssetRouter: Contract;
-      l1Nullifier: Contract;
-      l1NativeTokenVault: Contract;
-      l2AssetRouter: Contract;
-      l2NativeTokenVault: Contract;
-      l2BaseTokenSystem: Contract;
-      interopCenter: Contract;
-      interopHandler: Contract;
-      l2MessageVerification: Contract;
-    }
+        bridgehub: Contract;
+        l1AssetRouter: Contract;
+        l1Nullifier: Contract;
+        l1NativeTokenVault: Contract;
+        l2AssetRouter: Contract;
+        l2NativeTokenVault: Contract;
+        l2BaseTokenSystem: Contract;
+        interopCenter: Contract;
+        interopHandler: Contract;
+        l2MessageVerification: Contract;
+      }
     | undefined;
 
   async function ensureAddresses(): Promise<ResolvedAddresses> {
@@ -204,7 +204,8 @@ export function createEthersClient(args: InitArgs): EthersClient {
         // L1 AssetRouter via Bridgehub.assetRouter()
         const IBridgehub = new Interface(IBridgehubABI);
         const bh = new Contract(bridgehub, IBridgehub, l1);
-        const l1AssetRouter = args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
+        const l1AssetRouter =
+          args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
 
         // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
         const IL1AssetRouter = new Interface(IL1AssetRouterABI);
@@ -221,7 +222,8 @@ export function createEthersClient(args: InitArgs): EthersClient {
         const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
 
         // L2NativeTokenVault
-        const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
+        const l2NativeTokenVault =
+          args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
 
         // L2BaseToken
         const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;

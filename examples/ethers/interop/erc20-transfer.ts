@@ -74,7 +74,7 @@ async function main() {
   const prepared = await sdk.interop.prepare(params);
   console.log('PREPARE:', prepared);
 
-  // CREATE: Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0). 
+  // CREATE: Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0).
   const created = await sdk.interop.create(params);
   console.log('CREATE:', created);
 

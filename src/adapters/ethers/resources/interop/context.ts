@@ -1,5 +1,4 @@
 // src/adapters/ethers/resources/interop/context.ts
-
 import { Interface } from 'ethers';
 import type { EthersClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';

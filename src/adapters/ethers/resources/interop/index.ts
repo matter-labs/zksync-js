@@ -28,11 +28,9 @@ import { createErrorHandlers } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
-import {
-  status as interopStatus,
-  wait as interopWait,
-  createInteropFinalizationServices,
-} from './services/finalization';
+import { getStatus } from './services/finalization/status';
+import { waitForFinalization } from './services/finalization/polling';
+import { executeBundle } from './services/finalization/bundle';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -116,14 +114,10 @@ export function createInteropResource(
     });
 
     // Route-level preflight
-    await wrap(
-      OP_INTEROP.routes[route].preflight,
-      () => ROUTES[route].preflight?.(params, ctx),
-      {
-        message: 'Interop preflight failed.',
-        ctx: { where: `routes.${route}.preflight`, dstChainId: params.dstChainId },
-      },
-    );
+    await wrap(OP_INTEROP.routes[route].preflight, () => ROUTES[route].preflight?.(params, ctx), {
+      message: 'Interop preflight failed.',
+      ctx: { where: `routes.${route}.preflight`, dstChainId: params.dstChainId },
+    });
 
     // Build concrete steps, approvals, and quote extras
     const { steps, approvals, quoteExtras } = await wrap(
@@ -260,7 +254,7 @@ export function createInteropResource(
 
   // status → non-blocking lifecycle inspection
   const status = (h: InteropWaitable): Promise<InteropStatus> =>
-    wrap(OP_INTEROP.status, () => interopStatus(client, h), {
+    wrap(OP_INTEROP.status, () => getStatus(client, h), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
@@ -270,7 +264,7 @@ export function createInteropResource(
     h: InteropWaitable,
     opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
-    wrap(OP_INTEROP.wait, () => interopWait(client, h, opts), {
+    wrap(OP_INTEROP.wait, () => waitForFinalization(client, h, opts), {
       message: 'Internal error while waiting for interop finalization.',
       ctx: { where: 'interop.wait', for: opts?.for },
     });
@@ -289,14 +283,12 @@ export function createInteropResource(
     wrap(
       OP_INTEROP.finalize,
       async () => {
-        const svc = createInteropFinalizationServices(client);
-
-        const info = isInteropFinalizationInfo(h) ? h : await svc.waitForFinalization(h);
+        const info = isInteropFinalizationInfo(h) ? h : await waitForFinalization(client, h);
 
         // submit executeBundle on destination
-        const execResult = await svc.executeBundle(info);
+        const execResult = await executeBundle(client, info);
 
-        // wait for inclusion / revert surfaced as EXECUTION error
+        // wait for inclusion
         await execResult.wait();
 
         const dstExecTxHash = execResult.hash;

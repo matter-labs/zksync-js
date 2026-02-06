@@ -5,22 +5,18 @@ import type {
 } from '../../../../../../core/types/flows/interop';
 import type { Log } from '../../../../../../core/types/transactions';
 import type { EthersClient } from '../../../../client';
-
-import { createErrorHandlers } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { createError } from '../../../../../../core/errors/factory';
 import {
   resolveIdsFromWaitable,
   parseBundleSentFromReceipt,
 } from '../../../../../../core/resources/interop/finalization';
-import { getTopics } from '../topics';
+import { getTopics } from './topics';
 import { decodeInteropBundleSent } from './decoders';
 import { getSourceReceipt } from './data-fetchers';
-import { queryDstBundleLifecycle } from './lifecycle';
+import { getBundleStatus } from './bundle';
 
-const { wrap } = createErrorHandlers('interop');
-
-export async function deriveInteropStatus(
+export async function getStatus(
   client: EthersClient,
   input: InteropWaitable,
 ): Promise<InteropStatus> {
@@ -63,7 +59,7 @@ export async function deriveInteropStatus(
     };
   }
 
-  const dstInfo = await queryDstBundleLifecycle(
+  const dstInfo = await getBundleStatus(
     client,
     topics,
     enrichedIds.bundleHash,
