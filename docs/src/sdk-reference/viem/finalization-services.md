@@ -17,55 +17,15 @@ These utilities fetch the required L2→L1 proof data, check readiness, and subm
 ## Import & Setup
 
 ```ts
-import { createPublicClient, createWalletClient, http, type Address } from 'viem';
-import { createViemClient, createViemSdk, createFinalizationServices } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/reference/finalization-service.test.ts:imports}}
 
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-
-const l1Wallet = createWalletClient({
-  account: /* your L1 Account */,
-  transport: http(process.env.ETH_RPC!),
-});
-
-const client = createViemClient({ l1, l2, l1Wallet });
-// optional: const sdk = createViemSdk(client);
-
-const svc = createFinalizationServices(client);
+{{#include ../../../snippets/viem/reference/finalization-service.test.ts:init-sdk}}
 ```
 
 ## Minimal Usage Example
 
 ```ts
-import type { Hex } from 'viem';
-
-const l2TxHash: Hex = '0x...';
-
-// 1) Build finalize params + discover the L1 Nullifier to call
-const { params, nullifier } = await svc.fetchFinalizeDepositParams(l2TxHash);
-
-// 2) (Optional) Check if already finalized
-const already = await svc.isWithdrawalFinalized({
-  chainIdL2: params.chainId,
-  l2BatchNumber: params.l2BatchNumber,
-  l2MessageIndex: params.l2MessageIndex,
-});
-if (already) {
-  console.log('Already finalized on L1');
-} else {
-  // 3) Dry-run on L1 to confirm readiness (no gas spent)
-  const readiness = await svc.simulateFinalizeReadiness(params, nullifier);
-
-  if (readiness.kind === 'READY') {
-    // 4) Submit finalize tx (signed by your L1 wallet)
-    const { hash, wait } = await svc.finalizeDeposit(params, nullifier);
-    console.log('L1 finalize tx:', hash);
-    const rcpt = await wait();
-    console.log('Finalized in block:', rcpt.blockNumber);
-  } else {
-    console.warn('Not ready to finalize:', readiness);
-  }
-}
+{{#include ../../../snippets/viem/reference/finalization-service.test.ts:finalize-with-svc}}
 ```
 
 > **Tip:** If you prefer the SDK to handle readiness checks automatically, call `sdk.withdrawals.finalize(l2TxHash)` instead.
@@ -153,77 +113,9 @@ If you are also using `sdk.withdrawals.status(...)`, the phases align conceptual
 ## Types
 
 ```ts
-// Finalize call input
-export interface FinalizeDepositParams {
-  chainId: bigint;
-  l2BatchNumber: bigint;
-  l2MessageIndex: bigint;
-  l2Sender: Address;
-  l2TxNumberInBatch: number;
-  message: Hex;
-  merkleProof: Hex[];
-}
+{{#include ../../../snippets/ethers/reference/withdrawals.test.ts:status-type}}
 
-// Key that identifies a withdrawal in the Nullifier mapping
-export type WithdrawalKey = {
-  chainIdL2: bigint;
-  l2BatchNumber: bigint;
-  l2MessageIndex: bigint;
-};
-
-// Overall withdrawal state (used by higher-level status helpers)
-type WithdrawalPhase =
-  | 'L2_PENDING'
-  | 'L2_INCLUDED'
-  | 'PENDING'
-  | 'READY_TO_FINALIZE'
-  | 'FINALIZING'
-  | 'FINALIZED'
-  | 'FINALIZE_FAILED'
-  | 'UNKNOWN';
-
-export type WithdrawalStatus = {
-  phase: WithdrawalPhase;
-  l2TxHash: Hex;
-  l1FinalizeTxHash?: Hex;
-  key?: WithdrawalKey;
-};
-
-// Readiness result returned by simulateFinalizeReadiness(...)
-export type FinalizeReadiness =
-  | { kind: 'READY' }
-  | { kind: 'FINALIZED' }
-  | {
-      kind: 'NOT_READY';
-      // temporary, retry later
-      reason: 'paused' | 'batch-not-executed' | 'root-missing' | 'unknown';
-      detail?: string;
-    }
-  | {
-      kind: 'UNFINALIZABLE';
-      // permanent, won’t become ready
-      reason: 'message-invalid' | 'invalid-chain' | 'settlement-layer' | 'unsupported';
-      detail?: string;
-    };
-
-// Viem-bound service surface
-export interface FinalizationServices {
-  fetchFinalizeDepositParams(
-    l2TxHash: Hex,
-  ): Promise<{ params: FinalizeDepositParams; nullifier: Address }>;
-
-  isWithdrawalFinalized(key: WithdrawalKey): Promise<boolean>;
-
-  simulateFinalizeReadiness(
-    params: FinalizeDepositParams,
-    nullifier: Address,
-  ): Promise<FinalizeReadiness>;
-
-  finalizeDeposit(
-    params: FinalizeDepositParams,
-    nullifier: Address,
-  ): Promise<{ hash: string; wait: () => Promise<TransactionReceipt> }>;
-}
+{{#include ../../../snippets/ethers/reference/finalization-service.test.ts:finalization-types}}
 ```
 
 ---

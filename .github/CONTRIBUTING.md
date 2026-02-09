@@ -45,6 +45,9 @@ Before submitting a PR, please make sure:
   ```
 
 - Update or add docs/examples if needed.
+   For docs, make sure to import any code examples from tests inside `docs/snippets`.
+   Use `ANCHOR` comments with unique tags to specify a code block within a test to import into a markdown file.
+   For more information, check out the [mdbook docs](https://rust-lang.github.io/mdBook/format/mdbook.html#including-files).
 - Link the related issue (if any).
 
 ## 🤖 AI-Assisted Development

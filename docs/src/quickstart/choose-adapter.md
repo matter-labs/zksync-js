@@ -13,49 +13,28 @@ You can't make a wrong choice. Both adapters are fully supported and provide the
 
 The only difference in your code is the initial setup. **All subsequent SDK calls are identical.**
 
-#### viem
+### viem
 
 ```ts
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { createViemClient, createViemSdk } from '@matterlabs/zksync-js/viem';
+{{#include ../../snippets/viem/overview/adapter-basic.test.ts:viem-basic-imports}}
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-
-const l1 = createPublicClient({ transport: http(process.env.L1_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.L2_RPC!) });
-const l1Wallet = createWalletClient({ account, transport: http(process.env.L1_RPC!) });
-
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
+{{#include ../../snippets/viem/overview/adapter-basic.test.ts:init-viem-adapter}}
 ```
 
-#### ethers
+### ethers
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
+{{#include ../../snippets/ethers/overview/adapter-basic.test.ts:ethers-basic-imports}}
 
-const l1 = new JsonRpcProvider(process.env.L1_RPC!);
-const l2 = new JsonRpcProvider(process.env.L2_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
-
-const client = await createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
+{{#include ../../snippets/ethers/overview/adapter-basic.test.ts:init-ethers-adapter}}
 ```
 
-### Identical SDK Usage
+## Identical SDK Usage
 
 Once the adapter is set up, **your application logic is the same**:
 
 ```ts
-const quote = await sdk.deposits.quote({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.1'),
-  to: '0xYourAddress',
-});
-
-console.log('Total fee:', quote.totalFee.toString());
+{{#include ../../snippets/viem/overview/adapter.test.ts:deposit-quote}}
 ```
 
 ## Conclusion

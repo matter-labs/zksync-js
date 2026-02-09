@@ -11,14 +11,7 @@ For standard Ethereum JSON-RPC (e.g., `eth_call`, `eth_getLogs`, `eth_getBalance
 ## zks_ Interface
 
 ```ts
-interface ZksRpc {
-  getBridgehubAddress(): Promise<Address>;
-  getBytecodeSupplierAddress(): Promise<Address>;
-  getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
-  getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
-  getBlockMetadataByNumber(blockNumber: number): Promise<BlockMetadata | null>;
-  getGenesis(): Promise<GenesisInput>;
-}
+{{#include ../../../snippets/core/rpc.test.ts:zks-rpc}}
 ```
 
 ---
@@ -30,7 +23,7 @@ interface ZksRpc {
 Fetch the on-chain **Bridgehub** contract address.
 
 ```ts
-const addr = await client.zks.getBridgehubAddress();
+{{#include ../../../snippets/core/rpc.test.ts:bridgehub-address}}
 ```
 
 ---
@@ -40,7 +33,7 @@ const addr = await client.zks.getBridgehubAddress();
 Fetch the on-chain **Bytecode Supplier** contract address.
 
 ```ts
-const addr = await client.zks.getBytecodeSupplierAddress();
+{{#include ../../../snippets/core/rpc.test.ts:bytecode-supplier}}
 ```
 
 ---
@@ -57,14 +50,7 @@ Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 | `index`  | number | yes      | Zero-based index of the target L2→L1 log within the tx.  |
 
 ```ts
-const proof = await client.zks.getL2ToL1LogProof(l2TxHash, 0);
-/*
-{
-  id: bigint,
-  batchNumber: bigint,
-  proof: Hex[]
-}
-*/
+{{#include ../../../snippets/viem/overview/adapter.test.ts:log-proof}}
 ```
 
 > [!INFO]
@@ -78,8 +64,7 @@ const proof = await client.zks.getL2ToL1LogProof(l2TxHash, 0);
 Fetch the transaction receipt; the returned object **always** includes `l2ToL1Logs` (empty array if none).
 
 ```ts
-const rcpt = await client.zks.getReceiptWithL2ToL1(l2TxHash);
-console.log(rcpt?.l2ToL1Logs); // always an array
+{{#include ../../../snippets/viem/overview/adapter.test.ts:receipt-with-logs}}
 ```
 
 ---
@@ -94,49 +79,18 @@ Price fields are returned as `bigint`.
 **Example**
 
 ```ts
-const meta = await client.zks.getBlockMetadataByNumber(123_456);
-if (meta) {
-  console.log(meta.pubdataPricePerByte, meta.nativePrice, meta.executionVersion);
-}
+{{#include ../../../snippets/core/rpc.test.ts:block-metadata}}
 ```
 
 **Returns**
 
 ```ts
-type BlockMetadata = {
-  pubdataPricePerByte: bigint;
-  nativePrice: bigint;
-  executionVersion: number;
-};
+{{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 ```
 
 ---
 
-## Types (overview)
-
-```ts
-type ProofNormalized = {
-  id: bigint;
-  batchNumber: bigint;
-  proof: Hex[];
-  root: Hex;
-};
-
-type ReceiptWithL2ToL1 = {
-  // …standard receipt fields…
-  l2ToL1Logs: unknown[];
-};
-
-type BlockMetadata = {
-  pubdataPricePerByte: bigint;
-  nativePrice: bigint;
-  executionVersion: number;
-};
-```
-
----
-
-## `getGenesis()`
+### `getGenesis()`
 
 **What it does**
 Retrieves the L2 genesis configuration exposed by the node, including initial contract deployments, storage patches, execution version, and the expected genesis root.
@@ -144,31 +98,27 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 **Example**
 
 ```ts
-const genesis = await client.zks.getGenesis();
-
-for (const contract of genesis.initialContracts) {
-  console.log('Contract at', contract.address, 'with bytecode', contract.bytecode);
-}
-
-console.log('Execution version:', genesis.executionVersion);
-console.log('Genesis root:', genesis.genesisRoot);
+{{#include ../../../snippets/core/rpc.test.ts:genesis-method}}
 ```
 
 **Returns**
 
 ```ts
-type GenesisInput = {
-  initialContracts: {
-    address: Address;
-    bytecode: `0x${string}`;
-  }[];
-  additionalStorage: {
-    key: `0x${string}`;
-    value: `0x${string}`;
-  }[];
-  executionVersion: number;
-  genesisRoot: `0x${string}`;
-};
+{{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
+```
+
+---
+
+## Types (overview)
+
+```ts
+{{#include ../../../snippets/core/rpc.test.ts:zks-rpc}}
+
+{{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
+
+{{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
+
+{{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
 ```
 
 ---
@@ -179,17 +129,12 @@ type GenesisInput = {
 <summary><strong>Ethers</strong></summary>
 
 ```ts
-import { JsonRpcProvider, Wallet } from 'ethers';
-import { createEthersClient } from '@matterlabs/zksync-js/ethers';
+{{#include ../../../snippets/ethers/overview/adapter-basic.test.ts:ethers-basic-imports}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
-
-const client = createEthersClient({ l1, l2, signer });
+{{#include ../../../snippets/ethers/overview/adapter-basic.test.ts:init-ethers-adapter}}
 
 // Public RPC surface:
-const bridgehub = await client.zks.getBridgehubAddress();
+{{#include ../../../snippets/core/rpc.test.ts:bridgehub-address}}
 ```
 
 </details>
@@ -198,19 +143,12 @@ const bridgehub = await client.zks.getBridgehubAddress();
 <summary><strong>Viem</strong></summary>
 
 ```ts
-import { createPublicClient, http } from 'viem';
-import { createViemClient } from '@matterlabs/zksync-js/viem';
+{{#include ../../../snippets/viem/overview/adapter.test.ts:viem-adapter-imports}}
 
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-
-// Provide a WalletClient with an account for L1 operations.
-const l1Wallet = /* your WalletClient w/ account */;
-
-const client = createViemClient({ l1, l2, l1Wallet });
+{{#include ../../../snippets/viem/overview/adapter-basic.test.ts:init-viem-adapter}}
 
 // Public RPC surface:
-const bridgehub = await client.zks.getBridgehubAddress();
+{{#include ../../../snippets/core/rpc.test.ts:bridgehub-address}}
 ```
 
 </details>

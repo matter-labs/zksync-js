@@ -1,12 +1,24 @@
-// examples/deposit-eth.ts
+import { describe, it } from 'bun:test';
+
+// ANCHOR: imports
 import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk } from '@matterlabs/zksync-js/ethers';
-import { ETH_ADDRESS } from '@matterlabs/zksync-js/core';
+import { createEthersClient, createEthersSdk } from '../../../../src/adapters/ethers';
+import { ETH_ADDRESS } from '../../../../src/core';
 
 const L1_RPC = 'http://localhost:8545'; // e.g. https://sepolia.infura.io/v3/XXX
 const L2_RPC = 'http://localhost:3050'; // your L2 RPC
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+// ANCHOR_END: imports
 
+describe('ethers deposit ETH guide', () => {
+
+it('deposits some ETH', async () => {
+  await main();
+});
+
+});
+
+// ANCHOR: main
 async function main() {
   if (!PRIVATE_KEY) {
     throw new Error('Set your PRIVATE_KEY in the .env file');
@@ -21,10 +33,10 @@ async function main() {
   const balanceL2 = await l2.getBalance(signer.address);
   console.log('L2 balance:', balanceL2.toString());
 
-  const client = await createEthersClient({ l1, l2, signer });
+  const client = createEthersClient({ l1, l2, signer });
   const sdk = createEthersSdk(client);
 
-  const me = (await signer.getAddress());
+  const me = (await signer.getAddress()) as `0x${string}`;
   const params = {
     amount: parseEther('.01'), // 0.01 ETH
     to: me,
@@ -37,21 +49,30 @@ async function main() {
   } as const;
 
   // Quote
+  // ANCHOR: quote
   const quote = await sdk.deposits.quote(params);
+  // ANCHOR_END: quote
   console.log('QUOTE response: ', quote);
 
-  const prepare = await sdk.deposits.prepare(params);
-  console.log('PREPARE response: ', prepare);
+  // ANCHOR: prepare
+  const plan = await sdk.deposits.prepare(params);
+  // ANCHOR_END: prepare
+  console.log('PREPARE response: ', plan);
 
   // Create (prepare + send)
-  const create = await sdk.deposits.create(params);
-  console.log('CREATE response: ', create);
+  // ANCHOR: create
+  const handle = await sdk.deposits.create(params);
+  // ANCHOR_END: create
+  console.log('CREATE response: ', handle);
 
-  const status = await sdk.deposits.status(create);
+  // ANCHOR: status
+    const status = await sdk.deposits.status(handle);  /* input can be handle or l1TxHash */
+  // status.phase: 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+  // ANCHOR_END: status
   console.log('STATUS response: ', status);
 
   // Wait (for now, L1 inclusion)
-  const receipt = await sdk.deposits.wait(create, { for: 'l1' });
+  const receipt = await sdk.deposits.wait(handle, { for: 'l1' });
   console.log(
     'Included at block:',
     receipt?.blockNumber,
@@ -61,11 +82,11 @@ async function main() {
     receipt?.hash,
   );
 
-  const status2 = await sdk.deposits.status(create);
+  const status2 = await sdk.deposits.status(handle);
   console.log('STATUS2 response: ', status2);
 
   // Wait (for now, L2 inclusion)
-  const l2Receipt = await sdk.deposits.wait(create, { for: 'l2' });
+  const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
   console.log(
     'Included at block:',
     l2Receipt?.blockNumber,
@@ -75,8 +96,4 @@ async function main() {
     l2Receipt?.hash,
   );
 }
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// ANCHOR_END: main

@@ -100,29 +100,24 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         });
       }
 
-      const resolved =
-        ctx.resolvedToken ??
-        (ctx.tokens ? await ctx.tokens.resolve(p.token, { chain: 'l2' }) : undefined);
-      const assetId =
-        resolved?.assetId ??
-        (
-          await wrapAs(
-            'CONTRACT',
-            OP_WITHDRAWALS.erc20.ensureRegistered,
-            () =>
-              ctx.client.l2.simulateContract({
-                address: ctx.l2NativeTokenVault,
-                abi: L2NativeTokenVaultABI,
-                functionName: 'ensureTokenIsRegistered',
-                args: [p.token] as const,
-                account: ctx.client.account,
-              }),
-            {
-              ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
-              message: 'Failed to ensure token is registered in L2NativeTokenVault.',
-            },
-          )
-        ).result;
+      const assetId = (
+        await wrapAs(
+          'CONTRACT',
+          OP_WITHDRAWALS.erc20.ensureRegistered,
+          () =>
+            ctx.client.l2.simulateContract({
+              address: ctx.l2NativeTokenVault,
+              abi: L2NativeTokenVaultABI,
+              functionName: 'ensureTokenIsRegistered',
+              args: [p.token] as const,
+              account: ctx.client.account,
+            }),
+          {
+            ctx: { where: 'L2NativeTokenVault.ensureTokenIsRegistered', token: p.token },
+            message: 'Failed to ensure token is registered in L2NativeTokenVault.',
+          },
+        )
+      ).result;
       const assetData = encodeAbiParameters(
         [
           { type: 'uint256', name: 'amount' },
@@ -145,7 +140,10 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
         from: ctx.sender,
       };
 
-      const withdrawGas = await quoteL2Gas({ ctx, tx: withdrawTxCandidate });
+      // Only estimate withdraw gas when allowance is already sufficient.
+      // Otherwise the estimation can revert (pre-approval) and produce noisy logs.
+      const withdrawGas =
+        current >= p.amount ? await quoteL2Gas({ ctx, tx: withdrawTxCandidate }) : undefined;
       if (withdrawGas) {
         withdrawTxCandidate.gas = withdrawGas.gasLimit;
         withdrawTxCandidate.maxFeePerGas = withdrawGas.maxFeePerGas;

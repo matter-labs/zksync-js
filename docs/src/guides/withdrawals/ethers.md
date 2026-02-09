@@ -26,11 +26,17 @@ Withdrawals are a **two-step process**:
 | `refundRecipient` | No       | L2 address to receive fee refunds (if applicable) |
 | `l2TxOverrides`   | No       | L2 tx overrides (e.g. gasLimit, maxFeePerGas, maxPriorityFeePerGas)     |
 
-
 ## Fast path (one-shot)
 
 ```ts
-{{#include ../../../snippets/ethers/withdrawals-eth.ts}}
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:imports}}
+
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:main}}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
 ```
 
 - `create()` prepares **and** sends the L2 withdrawal.
@@ -43,19 +49,19 @@ Withdrawals are a **two-step process**:
 **1. Quote (no side-effects)**
 
 ```ts
-const quote = await sdk.withdrawals.quote(params);
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:quote}}
 ```
 
 **2. Prepare (build txs, don’t send)**
 
 ```ts
-const plan = await sdk.withdrawals.prepare(params);
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:prepare}}
 ```
 
 **3. Create (send)**
 
 ```ts
-const handle = await sdk.withdrawals.create(params);
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:create}}
 ```
 
 ## Track progress (status vs wait)
@@ -63,22 +69,20 @@ const handle = await sdk.withdrawals.create(params);
 **Non-blocking snapshot**
 
 ```ts
-const s = await sdk.withdrawals.status(handle /* or l2TxHash */);
-// 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:status}}
 ```
 
 **Block until checkpoint**
 
 ```ts
-const l2Receipt = await sdk.withdrawals.wait(handle, { for: 'l2' });
-await sdk.withdrawals.wait(handle, { for: 'ready' });
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:wait-for-l2}}
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:wait-for-ready}}
 ```
 
 ## Finalization (required step)
 
 ```ts
-const result = await sdk.withdrawals.finalize(handle.l2TxHash);
-console.log('Finalization result:', result);
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:wfinalize}}
 ```
 
 ## Error handling patterns
@@ -86,11 +90,7 @@ console.log('Finalization result:', result);
 **Exceptions**
 
 ```ts
-try {
-  const handle = await sdk.withdrawals.create(params);
-} catch (e) {
-  // normalized error envelope (type, operation, message, context, optional revert)
-}
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:try-catch-create}}
 ```
 
 **No-throw style**
@@ -99,19 +99,7 @@ Use `try*` methods to avoid exceptions. They return `{ ok, value }` or `{ ok, er
 Perfect for UIs or services that prefer explicit flow control.
 
 ```ts
-const r = await sdk.withdrawals.tryCreate(params);
-
-if (!r.ok) {
-  console.error('Withdrawal failed:', r.error);
-} else {
-  const handle = r.value;
-  const f = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
-  if (!f.ok) {
-    console.error('Finalize failed:', f.error);
-  } else {
-    console.log('Withdrawal finalized on L1:', f.value.receipt?.transactionHash);
-  }
-}
+{{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:tryCreate}}
 ```
 
 ## Troubleshooting

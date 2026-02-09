@@ -17,28 +17,15 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 <summary><strong>Ethers Example</strong></summary>
 
 ```ts
-import { JsonRpcProvider, Wallet, parseEther } from 'ethers';
-import { createEthersClient, createEthersSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/ethers';
+{{#include ../../snippets/ethers/reference/sdk.test.ts:ethers-import}}
+{{#include ../../snippets/ethers/reference/sdk.test.ts:eth-import}}
+{{#include ../../snippets/ethers/reference/sdk.test.ts:sdk-import}}
 
-const l1 = new JsonRpcProvider(process.env.ETH_RPC!);
-const l2 = new JsonRpcProvider(process.env.ZKSYNC_RPC!);
-const signer = new Wallet(process.env.PRIVATE_KEY!, l1);
+{{#include ../../snippets/ethers/reference/sdk.test.ts:init-sdk}}
 
-// Low-level client + high-level SDK
-const client = createEthersClient({ l1, l2, signer });
-const sdk = createEthersSdk(client);
+{{#include ../../snippets/ethers/reference/sdk.test.ts:erc-20-address}}
 
-// Deposit 0.05 ETH L1 → L2 and wait for L2 execution
-const handle = await sdk.deposits.create({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.001'),
-  to: await signer.getAddress(),
-});
-
-const l2Receipt = await sdk.deposits.wait(handle, { for: 'l2' });
-
-// ZKsync-specific RPC is available via client.zks
-const bridgehub = await client.zks.getBridgehubAddress();
+{{#include ../../snippets/ethers/reference/sdk.test.ts:basic-sdk}}
 ```
 
 </details>
@@ -47,33 +34,15 @@ const bridgehub = await client.zks.getBridgehubAddress();
 <summary><strong>Viem Example</strong></summary>
 
 ```ts
-import {
-  createPublicClient,
-  http,
-  createWalletClient,
-  privateKeyToAccount,
-  parseEther,
-} from 'viem';
-import { createViemClient, createViemSdk, ETH_ADDRESS } from '@matterlabs/zksync-js/viem';
+{{#include ../../snippets/viem/reference/sdk.test.ts:sdk-import}}
+{{#include ../../snippets/viem/reference/sdk.test.ts:viem-import}}
+{{#include ../../snippets/viem/reference/sdk.test.ts:eth-import}}
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
-const l1 = createPublicClient({ transport: http(process.env.ETH_RPC!) });
-const l2 = createPublicClient({ transport: http(process.env.ZKSYNC_RPC!) });
-const l1Wallet = createWalletClient({ account, transport: http(process.env.ETH_RPC!) });
+{{#include ../../snippets/viem/reference/sdk.test.ts:init-sdk}}
 
-const client = createViemClient({ l1, l2, l1Wallet });
-const sdk = createViemSdk(client);
+{{#include ../../snippets/viem/reference/sdk.test.ts:erc-20-address}}
 
-const handle = await sdk.withdrawals.create({
-  token: ETH_ADDRESS,
-  amount: parseEther('0.001'),
-  to: account.address, // L1 recipient
-});
-
-await sdk.withdrawals.wait(handle, { for: 'l2' }); // inclusion on L2
-const { status } = await sdk.withdrawals.finalize(handle.l2TxHash); // finalize on L1
-
-const bridgehub = await client.zks.getBridgehubAddress();
+{{#include ../../snippets/viem/reference/sdk.test.ts:basic-sdk}}
 ```
 
 </details>
