@@ -10,6 +10,7 @@ import type { AttributesResource } from '../../../../core/resources/interop/attr
 import type { InteropTopics } from '../../../../core/resources/interop/events';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
+import { INTEROP_SUPPORTED_CHAINS } from '../../../../core/resources/interop/chains';
 
 // Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {
@@ -48,6 +49,12 @@ export async function commonCtx(
   if (!client.getProvider(chainId)) {
     client.registerChain(chainId, client.l2);
   }
+  // Ensure all supported chains are registered in the client (for status polling, etc).
+  Object.entries(INTEROP_SUPPORTED_CHAINS).forEach(([chainId, providerUrl]) => {
+    if (!client.getProvider(BigInt(chainId))) {
+      client.registerChain(BigInt(chainId), providerUrl);
+    }
+  });
 
   const {
     bridgehub,
