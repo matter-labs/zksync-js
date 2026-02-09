@@ -35,10 +35,11 @@ export async function getDestinationLogs(
   address: Address,
   topics: Hex[],
 ): Promise<Log[]> {
+  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
+  const dstProvider = client.requireProvider(dstChainId);
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
-      const dstProvider = client.requireProvider(dstChainId);
       const rawLogs = await dstProvider.getLogs({
         address,
         fromBlock: 0n,
@@ -66,10 +67,11 @@ export async function getInteropRoot(
   rootChainId: bigint,
   batchNumber: bigint,
 ): Promise<Hex> {
+  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
+  const dstProvider = client.requireProvider(dstChainId);
   return await wrap(
     OP_INTEROP.svc.status.getRoot,
     async () => {
-      const dstProvider = client.requireProvider(dstChainId);
       const rootStorage = new Contract(
         L2_INTEROP_ROOT_STORAGE_ADDRESS,
         InteropRootStorageABI,

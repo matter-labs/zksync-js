@@ -103,14 +103,33 @@ if (kInspect) {
 }
 
 //  ---- Factory & type guards ----
-export function isZKsyncError(e: unknown): e is ZKsyncError {
+export function isZKsyncError(
+  e: unknown,
+  opts?: {
+    type?: ErrorType;
+    resource?: Resource;
+    operation?: string;
+    messageIncludes?: string;
+  },
+): e is ZKsyncError {
   if (!e || typeof e !== 'object') return false;
 
   const maybe = e as { envelope?: unknown };
   if (!('envelope' in maybe)) return false;
 
   const envelope = maybe.envelope as Record<string, unknown> | undefined;
-  return typeof envelope?.type === 'string' && typeof envelope?.message === 'string';
+  if (typeof envelope?.type !== 'string' || typeof envelope?.message !== 'string') return false;
+
+  if (opts?.type && envelope.type !== opts.type) return false;
+  if (opts?.resource && envelope.resource !== opts.resource) return false;
+  if (opts?.operation && envelope.operation !== opts.operation) return false;
+  if (
+    opts?.messageIncludes &&
+    !envelope.message.toLowerCase().includes(opts.messageIncludes.toLowerCase())
+  )
+    return false;
+
+  return true;
 }
 
 // "receipt not found" detector across viem / ethers / generic RPC.

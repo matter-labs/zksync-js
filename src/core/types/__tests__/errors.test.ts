@@ -82,6 +82,42 @@ describe('types/errors — isZKsyncError', () => {
     expect(isZKsyncError(err)).toBe(true);
   });
 
+  it('supports filtering by type/resource/operation/messageIncludes', () => {
+    const err = new ZKsyncError(
+      makeEnvelope({
+        type: 'STATE',
+        resource: 'interop',
+        operation: 'interop.wait',
+        message: 'Timed out waiting for source receipt',
+      }),
+    );
+
+    expect(
+      isZKsyncError(err, {
+        type: 'STATE',
+        resource: 'interop',
+        operation: 'interop.wait',
+        messageIncludes: 'Source Receipt',
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when filter criteria do not match', () => {
+    const err = new ZKsyncError(
+      makeEnvelope({
+        type: 'STATE',
+        resource: 'interop',
+        operation: 'interop.wait',
+        message: 'Timed out waiting for source receipt',
+      }),
+    );
+
+    expect(isZKsyncError(err, { type: 'RPC' })).toBe(false);
+    expect(isZKsyncError(err, { resource: 'deposits' })).toBe(false);
+    expect(isZKsyncError(err, { operation: 'interop.status' })).toBe(false);
+    expect(isZKsyncError(err, { messageIncludes: 'destination root' })).toBe(false);
+  });
+
   it('returns false for plain errors and other values', () => {
     expect(isZKsyncError(new Error('nope'))).toBe(false);
     expect(isZKsyncError(null)).toBe(false);

@@ -44,6 +44,11 @@ export async function commonCtx(
   const chainId = BigInt((await client.l2.getNetwork()).chainId);
   const { dstChainId } = params;
 
+  // Ensure the source chain provider is present in chainMap for create/status flows.
+  if (!client.getProvider(chainId)) {
+    client.registerChain(chainId, client.l2);
+  }
+
   const {
     bridgehub,
     l2AssetRouter,

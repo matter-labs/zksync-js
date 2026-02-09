@@ -7,6 +7,7 @@ import type { EthersClient } from '../../../../client';
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { createError } from '../../../../../../core/errors/factory';
 import { OP_INTEROP } from '../../../../../../core/types';
+import { isZKsyncError } from '../../../../../../core/types/errors';
 import { ZERO_HASH } from '../../../../../../core/types/primitives';
 import { sleep } from '../../../../../../core/utils';
 import {
@@ -23,6 +24,18 @@ import { getInteropRoot } from './data-fetchers';
 import { type ReceiptWithL2ToL1 } from '../../../../../../core/rpc/types';
 
 const { wrap } = createErrorHandlers('interop');
+
+function isProofNotReadyError(error: unknown): boolean {
+  return isZKsyncError(error, {
+    operation: 'zksrpc.getL2ToL1LogProof',
+    messageIncludes: 'proof not yet available',
+  });
+}
+
+function shouldRetryRootFetch(error: unknown): boolean {
+  if (!isZKsyncError(error)) return false;
+  return error.envelope.operation === OP_INTEROP.svc.status.getRoot;
+}
 
 async function waitForProof(
   client: EthersClient,
@@ -51,8 +64,25 @@ async function waitForProof(
     await sleep(pollMs);
   }
 
-  // Block is finalized, fetch the proof
-  return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
+  // Block is finalized, poll proof until available.
+  while (true) {
+    if (Date.now() > deadline) {
+      throw createError('TIMEOUT', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.timeout,
+        message: 'Timed out waiting for L2->L1 log proof to become available.',
+        context: { l2SrcTxHash, logIndex },
+      });
+    }
+
+    try {
+      return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
+    } catch (error) {
+      if (!isProofNotReadyError(error)) throw error;
+    }
+
+    await sleep(pollMs);
+  }
 }
 
 async function waitForRoot(
@@ -83,7 +113,8 @@ async function waitForRoot(
       if (root !== ZERO_HASH) {
         interopRoot = root;
       }
-    } catch {
+    } catch (error) {
+      if (!shouldRetryRootFetch(error)) throw error;
       interopRoot = null;
     }
 

@@ -337,7 +337,13 @@ export function createEthersClient(args: InitArgs): EthersClient {
   }
   function requireProvider(chainId: bigint) {
     const p = chainMap.get(chainId);
-    if (!p) throw new Error(`No provider registered for destination chainId ${chainId}`);
+    if (!p) {
+      throw createError('STATE', {
+        resource: 'helpers',
+        message: `No provider registered for destination chainId ${chainId}`,
+        operation: 'client.requireProvider',
+      });
+    }
     return p;
   }
   function listChains(): bigint[] {

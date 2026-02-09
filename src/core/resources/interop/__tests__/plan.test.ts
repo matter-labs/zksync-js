@@ -309,6 +309,18 @@ describe('interop/plan', () => {
       expect(result.starters[0][1]).toBe('0xpayload');
     });
 
+    it('throws when sendErc20 action is missing asset router payload', () => {
+      const params: InteropParams = {
+        dstChainId: 2n,
+        actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
+      };
+      const starterData: InteropStarterData[] = [{}];
+
+      expect(() => buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData)).toThrow(
+        'buildIndirectBundle: missing assetRouterPayload for sendErc20 action.',
+      );
+    });
+
     it('routes sendNative with matching base tokens directly', () => {
       const params: InteropParams = {
         dstChainId: 2n,
