@@ -53,7 +53,6 @@ async function main() {
   console.log('WalletA token balance:', formatUnits(balanceA, 18), 'TEST');
 
   const params = {
-    sender: me,
     dstChainId: dstNet.chainId,
     actions: [
       {

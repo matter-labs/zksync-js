@@ -165,7 +165,7 @@ export function createInteropResource(
   // prepare → build plan without executing
   const prepare = (params: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(params), {
-      message: 'Internal error while preparing a deposit plan.',
+      message: 'Internal error while preparing an interop plan.',
       ctx: { where: 'interop.prepare', dstChainId: params.dstChainId },
     });
 
@@ -184,7 +184,7 @@ export function createInteropResource(
         const srcProvider = ctx.client.getProvider(ctx.chainId)!;
 
         const from = await signer.getAddress();
-        let next = await srcProvider.getTransactionCount(from, 'latest');
+        let next = await srcProvider.getTransactionCount(from, 'pending');
 
         const stepHashes: Record<string, Hex> = {};
 

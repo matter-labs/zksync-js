@@ -40,7 +40,7 @@ export async function commonCtx(
   contracts: ContractsResource,
   attributes: AttributesResource,
 ): Promise<BuildCtx> {
-  const sender = (params.sender ?? (await client.signer.getAddress())) as Address;
+  const sender = (await client.signer.getAddress()) as Address;
   const chainId = BigInt((await client.l2.getNetwork()).chainId);
   const { dstChainId } = params;
 

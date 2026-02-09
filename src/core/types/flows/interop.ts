@@ -28,8 +28,6 @@ export interface InteropParams {
   dstChainId: bigint;
   /** Ordered list of actions to execute on destination chain */
   actions: InteropAction[];
-  /** Optional: Override default sender address for the operation */
-  sender?: Address;
   /** Optional: Restrict execution to a specific address on destination */
   execution?: { only: Address };
   /** Optional: Specify who can unbundle actions */

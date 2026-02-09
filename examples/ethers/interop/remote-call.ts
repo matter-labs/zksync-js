@@ -60,7 +60,6 @@ async function main() {
   const data = AbiCoder.defaultAbiCoder().encode(['string'], [newGreeting]) as `0x${string}`;
 
   const params = {
-    sender: me,
     dstChainId: dstNet.chainId,
     actions: [
       {

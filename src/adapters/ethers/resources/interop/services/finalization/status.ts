@@ -5,8 +5,6 @@ import type {
 } from '../../../../../../core/types/flows/interop';
 import type { Log } from '../../../../../../core/types/transactions';
 import type { EthersClient } from '../../../../client';
-import { OP_INTEROP } from '../../../../../../core/types';
-import { createError } from '../../../../../../core/errors/factory';
 import {
   resolveIdsFromWaitable,
   parseBundleSentFromReceipt,
@@ -29,14 +27,7 @@ export async function getStatus(
 
     const { interopCenter } = await client.ensureAddresses();
     const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
-    if (!receipt) {
-      throw createError('STATE', {
-        resource: 'interop',
-        operation: OP_INTEROP.svc.status.sourceReceipt,
-        message: 'Source transaction receipt not found.',
-        context: { l2SrcTxHash: baseIds.l2SrcTxHash },
-      });
-    }
+    if (!receipt) return baseIds;
 
     const { bundleHash, dstChainId } = parseBundleSentFromReceipt({
       receipt: { logs: receipt.logs as Log[] },
