@@ -66,12 +66,12 @@ export interface InteropResource {
 
   wait(
     h: InteropWaitable,
-    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+    opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 
   tryWait(
     h: InteropWaitable,
-    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+    opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
   finalize(h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult>;
@@ -269,17 +269,15 @@ export function createInteropResource(
   // wait → block until source finalization + destination root availability
   const wait = (
     h: InteropWaitable,
-    opts?: { for?: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
+    opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
     wrap(OP_INTEROP.wait, () => waitForFinalization(client, h, opts), {
       message: 'Internal error while waiting for interop finalization.',
-      ctx: { where: 'interop.wait', for: opts?.for },
+      ctx: { where: 'interop.wait' },
     });
 
-  const tryWait = (
-    h: InteropWaitable,
-    opts: { for: 'verified' | 'executed'; pollMs?: number; timeoutMs?: number },
-  ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
+  const tryWait = (h: InteropWaitable, opts?: { pollMs?: number; timeoutMs?: number }) =>
+    toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
 
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,

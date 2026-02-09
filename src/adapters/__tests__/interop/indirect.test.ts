@@ -2,19 +2,28 @@ import { describe, it, expect } from 'bun:test';
 import { Interface } from 'ethers';
 
 import { routeIndirect } from '../../ethers/resources/interop/routes/indirect.ts';
-import { createEthersHarness, makeInteropContext } from '../adapter-harness.ts';
+import {
+  createEthersHarness,
+  makeInteropContext,
+  setErc20Allowance,
+  setL2TokenRegistration,
+} from '../adapter-harness.ts';
 import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
 import { interopCodec } from '../../ethers/resources/interop/address.ts';
-import { InteropCenterABI, IInteropHandlerABI } from '../../../core/abi.ts';
+import {
+  InteropCenterABI,
+  IInteropHandlerABI,
+  IERC20ABI,
+  L2NativeTokenVaultABI,
+} from '../../../core/abi.ts';
 import { createTokensResource } from '../../ethers/resources/tokens/index.ts';
 import type { BuildCtx } from '../../ethers/resources/interop/context.ts';
 import type { Hex, Address } from '../../../core/types/primitives.ts';
 
 const route = routeIndirect();
 
-const TEST_ASSET_ID =
-  '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' as Hex;
+const TEST_ASSET_ID = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' as Hex;
 
 function makeTestBuildCtx(
   harness: ReturnType<typeof createEthersHarness>,
@@ -115,8 +124,7 @@ describe('adapters/interop/routeIndirect', () => {
     });
 
     // Mock the token resource methods
-    const baseAssetId =
-      '0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210' as Hex;
+    const baseAssetId = '0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210' as Hex;
     buildCtx.tokens = {
       ...buildCtx.tokens,
       baseTokenAssetId: async () => baseAssetId,
@@ -284,5 +292,75 @@ describe('adapters/interop/routeIndirect', () => {
     const callStarter = decoded.callStarters[1];
     expect(callStarter.to).toBe(interopCodec.formatAddress(target));
     expect(callStarter.data).toBe(callData);
+  });
+
+  it('builds ensure-token and approve steps for ERC-20 actions', async () => {
+    const harness = createEthersHarness();
+    const buildCtx = makeTestBuildCtx(harness);
+
+    const token = '0x7777777777777777777777777777777777777777' as Address;
+    const amount = 100n;
+
+    setL2TokenRegistration(harness, buildCtx.l2NativeTokenVault, token, TEST_ASSET_ID);
+    setErc20Allowance(harness, token, buildCtx.sender, buildCtx.l2NativeTokenVault, 0n);
+
+    const params = {
+      dstChainId: buildCtx.dstChainId,
+      actions: [{ type: 'sendErc20' as const, token, to: buildCtx.sender, amount }],
+    };
+
+    const result = await route.build(params, buildCtx);
+    expect(result.steps.map((s) => s.kind)).toEqual([
+      'interop.ntv.ensure-token',
+      'approve',
+      'interop.center',
+    ]);
+
+    const ensureStep = result.steps[0];
+    const ntvIface = new Interface(L2NativeTokenVaultABI);
+    const ensureArgs = ntvIface.decodeFunctionData(
+      'ensureTokenIsRegistered',
+      ensureStep.tx.data as Hex,
+    );
+    expect((ensureArgs[0] as string).toLowerCase()).toBe(token.toLowerCase());
+
+    const approveStep = result.steps[1];
+    const erc20Iface = new Interface(IERC20ABI);
+    const approveArgs = erc20Iface.decodeFunctionData('approve', approveStep.tx.data as Hex);
+    expect((approveArgs[0] as string).toLowerCase()).toBe(
+      buildCtx.l2NativeTokenVault.toLowerCase(),
+    );
+    expect(approveArgs[1]).toBe(amount);
+  });
+
+  it('approves the target amount (not allowance delta)', async () => {
+    const harness = createEthersHarness();
+    const buildCtx = makeTestBuildCtx(harness);
+
+    const token = '0x8888888888888888888888888888888888888888' as Address;
+    const amount = 100n;
+    const currentAllowance = 40n;
+
+    setL2TokenRegistration(harness, buildCtx.l2NativeTokenVault, token, TEST_ASSET_ID);
+    setErc20Allowance(
+      harness,
+      token,
+      buildCtx.sender,
+      buildCtx.l2NativeTokenVault,
+      currentAllowance,
+    );
+
+    const params = {
+      dstChainId: buildCtx.dstChainId,
+      actions: [{ type: 'sendErc20' as const, token, to: buildCtx.sender, amount }],
+    };
+
+    const result = await route.build(params, buildCtx);
+    const approveStep = result.steps.find((s) => s.kind === 'approve');
+    expect(approveStep).toBeDefined();
+
+    const erc20Iface = new Interface(IERC20ABI);
+    const approveArgs = erc20Iface.decodeFunctionData('approve', approveStep!.tx.data as Hex);
+    expect(approveArgs[1]).toBe(amount);
   });
 });

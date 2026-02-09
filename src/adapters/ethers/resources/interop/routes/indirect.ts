@@ -1,5 +1,5 @@
 import { Contract, type TransactionRequest } from 'ethers';
-import type { Hex } from '../../../../../core/types/primitives';
+import type { Address, Hex } from '../../../../../core/types/primitives';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { InteropRouteStrategy } from './types';
@@ -14,32 +14,61 @@ import { interopCodec } from '../address';
 import { extractBundleAttributes } from '../attributes/resource';
 import { assertNever } from '../../../../../core/utils';
 
-async function ensureTokensRegistered(params: InteropParams, ctx: BuildCtx): Promise<void> {
-  const erc20Tokens = new Map<string, string>();
+function getErc20Tokens(params: InteropParams): Address[] {
+  const erc20Tokens = new Map<string, Address>();
   for (const action of params.actions) {
     if (action.type !== 'sendErc20') continue;
     erc20Tokens.set(action.token.toLowerCase(), action.token);
   }
+  return Array.from(erc20Tokens.values());
+}
 
-  if (erc20Tokens.size > 0) {
-    const ntv = new Contract(
-      ctx.l2NativeTokenVault,
-      L2NativeTokenVaultABI,
-      ctx.client.getL2Signer(),
-    );
+function buildEnsureTokenSteps(
+  erc20Tokens: Address[],
+  ctx: BuildCtx,
+): Array<{
+  key: string;
+  kind: string;
+  description: string;
+  tx: TransactionRequest;
+}> {
+  if (erc20Tokens.length === 0) return [];
 
-    for (const token of erc20Tokens.values()) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const ensureTx = await ntv.ensureTokenIsRegistered(token);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      await ensureTx.wait();
-    }
+  const ntv = new Contract(ctx.l2NativeTokenVault, L2NativeTokenVaultABI, ctx.client.l2);
+
+  return erc20Tokens.map((token) => ({
+    key: `ensure-token:${token.toLowerCase()}`,
+    kind: 'interop.ntv.ensure-token',
+    description: `Ensure ${token} is registered in the native token vault`,
+    tx: {
+      to: ctx.l2NativeTokenVault,
+      data: ntv.interface.encodeFunctionData('ensureTokenIsRegistered', [token]) as Hex,
+      ...ctx.gasOverrides,
+    },
+  }));
+}
+
+async function resolveErc20AssetIds(
+  erc20Tokens: Address[],
+  ctx: BuildCtx,
+): Promise<Map<string, Hex>> {
+  const assetIds = new Map<string, Hex>();
+  if (erc20Tokens.length === 0) return assetIds;
+
+  const ntv = new Contract(ctx.l2NativeTokenVault, L2NativeTokenVaultABI, ctx.client.getL2Signer());
+
+  for (const token of erc20Tokens) {
+    const assetId = (await ntv.getFunction('ensureTokenIsRegistered').staticCall(token)) as Hex;
+    assetIds.set(token.toLowerCase(), assetId);
   }
+
+  return assetIds;
 }
 
 async function getInteropData(
   params: InteropParams,
   ctx: BuildCtx,
+  erc20AssetIds: Map<string, Hex>,
 ): Promise<{ attrs: InteropAttributes; starterData: InteropStarterData[] }> {
   const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
   const bundleAttributes = extractBundleAttributes(params, ctx);
@@ -50,7 +79,11 @@ async function getInteropData(
   for (const action of params.actions) {
     switch (action.type) {
       case 'sendErc20': {
-        const assetId = await ctx.tokens.assetIdOfL2(action.token);
+        const assetId = erc20AssetIds.get(action.token.toLowerCase());
+        if (!assetId) {
+          throw new Error(`Missing precomputed assetId for token ${action.token}.`);
+        }
+
         const transferData = encodeNativeTokenVaultTransferData(
           action.amount,
           action.to,
@@ -113,7 +146,9 @@ export function routeIndirect(): InteropRouteStrategy {
         tx: TransactionRequest;
       }> = [];
 
-      const { attrs, starterData } = await getInteropData(params, ctx);
+      const erc20Tokens = getErc20Tokens(params);
+      const erc20AssetIds = await resolveErc20AssetIds(erc20Tokens, ctx);
+      const { attrs, starterData } = await getInteropData(params, ctx, erc20AssetIds);
       const built = buildIndirectBundle(
         params,
         {
@@ -127,9 +162,10 @@ export function routeIndirect(): InteropRouteStrategy {
         starterData,
       );
 
-      // Ensure all ERC20 tokens are registered in the native token vault
-      await ensureTokensRegistered(params, ctx);
-      // Check allowance and only approve what's needed
+      // Explicit registration steps keep quote/prepare side-effect free.
+      steps.push(...buildEnsureTokenSteps(erc20Tokens, ctx));
+
+      // Check allowance and only approve when needed.
       for (const approval of built.approvals) {
         const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
         const currentAllowance = (await erc20.allowance(
@@ -138,16 +174,15 @@ export function routeIndirect(): InteropRouteStrategy {
         )) as bigint;
 
         if (currentAllowance < approval.amount) {
-          const approveAmount = approval.amount - currentAllowance;
           const approveData = erc20.interface.encodeFunctionData('approve', [
             ctx.l2NativeTokenVault,
-            approveAmount,
+            approval.amount,
           ]) as Hex;
 
           steps.push({
             key: `approve:${approval.token}:${ctx.l2NativeTokenVault}`,
             kind: 'approve',
-            description: `Approve ${ctx.l2NativeTokenVault} to spend ${approveAmount} of ${approval.token}`,
+            description: `Approve ${ctx.l2NativeTokenVault} to spend ${approval.amount} of ${approval.token}`,
             tx: {
               to: approval.token,
               data: approveData,
