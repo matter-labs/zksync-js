@@ -6,8 +6,8 @@ import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/bas
 import type { QuoteExtras } from '../../../../../core/types/flows/interop';
 
 export interface InteropRouteStrategy {
-  // Optional preflight checks. Throw with a descriptive message on invalid inputs.
-  preflight?(params: InteropParams, ctx: BuildCtx): Promise<void> | void;
+  // Preflight checks. Throw with a descriptive message on invalid inputs.
+  preflight(params: InteropParams, ctx: BuildCtx): Promise<void>;
 
   // Build the plan steps + approvals + quote extras.
   build(
