@@ -8,7 +8,7 @@ import IERC7786AttributesAbi from '../../../../../core/internal/abis/IERC7786Att
 import type { Hex } from '../../../../../core/types/primitives';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
-import { InteropAttributes } from '../../../../../core/resources/interop/plan';
+import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import { assertNever } from '../../../../../core/utils';
 
 export function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {

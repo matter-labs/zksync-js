@@ -1,13 +1,12 @@
 // src/adapters/ethers/resources/interop/context.ts
 import { Interface } from 'ethers';
 import type { EthersClient } from '../../client';
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams } from '../../../../core/types/flows/interop';
 import type { TxOverrides } from '../../../../core/types/fees';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
-import type { InteropTopics } from '../../../../core/resources/interop/events';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
 import { INTEROP_SUPPORTED_CHAINS } from '../../../../core/resources/interop/chains';
@@ -27,9 +26,8 @@ export interface BuildCtx extends CommonCtx {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
 
-  baseTokens: { src: Address; dst: Address, matches: boolean };
+  baseTokens: { src: Address; dst: Address; matches: boolean };
   ifaces: { interopCenter: Interface; interopHandler: Interface };
-  topics: InteropTopics;
   attributes: AttributesResource;
   gasOverrides?: TxOverrides;
 }
@@ -72,13 +70,6 @@ export async function commonCtx(
 
   const interopCenterIface = new Interface(InteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
-
-  const topics: InteropTopics = {
-    interopBundleSent: interopCenterIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: interopHandlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
-  };
   const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
   return {
@@ -97,7 +88,6 @@ export async function commonCtx(
     l2NativeTokenVault,
     baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
-    topics,
     attributes,
     gasOverrides: params.txOverrides,
   } satisfies BuildCtx;

@@ -76,7 +76,7 @@ export interface InteropResource {
 
   finalize(h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult>;
   tryFinalize(
-    h: InteropWaitable,
+    h: InteropWaitable | InteropFinalizationInfo,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
@@ -292,7 +292,7 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (h: InteropWaitable) =>
+  const tryFinalize = (h: InteropWaitable | InteropFinalizationInfo,) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h));
 
   return {
