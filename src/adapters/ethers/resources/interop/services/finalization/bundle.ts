@@ -21,25 +21,29 @@ export async function getBundleStatus(
   dstChainId: bigint,
 ): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
   const { interopHandler } = await client.ensureAddresses();
-  const fetchLogsFor = async (eventTopic: Hex) => {
-    return await getDestinationLogs(client, dstChainId, interopHandler, [eventTopic, bundleHash]);
-  };
+  // Single call: filter only by bundleHash (topic1), then classify via topic0 locally.
+  const bundleLogs = await getDestinationLogs(client, dstChainId, interopHandler, [
+    null,
+    bundleHash,
+  ]);
 
-  const unbundledLogs = await fetchLogsFor(topics.bundleUnbundled);
-  if (unbundledLogs.length > 0) {
-    const txHash = unbundledLogs.at(-1)!.transactionHash;
-    return { phase: 'UNBUNDLED', dstExecTxHash: txHash };
-  }
+  const findLastByTopic = (eventTopic: Hex) =>
+    bundleLogs.findLast((log) => log.topics[0].toLowerCase() === eventTopic.toLowerCase());
 
-  const executedLogs = await fetchLogsFor(topics.bundleExecuted);
-  if (executedLogs.length > 0) {
-    const txHash = executedLogs.at(-1)!.transactionHash;
-    return { phase: 'EXECUTED', dstExecTxHash: txHash };
-  }
+  const lifecycleChecks: Array<{ phase: InteropPhase; topic: Hex; includeTxHash?: boolean }> = [
+    { phase: 'UNBUNDLED', topic: topics.bundleUnbundled, includeTxHash: true },
+    { phase: 'EXECUTED', topic: topics.bundleExecuted, includeTxHash: true },
+    { phase: 'VERIFIED', topic: topics.bundleVerified },
+  ];
 
-  const verifiedLogs = await fetchLogsFor(topics.bundleVerified);
-  if (verifiedLogs.length > 0) {
-    return { phase: 'VERIFIED' };
+  for (const check of lifecycleChecks) {
+    const match = findLastByTopic(check.topic);
+    if (!match) continue;
+
+    if (check.includeTxHash) {
+      return { phase: check.phase, dstExecTxHash: match.transactionHash };
+    }
+    return { phase: check.phase };
   }
 
   return { phase: 'SENT' };
