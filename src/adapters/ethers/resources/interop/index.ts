@@ -28,9 +28,10 @@ import { createErrorHandlers } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
-import { getStatus } from './services/finalization/status';
-import { waitForFinalization } from './services/finalization/polling';
-import { executeBundle } from './services/finalization/bundle';
+import {
+  createInteropFinalizationServices,
+  type InteropFinalizationServices,
+} from './services/finalization';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -85,6 +86,7 @@ export function createInteropResource(
   contracts?: ContractsResource,
   attributes?: AttributesResource,
 ): InteropResource {
+  const svc: InteropFinalizationServices = createInteropFinalizationServices(client);
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
   const attributesResource = attributes ?? createEthersAttributesResource();
@@ -254,7 +256,7 @@ export function createInteropResource(
 
   // status → non-blocking lifecycle inspection
   const status = (h: InteropWaitable): Promise<InteropStatus> =>
-    wrap(OP_INTEROP.status, () => getStatus(client, h), {
+    wrap(OP_INTEROP.status, () => svc.status(h), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
@@ -264,7 +266,7 @@ export function createInteropResource(
     h: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
-    wrap(OP_INTEROP.wait, () => waitForFinalization(client, h, opts), {
+    wrap(OP_INTEROP.wait, () => svc.wait(h, opts), {
       message: 'Internal error while waiting for interop finalization.',
       ctx: { where: 'interop.wait' },
     });
@@ -281,21 +283,8 @@ export function createInteropResource(
     wrap(
       OP_INTEROP.finalize,
       async () => {
-        const info = isInteropFinalizationInfo(h) ? h : await waitForFinalization(client, h);
-
-        // submit executeBundle on destination
-        const execResult = await executeBundle(client, info);
-
-        // wait for inclusion
-        await execResult.wait();
-
-        const dstExecTxHash = execResult.hash;
-
-        return {
-          bundleHash: info.bundleHash,
-          dstChainId: info.dstChainId,
-          dstExecTxHash,
-        };
+        const info = isInteropFinalizationInfo(h) ? h : await svc.wait(h);
+        return svc.finalize(info);
       },
       {
         message: 'Failed to finalize/execute interop bundle on destination.',
@@ -320,3 +309,6 @@ export function createInteropResource(
     tryFinalize,
   };
 }
+
+export { createInteropFinalizationServices };
+export type { InteropFinalizationServices };

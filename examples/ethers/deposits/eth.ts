@@ -46,7 +46,7 @@ async function main() {
 
   // --- DEPOSIT PARAMS ---
   const params = {
-    amount: parseEther('0.01'),
+    amount: parseEther('100'),
     token: ETH_ADDRESS, // ETH Address
     to: me,
     // optional advanced params:
