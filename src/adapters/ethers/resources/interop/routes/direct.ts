@@ -2,35 +2,9 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { TransactionRequest } from 'ethers';
 import type { InteropRouteStrategy } from './types';
-import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import { buildDirectBundle, preflightDirect } from '../../../../../core/resources/interop/plan';
 import { interopCodec } from '../address';
-import { extractBundleAttributes } from '../attributes/resource';
-import { assertNever } from '../../../../../core/utils';
-
-function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {
-  const bundleAttributes = extractBundleAttributes(params, ctx);
-
-  const callAttributes = params.actions.map((action) => {
-    switch (action.type) {
-      case 'sendNative':
-        return [ctx.attributes.call.interopCallValue(action.amount)];
-      case 'call':
-        if (action.value && action.value > 0n) {
-          return [ctx.attributes.call.interopCallValue(action.value)];
-        }
-        return [];
-      case 'sendErc20':
-        throw new Error(
-          `route "direct" does not support sendErc20 actions; use the indirect route.`,
-        );
-      default:
-        assertNever(action);
-    }
-  });
-
-  return { bundleAttributes, callAttributes };
-}
+import { getInteropAttributes } from '../attributes/resource';
 
 export function routeDirect(): InteropRouteStrategy {
   return {

@@ -11,7 +11,7 @@ import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import { buildIndirectBundle, preflightIndirect } from '../../../../../core/resources/interop/plan';
 import { interopCodec } from '../address';
-import { extractBundleAttributes } from '../attributes/resource';
+import { getInteropAttributes } from '../attributes/resource';
 import { assertNever } from '../../../../../core/utils';
 
 function getErc20Tokens(params: InteropParams): Address[] {
@@ -70,8 +70,7 @@ async function getInteropData(
   ctx: BuildCtx,
   erc20AssetIds: Map<string, Hex>,
 ): Promise<{ attrs: InteropAttributes; starterData: InteropStarterData[] }> {
-  const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
-  const bundleAttributes = extractBundleAttributes(params, ctx);
+  const attributes = getInteropAttributes(params, ctx);
 
   const starterData: InteropStarterData[] = [];
   const callAttributes: Hex[][] = [];
@@ -91,11 +90,10 @@ async function getInteropData(
         );
         const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
         starterData.push({ assetRouterPayload });
-        callAttributes.push([ctx.attributes.call.indirectCall(0n)]);
         break;
       }
       case 'sendNative':
-        if (!baseMatches) {
+        if (!ctx.baseTokens.matches) {
           const assetId = await ctx.tokens.baseTokenAssetId();
           const transferData = encodeNativeTokenVaultTransferData(
             action.amount,
@@ -104,26 +102,19 @@ async function getInteropData(
           );
           const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
           starterData.push({ assetRouterPayload });
-          callAttributes.push([ctx.attributes.call.indirectCall(action.amount)]);
         } else {
           starterData.push({});
-          callAttributes.push([ctx.attributes.call.interopCallValue(action.amount)]);
         }
         break;
       case 'call':
         starterData.push({});
-        callAttributes.push(
-          action.value && action.value > 0n
-            ? [ctx.attributes.call.interopCallValue(action.value)]
-            : [],
-        );
         break;
       default:
         assertNever(action);
     }
   }
 
-  return { attrs: { bundleAttributes, callAttributes }, starterData };
+  return { attrs: attributes, starterData };
 }
 
 export function routeIndirect(): InteropRouteStrategy {

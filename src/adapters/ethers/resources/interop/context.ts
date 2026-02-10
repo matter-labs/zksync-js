@@ -27,7 +27,7 @@ export interface BuildCtx extends CommonCtx {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
 
-  baseTokens: { src: Address; dst: Address };
+  baseTokens: { src: Address; dst: Address, matches: boolean };
   ifaces: { interopCenter: Interface; interopHandler: Interface };
   topics: InteropTopics;
   attributes: AttributesResource;
@@ -79,6 +79,7 @@ export async function commonCtx(
     bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
     bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
   };
+  const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
   return {
     client,
@@ -94,7 +95,7 @@ export async function commonCtx(
     l2MessageVerification,
     l2AssetRouter,
     l2NativeTokenVault,
-    baseTokens: { src: srcBaseToken, dst: dstBaseToken },
+    baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
     topics,
     attributes,
