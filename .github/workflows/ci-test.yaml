@@ -64,9 +64,10 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@e0401b155b1fa0f4f3629d569db3ae7094383729 # main
+        uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
         with:
-          version: v0.14.2
+          version: v0.15.1
+          protocol_version: v30.2
 
       - name: Compile test contracts
         working-directory: tests/contracts
@@ -192,9 +193,10 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@e0401b155b1fa0f4f3629d569db3ae7094383729 # main
+        uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
         with:
-          version: v0.14.2
+          version: v0.15.1
+          protocol_version: v30.2
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
