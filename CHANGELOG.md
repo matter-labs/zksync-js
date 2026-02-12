@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.8](https://github.com/matter-labs/zksync-js/compare/v0.0.7...v0.0.8) (2026-02-06)
+
+
+### Features
+
+* add core interop resource ([#44](https://github.com/matter-labs/zksync-js/issues/44)) ([fbf8b86](https://github.com/matter-labs/zksync-js/commit/fbf8b86b67c3da12724155fe50739baa504c72c6))
+* replace code examples with tests ([#51](https://github.com/matter-labs/zksync-js/issues/51)) ([eba9243](https://github.com/matter-labs/zksync-js/commit/eba92434611dbca0749366585ef5c8a929ac6e0d))
+* util helpers ([#52](https://github.com/matter-labs/zksync-js/issues/52)) ([9b299a9](https://github.com/matter-labs/zksync-js/commit/9b299a9fdfb95ef3122a06eacf587fe9ab6a2f00))
+
+
+### Bug Fixes
+
+* address issue with getGenesis rpc call for local development ([#53](https://github.com/matter-labs/zksync-js/issues/53)) ([1ad0b51](https://github.com/matter-labs/zksync-js/commit/1ad0b516c2b743427ff0a5cb5e66be4577b2f79a))
+* address issue with L2 native token withdrawals ([#54](https://github.com/matter-labs/zksync-js/issues/54)) ([b5d08e7](https://github.com/matter-labs/zksync-js/commit/b5d08e736f21855f7c7c876862ec1e8775296892))
+* fix imports ([#56](https://github.com/matter-labs/zksync-js/issues/56)) ([4f600e9](https://github.com/matter-labs/zksync-js/commit/4f600e98683934539be542ca06d1c26cb7db753a))
+* install yapp preprocessor ([#55](https://github.com/matter-labs/zksync-js/issues/55)) ([e00c582](https://github.com/matter-labs/zksync-js/commit/e00c58238639a59f4c871885094cc0cbc3cb2776))
+* move yapp config file ([#57](https://github.com/matter-labs/zksync-js/issues/57)) ([cc2ab54](https://github.com/matter-labs/zksync-js/commit/cc2ab543659e6be4dd7ef232039a17b959fb586c))
+
 ## [0.0.7](https://github.com/matter-labs/zksync-js/compare/v0.0.6...v0.0.7) (2026-02-03)
 
 
