@@ -67,7 +67,7 @@ jobs:
         uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
         with:
           version: v0.15.1
-          protocol_version: v31.0
+          protocol_version: v30.2
 
       - name: Compile test contracts
         working-directory: tests/contracts
@@ -196,7 +196,7 @@ jobs:
         uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
         with:
           version: v0.15.1
-          protocol_version: v31.0
+          protocol_version: v30.2
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
