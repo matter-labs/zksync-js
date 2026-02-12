@@ -1,16 +1,15 @@
 // src/adapters/ethers/resources/interop/context.ts
+import type { AbstractProvider } from 'ethers';
 import { Interface } from 'ethers';
 import type { EthersClient } from '../../client';
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams } from '../../../../core/types/flows/interop';
 import type { TxOverrides } from '../../../../core/types/fees';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
-import type { InteropTopics } from '../../../../core/resources/interop/events';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
-import { INTEROP_SUPPORTED_CHAINS } from '../../../../core/resources/interop/chains';
 
 // Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {
@@ -20,6 +19,7 @@ export interface BuildCtx extends CommonCtx {
 
   bridgehub: Address;
   dstChainId: bigint;
+  dstProvider: AbstractProvider;
   chainId: bigint;
   interopCenter: Address;
   interopHandler: Address;
@@ -27,14 +27,14 @@ export interface BuildCtx extends CommonCtx {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
 
-  baseTokens: { src: Address; dst: Address };
+  baseTokens: { src: Address; dst: Address; matches: boolean };
   ifaces: { interopCenter: Interface; interopHandler: Interface };
-  topics: InteropTopics;
   attributes: AttributesResource;
   gasOverrides?: TxOverrides;
 }
 
 export async function commonCtx(
+  dstProvider: AbstractProvider,
   params: InteropParams,
   client: EthersClient,
   tokens: TokensResource,
@@ -42,19 +42,8 @@ export async function commonCtx(
   attributes: AttributesResource,
 ): Promise<BuildCtx> {
   const sender = (await client.signer.getAddress()) as Address;
-  const chainId = BigInt((await client.l2.getNetwork()).chainId);
-  const { dstChainId } = params;
-
-  // Ensure the source chain provider is present in chainMap for create/status flows.
-  if (!client.getProvider(chainId)) {
-    client.registerChain(chainId, client.l2);
-  }
-  // Ensure all supported chains are registered in the client (for status polling, etc).
-  Object.entries(INTEROP_SUPPORTED_CHAINS).forEach(([chainId, providerUrl]) => {
-    if (!client.getProvider(BigInt(chainId))) {
-      client.registerChain(BigInt(chainId), providerUrl);
-    }
-  });
+  const chainId = (await client.l2.getNetwork()).chainId;
+  const dstChainId = (await dstProvider.getNetwork()).chainId;
 
   const {
     bridgehub,
@@ -72,13 +61,7 @@ export async function commonCtx(
 
   const interopCenterIface = new Interface(InteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
-
-  const topics: InteropTopics = {
-    interopBundleSent: interopCenterIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: interopHandlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
-  };
+  const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
   return {
     client,
@@ -89,14 +72,14 @@ export async function commonCtx(
     chainId,
     bridgehub,
     dstChainId,
+    dstProvider,
     interopCenter,
     interopHandler,
     l2MessageVerification,
     l2AssetRouter,
     l2NativeTokenVault,
-    baseTokens: { src: srcBaseToken, dst: dstBaseToken },
+    baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
-    topics,
     attributes,
     gasOverrides: params.txOverrides,
   } satisfies BuildCtx;

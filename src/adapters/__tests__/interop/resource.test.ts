@@ -8,28 +8,16 @@ const RECIPIENT = '0x2222222222222222222222222222222222222222' as Address;
 const TX_HASH = `0x${'aa'.repeat(32)}` as Hex;
 
 describe('adapters/interop/resource', () => {
-  it('auto-seeds source chain provider during prepare', async () => {
-    const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
-
-    const sourceChainId = BigInt((await harness.l2.getNetwork()).chainId);
-    expect(harness.client.getProvider(sourceChainId)).toBeUndefined();
-
-    await interop.prepare({
-      dstChainId: sourceChainId,
-      actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
-    });
-
-    expect(harness.client.getProvider(sourceChainId)).toBe(harness.l2 as any);
-  });
-
   it('status returns SENT when source receipt is not yet available', async () => {
     const harness = createEthersHarness();
     const interop = createInteropResource(harness.client);
 
     (harness.l2 as any).getTransactionReceipt = async () => null;
 
-    const status = await interop.status(TX_HASH);
+    const status = await interop.status({
+      dstChain: harness.l2 as any,
+      waitable: TX_HASH,
+    });
     expect(status.phase).toBe('SENT');
     expect(status.l2SrcTxHash).toBe(TX_HASH);
   });
@@ -50,7 +38,7 @@ describe('adapters/interop/resource', () => {
     });
 
     const handle = await interop.create({
-      dstChainId: 324n,
+      dstChain: harness.l2 as any,
       actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
     });
 

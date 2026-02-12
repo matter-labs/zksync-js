@@ -72,7 +72,6 @@ describe('interop/plan', () => {
 
     it('throws when ERC-20 actions are present', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       expect(() => preflightDirect(params, baseCtx())).toThrow(
@@ -82,7 +81,6 @@ describe('interop/plan', () => {
 
     it('throws when base tokens differ', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: 100n }],
       };
       const ctx = baseCtx({ baseTokens: { src: ADDR_A, dst: ADDR_B } });
@@ -93,7 +91,6 @@ describe('interop/plan', () => {
 
     it('throws for negative sendNative amount', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: -1n }],
       };
       expect(() => preflightDirect(params, baseCtx())).toThrow('sendNative.amount must be >= 0');
@@ -101,7 +98,6 @@ describe('interop/plan', () => {
 
     it('throws for negative call value', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: '0x', value: -1n }],
       };
       expect(() => preflightDirect(params, baseCtx())).toThrow('call.value must be >= 0');
@@ -109,7 +105,6 @@ describe('interop/plan', () => {
 
     it('passes for valid direct route params', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendNative', to: ADDR_A, amount: 100n },
           { type: 'call', to: ADDR_B, data: '0xabcd', value: 50n },
@@ -120,7 +115,6 @@ describe('interop/plan', () => {
 
     it('allows call without value', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: '0x' }],
       };
       expect(() => preflightDirect(params, baseCtx())).not.toThrow();
@@ -130,7 +124,6 @@ describe('interop/plan', () => {
   describe('buildDirectBundle', () => {
     it('builds bundle for sendNative actions', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: 100n }],
       };
       const result = buildDirectBundle(params, baseCtx(), emptyAttrs);
@@ -145,7 +138,6 @@ describe('interop/plan', () => {
 
     it('builds bundle for call actions', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: '0xabcdef', value: 50n }],
       };
       const result = buildDirectBundle(params, baseCtx(), emptyAttrs);
@@ -158,7 +150,6 @@ describe('interop/plan', () => {
 
     it('includes call attributes in starters', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: 100n }],
       };
       const attrs: InteropAttributes = {
@@ -173,7 +164,6 @@ describe('interop/plan', () => {
 
     it('handles call without data', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: undefined as unknown as Hex }],
       };
       const result = buildDirectBundle(params, baseCtx(), emptyAttrs);
@@ -192,7 +182,6 @@ describe('interop/plan', () => {
 
     it('throws when no ERC-20 and base tokens match', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: 100n }],
       };
       expect(() => preflightIndirect(params, baseCtx())).toThrow(
@@ -202,7 +191,6 @@ describe('interop/plan', () => {
 
     it('passes for ERC-20 actions with matching base tokens', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       expect(() => preflightIndirect(params, baseCtx())).not.toThrow();
@@ -210,7 +198,6 @@ describe('interop/plan', () => {
 
     it('passes for mismatched base tokens without ERC-20', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendNative', to: ADDR_A, amount: 100n }],
       };
       const ctx = baseCtx({ baseTokens: { src: ADDR_A, dst: ADDR_B } });
@@ -219,7 +206,6 @@ describe('interop/plan', () => {
 
     it('throws for negative sendNative amount', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'sendNative', to: ADDR_A, amount: -1n },
@@ -230,7 +216,6 @@ describe('interop/plan', () => {
 
     it('throws for negative sendErc20 amount', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: -1n }],
       };
       expect(() => preflightIndirect(params, baseCtx())).toThrow('sendErc20.amount must be >= 0');
@@ -238,7 +223,6 @@ describe('interop/plan', () => {
 
     it('throws for negative call value', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'call', to: ADDR_A, data: '0x', value: -1n },
@@ -249,7 +233,6 @@ describe('interop/plan', () => {
 
     it('throws for call.value > 0 when base tokens differ', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: '0x', value: 100n }],
       };
       const ctx = baseCtx({ baseTokens: { src: ADDR_A, dst: ADDR_B } });
@@ -260,7 +243,6 @@ describe('interop/plan', () => {
 
     it('allows call.value = 0 when base tokens differ', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'call', to: ADDR_A, data: '0x', value: 0n }],
       };
       const ctx = baseCtx({ baseTokens: { src: ADDR_A, dst: ADDR_B } });
@@ -271,7 +253,6 @@ describe('interop/plan', () => {
   describe('buildIndirectBundle', () => {
     it('builds bundle with ERC-20 approvals', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'sendErc20', token: ADDR_B, to: ADDR_A, amount: 200n },
@@ -299,7 +280,6 @@ describe('interop/plan', () => {
 
     it('routes ERC-20 actions via asset router', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       const starterData: InteropStarterData[] = [{ assetRouterPayload: '0xpayload' }];
@@ -311,7 +291,6 @@ describe('interop/plan', () => {
 
     it('throws when sendErc20 action is missing asset router payload', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       const starterData: InteropStarterData[] = [{}];
@@ -323,7 +302,6 @@ describe('interop/plan', () => {
 
     it('routes sendNative with matching base tokens directly', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'sendNative', to: ADDR_B, amount: 50n },
@@ -339,7 +317,6 @@ describe('interop/plan', () => {
 
     it('handles call actions', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'call', to: ADDR_B, data: '0xabcdef', value: 25n },
@@ -355,7 +332,6 @@ describe('interop/plan', () => {
 
     it('includes call attributes', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       const attrs: InteropAttributes = {
@@ -371,7 +347,6 @@ describe('interop/plan', () => {
 
     it('handles call without data', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'call', to: ADDR_B, data: undefined as unknown as Hex },
@@ -385,7 +360,6 @@ describe('interop/plan', () => {
 
     it('aggregates approvals for same token', () => {
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'sendErc20', token: TOKEN, to: ADDR_B, amount: 200n },
@@ -411,7 +385,6 @@ describe('interop/plan', () => {
       const tokenLower = '0xcccccccccccccccccccccccccccccccccccccccc' as const;
       const tokenUpper = '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' as const;
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: tokenLower, to: ADDR_A, amount: 100n },
           { type: 'sendErc20', token: tokenUpper, to: ADDR_B, amount: 200n },
@@ -430,7 +403,6 @@ describe('interop/plan', () => {
     it('aggregates same tokens while keeping different tokens separate', () => {
       const TOKEN_2 = '0x1111111111111111111111111111111111111111' as const;
       const params: InteropParams = {
-        dstChainId: 2n,
         actions: [
           { type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n },
           { type: 'sendErc20', token: TOKEN_2, to: ADDR_A, amount: 50n },

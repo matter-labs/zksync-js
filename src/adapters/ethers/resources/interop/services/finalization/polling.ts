@@ -1,3 +1,4 @@
+import type { AbstractProvider } from 'ethers';
 import type { Hex } from '../../../../../../core/types/primitives';
 import type {
   InteropWaitable,
@@ -86,8 +87,7 @@ async function waitForProof(
 }
 
 async function waitForRoot(
-  client: EthersClient,
-  dstChainId: bigint,
+  dstProvider: AbstractProvider,
   expectedRoot: { rootChainId: bigint; batchNumber: bigint; expectedRoot: Hex },
   pollMs: number,
   deadline: number,
@@ -98,15 +98,14 @@ async function waitForRoot(
         resource: 'interop',
         operation: OP_INTEROP.svc.wait.timeout,
         message: 'Timed out waiting for interop root to become available.',
-        context: { dstChainId, expectedRoot },
+        context: { expectedRoot },
       });
     }
 
     let interopRoot: Hex | null = null;
     try {
       const root = await getInteropRoot(
-        client,
-        dstChainId,
+        dstProvider,
         expectedRoot.rootChainId,
         expectedRoot.batchNumber,
       );
@@ -129,7 +128,6 @@ async function waitForRoot(
         context: {
           expected: expectedRoot.expectedRoot,
           got: interopRoot,
-          dstChainId,
         },
       });
     }
@@ -173,6 +171,7 @@ async function waitForTxReceipt(
 
 export async function waitForFinalization(
   client: EthersClient,
+  dstProvider: AbstractProvider,
   input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
@@ -229,7 +228,7 @@ export async function waitForFinalization(
     bundleInfo.l1MessageData,
   );
 
-  await waitForRoot(client, bundleInfo.dstChainId, finalizationInfo.expectedRoot, pollMs, deadline);
+  await waitForRoot(dstProvider, finalizationInfo.expectedRoot, pollMs, deadline);
 
   return finalizationInfo;
 }

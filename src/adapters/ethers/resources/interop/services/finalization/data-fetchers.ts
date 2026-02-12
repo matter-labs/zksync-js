@@ -1,4 +1,4 @@
-import { Contract } from 'ethers';
+import { Contract, isError, type AbstractProvider } from 'ethers';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import type { EthersClient } from '../../../../client';
@@ -8,6 +8,27 @@ import { InteropRootStorageABI } from '../../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
 
 const { wrap } = createErrorHandlers('interop');
+const DEFAULT_BLOCKS_RANGE_SIZE = 10_000;
+const DEFAULT_MAX_BLOCKS_BACK = 20_000;
+const SAFE_BLOCKS_RANGE_SIZE = 1_000;
+
+export interface DestinationLogsQueryOptions {
+  maxBlocksBack?: number;
+  logChunkSize?: number;
+}
+
+// Server returns an error if the there is a block range limit and the requested range exceeds it.
+// The error returned in such case is UNKNOWN_ERROR with a message containing "query exceeds max block range {limit}".
+function parseMaxBlockRangeLimit(error: unknown): number | null {
+  if (!isError(error, 'UNKNOWN_ERROR')) return null;
+  if (!error.error || typeof error.error !== 'object') return null;
+
+  const match = /query exceeds max block range\s+(\d+)/i.exec(error.error?.message);
+  if (!match) return null;
+
+  const limit = Number.parseInt(match[1], 10);
+  return Number.isInteger(limit) && limit > 0 ? limit : null;
+}
 
 export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
   const receipt = await wrap(
@@ -30,45 +51,76 @@ export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
 }
 
 export async function getDestinationLogs(
-  client: EthersClient,
-  dstChainId: bigint,
+  dstProvider: AbstractProvider,
   address: Address,
-  topics: Hex[],
+  topics: Array<Hex | null>,
+  opts?: DestinationLogsQueryOptions,
 ): Promise<Log[]> {
-  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
-  const dstProvider = client.requireProvider(dstChainId);
+  const maxBlocksBack = opts?.maxBlocksBack ?? DEFAULT_MAX_BLOCKS_BACK;
+  const initialChunkSize = opts?.logChunkSize ?? DEFAULT_BLOCKS_RANGE_SIZE;
+
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
-      const rawLogs = await dstProvider.getLogs({
-        address,
-        fromBlock: 0n,
-        toBlock: 'latest',
-        topics,
-      });
+      const currentBlock = await dstProvider.getBlockNumber();
+      const minBlock = Math.max(0, currentBlock - maxBlocksBack);
 
-      return rawLogs.map((log) => ({
-        address: log.address as Address,
-        topics: log.topics as Hex[],
-        data: log.data as Hex,
-        transactionHash: log.transactionHash as Hex,
-      }));
+      let toBlock = currentBlock;
+      let chunkSize = initialChunkSize;
+
+      while (toBlock >= minBlock) {
+        const fromBlock = Math.max(minBlock, toBlock - chunkSize + 1);
+
+        try {
+          const rawLogs = await dstProvider.getLogs({
+            address,
+            topics,
+            fromBlock,
+            toBlock,
+          });
+
+          if (rawLogs.length > 0) {
+            return rawLogs.map((log) => ({
+              address: log.address as Address,
+              topics: log.topics as Hex[],
+              data: log.data as Hex,
+              transactionHash: log.transactionHash as Hex,
+            }));
+          }
+
+          toBlock = fromBlock - 1;
+        } catch (error) {
+          // If the error is due to exceeding the server's max block range, reduce the chunk size and retry.
+          const serverLimit = parseMaxBlockRangeLimit(error);
+          // If we can't determine the server limit, rethrow the error.
+          if (serverLimit == null) {
+            // In case the error message cannot be parsed or a different error message format is returned by
+            // a provider, try once again with a small chunk size.
+            if (chunkSize > SAFE_BLOCKS_RANGE_SIZE) {
+              chunkSize = SAFE_BLOCKS_RANGE_SIZE;
+            } else {
+              throw error;
+            }
+          } else {
+            chunkSize = Math.min(chunkSize, serverLimit);
+          }
+        }
+      }
+
+      return [];
     },
     {
-      ctx: { dstChainId, address },
+      ctx: { address, maxBlocksBack, logChunkSize: initialChunkSize },
       message: 'Failed to query destination bundle lifecycle logs.',
     },
   );
 }
 
 export async function getInteropRoot(
-  client: EthersClient,
-  dstChainId: bigint,
+  dstProvider: AbstractProvider,
   rootChainId: bigint,
   batchNumber: bigint,
 ): Promise<Hex> {
-  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
-  const dstProvider = client.requireProvider(dstChainId);
   return await wrap(
     OP_INTEROP.svc.status.getRoot,
     async () => {
@@ -81,7 +133,7 @@ export async function getInteropRoot(
       return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;
     },
     {
-      ctx: { dstChainId, rootChainId, batchNumber },
+      ctx: { rootChainId, batchNumber },
       message: 'Failed to get interop root from the destination chain.',
     },
   );

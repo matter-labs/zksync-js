@@ -23,16 +23,10 @@ async function main() {
   // Signer must be funded on source L2 (client.l2)
   const signer = new Wallet(PRIVATE_KEY, l2Source);
 
-  const [srcNet, dstNet] = await Promise.all([l2Source.getNetwork(), l2Destination.getNetwork()]);
-
   const client = await createEthersClient({
     l1,
     l2: l2Source,
     signer,
-    chains: {
-      [srcNet.chainId.toString()]: l2Source,
-      [dstNet.chainId.toString()]: l2Destination,
-    },
   });
   const sdk = createEthersSdk(client);
 
@@ -60,7 +54,7 @@ async function main() {
   const data = AbiCoder.defaultAbiCoder().encode(['string'], [newGreeting]) as `0x${string}`;
 
   const params = {
-    dstChainId: dstNet.chainId,
+    dstChain: l2Destination,
     actions: [
       {
         type: 'call' as const,
@@ -99,7 +93,7 @@ async function main() {
   console.log('Bundle is finalized on source; root available on destination.');
   // FINALIZE: Execute on destination and block until done.
   // finalize() calls executeBundle(...) on the destination chain,
-  // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
+  // waits for the tx to mine, then returns { bundleHash, dstExecTxHash }.
   const finalizationResult = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
 

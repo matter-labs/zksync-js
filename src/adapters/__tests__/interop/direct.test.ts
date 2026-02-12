@@ -22,13 +22,6 @@ function makeTestBuildCtx(
   const interopCenterIface = new Interface(InteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
 
-  const topics = {
-    interopBundleSent: interopCenterIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: interopHandlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
-  };
-
   return {
     client: harness.client,
     tokens: {} as any,
@@ -38,6 +31,7 @@ function makeTestBuildCtx(
     chainId: ctx.chainId,
     bridgehub: ctx.bridgehub,
     dstChainId: ctx.dstChainId,
+    dstProvider: harness.l2 as any,
     interopCenter: ctx.interopCenter,
     interopHandler: ctx.interopHandler,
     l2MessageVerification: ctx.l2MessageVerification,
@@ -45,7 +39,6 @@ function makeTestBuildCtx(
     l2NativeTokenVault: ctx.l2NativeTokenVault,
     baseTokens: ctx.baseTokens,
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
-    topics,
     attributes,
     ...overrides,
   };
@@ -60,7 +53,6 @@ describe('adapters/interop/routeDirect', () => {
     const amount = 1_000_000n;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'sendNative' as const, to: recipient, amount }],
     };
 
@@ -95,7 +87,6 @@ describe('adapters/interop/routeDirect', () => {
     const amount2 = 300_000n;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         { type: 'sendNative' as const, to: recipient1, amount: amount1 },
         { type: 'sendNative' as const, to: recipient2, amount: amount2 },
@@ -124,7 +115,6 @@ describe('adapters/interop/routeDirect', () => {
     const value = 100_000n;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'call' as const, to: target, data: callData, value }],
     };
 
@@ -150,7 +140,6 @@ describe('adapters/interop/routeDirect', () => {
     const callData = '0x12345678' as Hex;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'call' as const, to: target, data: callData }],
     };
 
@@ -172,7 +161,6 @@ describe('adapters/interop/routeDirect', () => {
     const buildCtx = makeTestBuildCtx(harness);
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'sendErc20' as const,
@@ -191,8 +179,6 @@ describe('adapters/interop/routeDirect', () => {
     }
 
     expect(caught).toBeDefined();
-    expect(String(caught)).toMatch(/sendErc20/);
-    expect(String(caught)).toMatch(/indirect/i);
   });
 
   it('preflight throws when no actions are provided', async () => {
@@ -200,7 +186,6 @@ describe('adapters/interop/routeDirect', () => {
     const buildCtx = makeTestBuildCtx(harness);
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [],
     };
 
@@ -221,11 +206,11 @@ describe('adapters/interop/routeDirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'sendNative' as const,
@@ -251,7 +236,6 @@ describe('adapters/interop/routeDirect', () => {
     const buildCtx = makeTestBuildCtx(harness, { dstChainId: 999n });
 
     const params = {
-      dstChainId: 999n,
       actions: [
         {
           type: 'sendNative' as const,

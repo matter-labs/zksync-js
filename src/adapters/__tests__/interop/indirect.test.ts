@@ -36,13 +36,6 @@ function makeTestBuildCtx(
   const interopCenterIface = new Interface(InteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
 
-  const topics = {
-    interopBundleSent: interopCenterIface.getEvent('InteropBundleSent')!.topicHash as Hex,
-    bundleVerified: interopHandlerIface.getEvent('BundleVerified')!.topicHash as Hex,
-    bundleExecuted: interopHandlerIface.getEvent('BundleExecuted')!.topicHash as Hex,
-    bundleUnbundled: interopHandlerIface.getEvent('BundleUnbundled')!.topicHash as Hex,
-  };
-
   return {
     client: harness.client,
     tokens,
@@ -52,6 +45,7 @@ function makeTestBuildCtx(
     chainId: ctx.chainId,
     bridgehub: ctx.bridgehub,
     dstChainId: ctx.dstChainId,
+    dstProvider: harness.l2 as any,
     interopCenter: ctx.interopCenter,
     interopHandler: ctx.interopHandler,
     l2MessageVerification: ctx.l2MessageVerification,
@@ -59,7 +53,6 @@ function makeTestBuildCtx(
     l2NativeTokenVault: ctx.l2NativeTokenVault,
     baseTokens: ctx.baseTokens,
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
-    topics,
     attributes,
     ...overrides,
   };
@@ -71,7 +64,6 @@ describe('adapters/interop/routeIndirect', () => {
     const buildCtx = makeTestBuildCtx(harness);
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [],
     };
 
@@ -91,7 +83,6 @@ describe('adapters/interop/routeIndirect', () => {
     const buildCtx = makeTestBuildCtx(harness);
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'sendNative' as const,
@@ -120,6 +111,7 @@ describe('adapters/interop/routeIndirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
@@ -134,7 +126,6 @@ describe('adapters/interop/routeIndirect', () => {
     const amount = 1_000_000n;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'sendNative' as const, to: recipient, amount }],
     };
 
@@ -160,11 +151,11 @@ describe('adapters/interop/routeIndirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'call' as const,
@@ -192,11 +183,11 @@ describe('adapters/interop/routeIndirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'sendNative' as const,
@@ -226,6 +217,7 @@ describe('adapters/interop/routeIndirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
@@ -235,7 +227,6 @@ describe('adapters/interop/routeIndirect', () => {
     } as any;
 
     const params = {
-      dstChainId,
       actions: [
         {
           type: 'sendNative' as const,
@@ -259,6 +250,7 @@ describe('adapters/interop/routeIndirect', () => {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
+        matches: false,
       },
     });
 
@@ -271,7 +263,6 @@ describe('adapters/interop/routeIndirect', () => {
     const callData = '0xabcdef12' as Hex;
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [
         {
           type: 'sendNative' as const,
@@ -305,7 +296,6 @@ describe('adapters/interop/routeIndirect', () => {
     setErc20Allowance(harness, token, buildCtx.sender, buildCtx.l2NativeTokenVault, 0n);
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'sendErc20' as const, token, to: buildCtx.sender, amount }],
     };
 
@@ -351,7 +341,6 @@ describe('adapters/interop/routeIndirect', () => {
     );
 
     const params = {
-      dstChainId: buildCtx.dstChainId,
       actions: [{ type: 'sendErc20' as const, token, to: buildCtx.sender, amount }],
     };
 
