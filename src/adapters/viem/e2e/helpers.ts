@@ -27,7 +27,8 @@ import { createViemSdk } from '../sdk.ts';
 // TODO: refactor with shared mocks
 const L1_RPC = 'http://127.0.0.1:8545';
 const L2_RPC = 'http://127.0.0.1:3050';
-const PRIVATE_KEY = '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6';
+const PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const L2_RICH_PRIVATE_KEY = '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110';
 const DEPLOYER_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const L1_CHAIN: Chain | undefined = undefined;
 const L2_CHAIN: Chain | undefined = undefined;
@@ -64,6 +65,27 @@ export function createTestClientAndSdk() {
 
   const sdk = createViemSdk(client);
   return { client, sdk };
+}
+
+// Ensure the test signer has enough ETH on L2 for withdrawal tests.
+export async function ensureL2Balance(client: any, minBalance: bigint): Promise<void> {
+  const me = client.account.address as Address;
+  const current = (await client.l2.getBalance({ address: me })) as bigint;
+  if (current >= minBalance) return;
+
+  const topUp = minBalance - current + 1_000_000_000_000_000n; // +0.001 ETH buffer for gas
+  const funderAccount = privateKeyToAccount(L2_RICH_PRIVATE_KEY);
+  const l2Funder = createWalletClient<Transport, Chain, Account>({
+    account: funderAccount,
+    transport: http(L2_RPC),
+    ...(L2_CHAIN ? { chain: L2_CHAIN } : {}),
+  });
+  const hash = await l2Funder.sendTransaction({
+    account: funderAccount,
+    to: me,
+    value: topUp,
+  });
+  await client.l2.waitForTransactionReceipt({ hash });
 }
 
 export function makeDeployers() {

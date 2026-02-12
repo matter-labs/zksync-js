@@ -10,6 +10,7 @@ import type { Address, Hex } from '../../../core/types/primitives.ts';
 import { ETH_ADDRESS } from '../../../core/constants.ts';
 import {
   createTestClientAndSdk,
+  ensureL2Balance,
   waitUntilReadyToFinalize,
   verifyWithdrawalBalancesAfterFinalize,
   waitForL2InclusionWithdraw,
@@ -29,6 +30,7 @@ describe('withdrawals.e2e (ethers): ETH withdrawal', () => {
   beforeAll(async () => {
     ({ client, sdk } = createTestClientAndSdk());
     me = (await client.signer.getAddress()) as Address;
+    await ensureL2Balance(client, WITHDRAW_WEI);
 
     // Ensure L2 has funds to withdraw
     const l2Bal = await client.l2.getBalance(me);
