@@ -61,6 +61,7 @@ export type TxOverrides = {
 export type TxGasOverrides = Omit<TxOverrides, 'nonce'>;
 
 export function toGasOverrides(overrides: TxOverrides): TxGasOverrides {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { nonce: _, ...gas } = overrides;
   return gas;
 }
