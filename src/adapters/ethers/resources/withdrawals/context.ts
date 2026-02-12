@@ -5,7 +5,7 @@ import type { Address } from '../../../../core/types/primitives';
 import { pickWithdrawRoute } from '../../../../core/resources/withdrawals/route';
 import { type WithdrawParams, type WithdrawRoute } from '../../../../core/types/flows/withdrawals';
 import type { CommonCtx } from '../../../../core/types/flows/base';
-import type { TxOverrides } from '../../../../core/types/fees';
+import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees';
 import type { Hex } from '../../../../core/types/primitives';
 import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
 import type { ContractsResource } from '../contracts';
@@ -31,7 +31,7 @@ export interface BuildCtx extends CommonCtx {
   l2BaseTokenSystem: Address;
 
   // L2 gas
-  gasOverrides?: TxOverrides;
+  gasOverrides?: TxGasOverrides;
 }
 
 export async function commonCtx(
@@ -79,6 +79,6 @@ export async function commonCtx(
     l2NativeTokenVault,
     l2BaseTokenSystem,
     baseIsEth,
-    gasOverrides: p.l2TxOverrides,
+    gasOverrides: p.l2TxOverrides ? toGasOverrides(p.l2TxOverrides) : undefined,
   } satisfies BuildCtx & { route: WithdrawRoute };
 }

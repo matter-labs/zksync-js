@@ -4,7 +4,7 @@ import type { EthersClient } from '../../client';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import type { DepositParams, DepositRoute } from '../../../../core/types/flows/deposits';
 import type { CommonCtx } from '../../../../core/types/flows/base';
-import type { TxOverrides } from '../../../../core/types/fees';
+import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees';
 import type { ResolvedToken, TokensResource } from '../../../../core/types/flows/token';
 import type { ContractsResource } from '../contracts';
 
@@ -22,7 +22,7 @@ export interface BuildCtx extends CommonCtx {
 
   l1AssetRouter: Address;
 
-  gasOverrides?: TxOverrides;
+  gasOverrides?: TxGasOverrides;
   l2GasLimit?: bigint;
   gasPerPubdata: bigint;
   operatorTip: bigint;
@@ -72,7 +72,7 @@ export async function commonCtx(
     bridgehub,
     chainIdL2: BigInt(chainId),
     sender,
-    gasOverrides: p.l1TxOverrides,
+    gasOverrides: p.l1TxOverrides ? toGasOverrides(p.l1TxOverrides) : undefined,
     l2GasLimit: p.l2GasLimit,
     gasPerPubdata,
     operatorTip,

@@ -182,7 +182,13 @@ export function createDepositsResource(
 
         const managed = new NonceManager(client.signer);
         const from = await managed.getAddress();
-        let next = await client.l1.getTransactionCount(from, 'latest');
+        let next: number;
+        if (typeof p.l1TxOverrides?.nonce === 'number') {
+          next = p.l1TxOverrides.nonce;
+        } else {
+          const blockTag = p.l1TxOverrides?.nonce ?? 'latest';
+          next = await client.l1.getTransactionCount(from, blockTag);
+        }
 
         for (const step of plan.steps) {
           // re-check allowance

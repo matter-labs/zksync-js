@@ -49,4 +49,18 @@ export type TxOverrides = {
   gasLimit: bigint;
   maxFeePerGas: bigint;
   maxPriorityFeePerGas?: bigint;
+  /** Optional nonce override.
+   *  - number: use as the starting nonce directly (skip getTransactionCount). If there are multiple transactions,
+   * the specified number will be used as a starting nonce and incremented for each transaction.
+   *  - 'latest' | 'pending': call getTransactionCount with the given block tag.
+   */
+  nonce?: number | 'latest' | 'pending';
 };
+
+/** TxOverrides without the nonce field. */
+export type TxGasOverrides = Omit<TxOverrides, 'nonce'>;
+
+export function toGasOverrides(overrides: TxOverrides): TxGasOverrides {
+  const { nonce: _, ...gas } = overrides;
+  return gas;
+}

@@ -190,6 +190,15 @@ export function createWithdrawalsResource(
         const stepHashes: Record<string, Hex> = {};
 
         const l2Wallet = client.getL2Wallet();
+        const from = client.account.address;
+
+        let next: number;
+        if (typeof p.l2TxOverrides?.nonce === 'number') {
+          next = p.l2TxOverrides.nonce;
+        } else {
+          const blockTag = p.l2TxOverrides?.nonce ?? 'pending';
+          next = await client.l2.getTransactionCount({ address: from, blockTag });
+        }
 
         for (const step of plan.steps) {
           if (p.l2TxOverrides) {
@@ -237,6 +246,8 @@ export function createWithdrawalsResource(
                 }
               : {};
 
+          const nonce = next++;
+
           const baseReq = {
             address: step.tx.address,
             abi: step.tx.abi as Abi,
@@ -244,6 +255,7 @@ export function createWithdrawalsResource(
             args: step.tx.args ?? [],
             account: step.tx.account ?? l2Wallet.account ?? client.account,
             gas: step.tx.gas,
+            nonce,
             ...fee1559,
             ...(step.tx.dataSuffix ? { dataSuffix: step.tx.dataSuffix } : {}),
             ...(step.tx.chain ? { chain: step.tx.chain } : {}),
