@@ -1,3 +1,4 @@
+import type { AbstractProvider } from 'ethers';
 import type {
   InteropStatus,
   InteropWaitable,
@@ -10,33 +11,36 @@ import { waitForFinalization } from './polling';
 import { getStatus } from './status';
 
 export interface InteropFinalizationServices {
-  status(input: InteropWaitable): Promise<InteropStatus>;
+  status(dstProvider: AbstractProvider, input: InteropWaitable): Promise<InteropStatus>;
   wait(
+    dstProvider: AbstractProvider,
     input: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
-  finalize(info: InteropFinalizationInfo): Promise<InteropFinalizationResult>;
+  finalize(
+    dstProvider: AbstractProvider,
+    info: InteropFinalizationInfo,
+  ): Promise<InteropFinalizationResult>;
 }
 
 export function createInteropFinalizationServices(
   client: EthersClient,
 ): InteropFinalizationServices {
   return {
-    status(input) {
-      return getStatus(client, input);
+    status(dstProvider, input) {
+      return getStatus(client, dstProvider, input);
     },
 
-    wait(input, opts) {
-      return waitForFinalization(client, input, opts);
+    wait(dstProvider, input, opts) {
+      return waitForFinalization(client, dstProvider, input, opts);
     },
 
-    async finalize(info) {
-      const execResult = await executeBundle(client, info);
+    async finalize(dstProvider, info) {
+      const execResult = await executeBundle(client, dstProvider, info);
       await execResult.wait();
 
       return {
         bundleHash: info.bundleHash,
-        dstChainId: info.dstChainId,
         dstExecTxHash: execResult.hash,
       };
     },

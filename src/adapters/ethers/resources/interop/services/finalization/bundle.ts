@@ -1,4 +1,4 @@
-import { Contract, type TransactionResponse, type TransactionReceipt } from 'ethers';
+import { Contract, type AbstractProvider, type TransactionResponse, type TransactionReceipt } from 'ethers';
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropFinalizationInfo } from '../../../../../../core/types/flows/interop';
 import type { EthersClient } from '../../../../client';
@@ -16,13 +16,13 @@ const { wrap } = createErrorHandlers('interop');
 
 export async function getBundleStatus(
   client: EthersClient,
+  dstProvider: AbstractProvider,
   topics: InteropTopics,
   bundleHash: Hex,
-  dstChainId: bigint,
 ): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
   const { interopHandler } = await client.ensureAddresses();
   // Single call: filter only by bundleHash (topic1), then classify via topic0 locally.
-  const bundleLogs = await getDestinationLogs(client, dstChainId, interopHandler, [
+  const bundleLogs = await getDestinationLogs(dstProvider, interopHandler, [
     null,
     bundleHash,
   ]);
@@ -51,27 +51,24 @@ export async function getBundleStatus(
 
 export async function executeBundle(
   client: EthersClient,
+  dstProvider: AbstractProvider,
   info: InteropFinalizationInfo,
 ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
   const { topics } = getTopics();
-  const { bundleHash, dstChainId, encodedData, proof } = info;
+  const { bundleHash, encodedData, proof } = info;
 
-  const dstStatus = await getBundleStatus(client, topics, bundleHash, dstChainId);
+  const dstStatus = await getBundleStatus(client, dstProvider, topics, bundleHash);
 
   if (['EXECUTED', 'UNBUNDLED'].includes(dstStatus.phase)) {
     throw createError('STATE', {
       resource: 'interop',
       operation: OP_INTEROP.finalize,
       message: `Interop bundle has already been ${dstStatus.phase.toLowerCase()}.`,
-      context: {
-        bundleHash,
-        dstChainId,
-      },
+      context: { bundleHash },
     });
   }
 
-  const signer = await wrap(OP_INTEROP.exec.sendStep, () => client.signerFor(dstChainId), {
-    ctx: { dstChainId },
+  const signer = await wrap(OP_INTEROP.exec.sendStep, () => client.signerFor(dstProvider), {
     message: 'Failed to resolve destination signer.',
   });
 
@@ -91,7 +88,7 @@ export async function executeBundle(
               resource: 'interop',
               operation: OP_INTEROP.exec.waitStep,
               message: 'Interop bundle execution reverted on destination.',
-              context: { dstChainId, txHash: hash },
+              context: { txHash: hash },
             });
           }
           return receipt;
@@ -103,7 +100,7 @@ export async function executeBundle(
               resource: 'interop',
               operation: OP_INTEROP.exec.waitStep,
               message: 'Failed while waiting for executeBundle transaction on destination.',
-              context: { dstChainId, txHash: hash },
+              context: { txHash: hash },
             },
             e,
           );
@@ -117,7 +114,6 @@ export async function executeBundle(
         resource: 'interop',
         operation: OP_INTEROP.exec.sendStep,
         message: 'Failed to send executeBundle transaction on destination chain.',
-        context: { dstChainId },
       },
       e,
     );

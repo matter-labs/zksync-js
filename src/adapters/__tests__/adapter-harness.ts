@@ -586,7 +586,7 @@ export type InteropTestContext<T extends AdapterHarness> = {
   l2MessageVerification: Address;
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
-  baseTokens: { src: Address; dst: Address };
+  baseTokens: { src: Address; dst: Address; matches: boolean };
   gasOverrides?: Record<string, unknown>;
 } & Record<string, unknown>;
 
@@ -614,6 +614,7 @@ export function makeInteropContext<T extends AdapterHarness>(
     baseTokens: {
       src: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
       dst: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+      matches: true,
     },
   };
 

@@ -1,4 +1,4 @@
-import { Contract, isError } from 'ethers';
+import { Contract, isError, type AbstractProvider } from 'ethers';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import type { EthersClient } from '../../../../client';
@@ -11,7 +11,7 @@ const { wrap } = createErrorHandlers('interop');
 const DEFAULT_LOG_CHUNK_SIZE = 1_000;
 const DEFAULT_MAX_BLOCKS_BACK = 20_000;
 
-// Server returns an error if the there is a block range limit and the requested range exceeds it. 
+// Server returns an error if the there is a block range limit and the requested range exceeds it.
 // The error returned in such case is UNKNOWN_ERROR with a message containing "query exceeds max block range {limit}".
 function parseMaxBlockRangeLimit(error: unknown): number | null {
   if (!isError(error, 'UNKNOWN_ERROR')) return null;
@@ -45,13 +45,10 @@ export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
 }
 
 export async function getDestinationLogs(
-  client: EthersClient,
-  dstChainId: bigint,
+  dstProvider: AbstractProvider,
   address: Address,
   topics: Array<Hex | null>,
 ): Promise<Log[]> {
-  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
-  const dstProvider = client.requireProvider(dstChainId);
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
@@ -96,20 +93,17 @@ export async function getDestinationLogs(
       return [];
     },
     {
-      ctx: { dstChainId, address },
+      ctx: { address },
       message: 'Failed to query destination bundle lifecycle logs.',
     },
   );
 }
 
 export async function getInteropRoot(
-  client: EthersClient,
-  dstChainId: bigint,
+  dstProvider: AbstractProvider,
   rootChainId: bigint,
   batchNumber: bigint,
 ): Promise<Hex> {
-  // Resolve provider outside the wrapped call so configuration errors are not masked as RPC issues.
-  const dstProvider = client.requireProvider(dstChainId);
   return await wrap(
     OP_INTEROP.svc.status.getRoot,
     async () => {
@@ -122,7 +116,7 @@ export async function getInteropRoot(
       return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;
     },
     {
-      ctx: { dstChainId, rootChainId, batchNumber },
+      ctx: { rootChainId, batchNumber },
       message: 'Failed to get interop root from the destination chain.',
     },
   );

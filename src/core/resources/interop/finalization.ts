@@ -29,7 +29,6 @@ export const DEFAULT_TIMEOUT_MS = 300_000;
 interface ResolvedInteropIds {
   l2SrcTxHash?: Hex;
   bundleHash?: Hex;
-  dstChainId?: bigint;
   dstExecTxHash?: Hex;
 }
 
@@ -41,7 +40,6 @@ export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropI
   return {
     l2SrcTxHash: input.l2SrcTxHash,
     bundleHash: input.bundleHash,
-    dstChainId: input.dstChainId,
     dstExecTxHash: input.dstExecTxHash,
   };
 }

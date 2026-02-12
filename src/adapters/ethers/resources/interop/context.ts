@@ -1,4 +1,5 @@
 // src/adapters/ethers/resources/interop/context.ts
+import type { AbstractProvider } from 'ethers';
 import { Interface } from 'ethers';
 import type { EthersClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
@@ -9,7 +10,6 @@ import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
 import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
-import { INTEROP_SUPPORTED_CHAINS } from '../../../../core/resources/interop/chains';
 
 // Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {
@@ -19,6 +19,7 @@ export interface BuildCtx extends CommonCtx {
 
   bridgehub: Address;
   dstChainId: bigint;
+  dstProvider: AbstractProvider;
   chainId: bigint;
   interopCenter: Address;
   interopHandler: Address;
@@ -33,6 +34,7 @@ export interface BuildCtx extends CommonCtx {
 }
 
 export async function commonCtx(
+  dstProvider: AbstractProvider,
   params: InteropParams,
   client: EthersClient,
   tokens: TokensResource,
@@ -41,18 +43,7 @@ export async function commonCtx(
 ): Promise<BuildCtx> {
   const sender = (await client.signer.getAddress()) as Address;
   const chainId = BigInt((await client.l2.getNetwork()).chainId);
-  const { dstChainId } = params;
-
-  // Ensure the source chain provider is present in chainMap for create/status flows.
-  if (!client.getProvider(chainId)) {
-    client.registerChain(chainId, client.l2);
-  }
-  // Ensure all supported chains are registered in the client (for status polling, etc).
-  Object.entries(INTEROP_SUPPORTED_CHAINS).forEach(([chainId, providerUrl]) => {
-    if (!client.getProvider(BigInt(chainId))) {
-      client.registerChain(BigInt(chainId), providerUrl);
-    }
-  });
+  const dstChainId = BigInt((await dstProvider.getNetwork()).chainId);
 
   const {
     bridgehub,
@@ -81,6 +72,7 @@ export async function commonCtx(
     chainId,
     bridgehub,
     dstChainId,
+    dstProvider,
     interopCenter,
     interopHandler,
     l2MessageVerification,

@@ -1,3 +1,4 @@
+import type { AbstractProvider } from 'ethers';
 import type {
   InteropStatus,
   InteropWaitable,
@@ -16,45 +17,45 @@ import { getBundleStatus } from './bundle';
 
 export async function getStatus(
   client: EthersClient,
+  dstProvider: AbstractProvider,
   input: InteropWaitable,
 ): Promise<InteropStatus> {
   const { topics, centerIface } = getTopics();
   const baseIds = resolveIdsFromWaitable(input);
 
   const enrichedIds = await (async () => {
-    if (baseIds.bundleHash && baseIds.dstChainId) return baseIds;
+    if (baseIds.bundleHash) return baseIds;
     if (!baseIds.l2SrcTxHash) return baseIds;
 
     const { interopCenter } = await client.ensureAddresses();
     const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
     if (!receipt) return baseIds;
 
-    const { bundleHash, dstChainId } = parseBundleSentFromReceipt({
+    const { bundleHash } = parseBundleSentFromReceipt({
       receipt: { logs: receipt.logs as Log[] },
       interopCenter,
       interopBundleSentTopic: topics.interopBundleSent,
       decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
     });
 
-    return { ...baseIds, bundleHash, dstChainId };
+    return { ...baseIds, bundleHash };
   })();
 
-  if (!enrichedIds.bundleHash || enrichedIds.dstChainId == null) {
+  if (!enrichedIds.bundleHash) {
     const phase: InteropPhase = enrichedIds.l2SrcTxHash ? 'SENT' : 'UNKNOWN';
     return {
       phase,
       l2SrcTxHash: enrichedIds.l2SrcTxHash,
       bundleHash: enrichedIds.bundleHash,
       dstExecTxHash: enrichedIds.dstExecTxHash,
-      dstChainId: enrichedIds.dstChainId,
     };
   }
 
   const dstInfo = await getBundleStatus(
     client,
+    dstProvider,
     topics,
     enrichedIds.bundleHash,
-    enrichedIds.dstChainId,
   );
 
   return {
@@ -62,6 +63,5 @@ export async function getStatus(
     l2SrcTxHash: enrichedIds.l2SrcTxHash,
     bundleHash: enrichedIds.bundleHash,
     dstExecTxHash: dstInfo.dstExecTxHash ?? enrichedIds.dstExecTxHash,
-    dstChainId: enrichedIds.dstChainId,
   };
 }

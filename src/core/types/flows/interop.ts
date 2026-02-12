@@ -24,8 +24,6 @@ export type InteropAction =
  * Input parameters for initiating an interop operation.
  */
 export interface InteropParams {
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId: bigint;
   /** Ordered list of actions to execute on destination chain */
   actions: InteropAction[];
   /** Optional: Restrict execution to a specific address on destination */
@@ -85,8 +83,6 @@ export interface InteropHandle<Tx>
   l1MsgHash?: Hex;
   /** Interop bundle hash */
   bundleHash?: Hex;
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId?: bigint;
   /** Transaction hash of execution on destination chain (once executed) */
   dstExecTxHash?: Hex;
 }
@@ -129,8 +125,6 @@ export interface InteropStatus {
   bundleHash?: Hex;
   /** Destination chain execution transaction hash */
   dstExecTxHash?: Hex;
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId?: bigint;
 }
 
 /**
@@ -239,8 +233,6 @@ export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizat
 export interface InteropFinalizationResult {
   /** Interop bundle hash that was finalized */
   bundleHash: Hex;
-  /** Destination chain ID */
-  dstChainId: bigint;
   /** Transaction hash of the successful execution on destination */
   dstExecTxHash: Hex;
 }

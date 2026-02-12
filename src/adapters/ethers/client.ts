@@ -1,6 +1,6 @@
 // src/adapters/ethers/client.ts
 import type { AbstractProvider, Signer } from 'ethers';
-import { BrowserProvider, Contract, Interface, JsonRpcProvider } from 'ethers';
+import { BrowserProvider, Contract, Interface } from 'ethers';
 import type { Address } from '../../core/types/primitives';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromEthers } from './rpc';
@@ -84,15 +84,8 @@ export interface EthersClient {
   /** Lookup the base token for a given chain ID via Bridgehub.baseToken(chainId) */
   baseToken(chainId: bigint): Promise<Address>;
 
-  /** Chain registry for interop destinations */
-  registerChain(chainId: bigint, providerOrUrl: AbstractProvider | string): void;
-  registerChains(map: Record<string, AbstractProvider | string>): void;
-  getProvider(chainId: bigint): AbstractProvider | undefined;
-  requireProvider(chainId: bigint): AbstractProvider;
-  listChains(): bigint[];
-
-  /** Get a signer connected to L1 or a specific L2 */
-  signerFor(target?: 'l1' | bigint): Signer;
+  /** Get a signer connected to a specific provider */
+  signerFor(target?: 'l1' | AbstractProvider): Signer;
 }
 
 type InitArgs = {
@@ -103,9 +96,6 @@ type InitArgs = {
   /** Signer for sending txs. */
   signer: Signer;
 
-  /** Optional pre-seeded chain registry (eip155 → provider) for interop destinations */
-  chains?: Record<string, AbstractProvider>;
-
   /** Optional manual overrides */
   overrides?: Partial<ResolvedAddresses>;
 };
@@ -115,7 +105,7 @@ type InitArgs = {
  * resolves the minimal addresses needed by resources.
  */
 export function createEthersClient(args: InitArgs): EthersClient {
-  const { l1, l2, signer, chains } = args;
+  const { l1, l2, signer } = args;
 
   // -------------------------------------------------------------------------
   // Signer binding logic
@@ -160,16 +150,6 @@ export function createEthersClient(args: InitArgs): EthersClient {
         // ignore
       }
     })();
-  }
-
-  // Chain registry for interop destinations
-  const chainMap = new Map<bigint, AbstractProvider>();
-  if (chains) {
-    for (const [k, p] of Object.entries(chains)) {
-      const id = BigInt(k);
-      const provider = typeof p === 'string' ? new JsonRpcProvider(p) : p;
-      chainMap.set(id, provider);
-    }
   }
 
   // lazily bind zks rpc to the L2 provider
@@ -318,44 +298,12 @@ export function createEthersClient(args: InitArgs): EthersClient {
     })) as Address;
   }
 
-  /** Chain registry utilities (for interop destinations) */
-  function registerChain(chainId: bigint, providerOrUrl: AbstractProvider | string) {
-    const provider =
-      typeof providerOrUrl === 'string' ? new JsonRpcProvider(providerOrUrl) : providerOrUrl;
-    chainMap.set(chainId, provider);
-  }
-
-  function registerChains(map: Record<string, AbstractProvider | string>) {
-    for (const [k, p] of Object.entries(map)) {
-      registerChain(BigInt(k), p);
-    }
-  }
-
-  /** Chain registry utilities (for interop destinations) */
-  function getProvider(chainId: bigint) {
-    return chainMap.get(chainId);
-  }
-  function requireProvider(chainId: bigint) {
-    const p = chainMap.get(chainId);
-    if (!p) {
-      throw createError('STATE', {
-        resource: 'helpers',
-        message: `No provider registered for destination chainId ${chainId}`,
-        operation: 'client.requireProvider',
-      });
-    }
-    return p;
-  }
-  function listChains(): bigint[] {
-    return [...chainMap.keys()];
-  }
-
   /** Signer helpers */
-  function signerFor(target?: 'l1' | bigint): Signer {
+  function signerFor(target?: 'l1' | AbstractProvider): Signer {
     if (target === 'l1') {
       return boundSigner.provider === l1 ? boundSigner : boundSigner.connect(l1);
     }
-    const provider = typeof target === 'bigint' ? requireProvider(target) : l2; // default to current/source L2
+    const provider = target ?? l2; // default to current/source L2
     return boundSigner.provider === provider ? boundSigner : boundSigner.connect(provider);
   }
 
@@ -375,11 +323,6 @@ export function createEthersClient(args: InitArgs): EthersClient {
     contracts,
     refresh,
     baseToken,
-    registerChain,
-    registerChains,
-    getProvider,
-    requireProvider,
-    listChains,
     signerFor,
   };
 

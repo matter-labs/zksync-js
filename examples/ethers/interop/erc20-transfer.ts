@@ -18,16 +18,10 @@ async function main() {
   const l2Source = new JsonRpcProvider(SRC_L2_RPC);
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
-  const [srcNet, dstNet] = await Promise.all([l2Source.getNetwork(), l2Destination.getNetwork()]);
-
   const client = await createEthersClient({
     l1,
     l2: l2Source,
     signer: new Wallet(PRIVATE_KEY),
-    chains: {
-      [srcNet.chainId.toString()]: l2Source,
-      [dstNet.chainId.toString()]: l2Destination,
-    },
   });
   const sdk = createEthersSdk(client);
 
@@ -38,8 +32,6 @@ async function main() {
 
   const amountToSend = parseUnits(AMOUNT_RAW, 18);
 
-  console.log('Source chain ID:', srcNet.chainId);
-  console.log('Destination chain ID:', dstNet.chainId);
   console.log('Sender address:', me);
 
   // ---- Deploy ERC20 token on source chain ----
@@ -53,7 +45,7 @@ async function main() {
   console.log('WalletA token balance:', formatUnits(balanceA, 18), 'TEST');
 
   const params = {
-    dstChainId: dstNet.chainId,
+    dstChain: l2Destination,
     actions: [
       {
         type: 'sendErc20' as const,
@@ -88,7 +80,7 @@ async function main() {
 
   // FINALIZE: Execute on destination and block until done.
   // finalize() calls executeBundle(...) on the destination chain,
-  // waits for the tx to mine, then returns { bundleHash, dstChainId, dstExecTxHash }.
+  // waits for the tx to mine, then returns { bundleHash, dstExecTxHash }.
   const finalizationResult = await sdk.interop.finalize(finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
 
