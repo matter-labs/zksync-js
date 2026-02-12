@@ -14,11 +14,13 @@ import { getTopics } from './topics';
 import { decodeInteropBundleSent } from './decoders';
 import { getSourceReceipt } from './data-fetchers';
 import { getBundleStatus } from './bundle';
+import type { DestinationLogsQueryOptions } from './data-fetchers';
 
 export async function getStatus(
   client: EthersClient,
   dstProvider: AbstractProvider,
   input: InteropWaitable,
+  opts?: DestinationLogsQueryOptions,
 ): Promise<InteropStatus> {
   const { topics, centerIface } = getTopics();
   const baseIds = resolveIdsFromWaitable(input);
@@ -51,12 +53,7 @@ export async function getStatus(
     };
   }
 
-  const dstInfo = await getBundleStatus(
-    client,
-    dstProvider,
-    topics,
-    enrichedIds.bundleHash,
-  );
+  const dstInfo = await getBundleStatus(client, dstProvider, topics, enrichedIds.bundleHash, opts);
 
   return {
     phase: dstInfo.phase,

@@ -9,9 +9,14 @@ import type { EthersClient } from '../../../../client';
 import { executeBundle } from './bundle';
 import { waitForFinalization } from './polling';
 import { getStatus } from './status';
+import type { DestinationLogsQueryOptions } from './data-fetchers';
 
 export interface InteropFinalizationServices {
-  status(dstProvider: AbstractProvider, input: InteropWaitable): Promise<InteropStatus>;
+  status(
+    dstProvider: AbstractProvider,
+    input: InteropWaitable,
+    opts?: DestinationLogsQueryOptions,
+  ): Promise<InteropStatus>;
   wait(
     dstProvider: AbstractProvider,
     input: InteropWaitable,
@@ -20,6 +25,7 @@ export interface InteropFinalizationServices {
   finalize(
     dstProvider: AbstractProvider,
     info: InteropFinalizationInfo,
+    opts?: DestinationLogsQueryOptions,
   ): Promise<InteropFinalizationResult>;
 }
 
@@ -27,16 +33,16 @@ export function createInteropFinalizationServices(
   client: EthersClient,
 ): InteropFinalizationServices {
   return {
-    status(dstProvider, input) {
-      return getStatus(client, dstProvider, input);
+    status(dstProvider, input, opts) {
+      return getStatus(client, dstProvider, input, opts);
     },
 
     wait(dstProvider, input, opts) {
       return waitForFinalization(client, dstProvider, input, opts);
     },
 
-    async finalize(dstProvider, info) {
-      const execResult = await executeBundle(client, dstProvider, info);
+    async finalize(dstProvider, info, opts) {
+      const execResult = await executeBundle(client, dstProvider, info, opts);
       await execResult.wait();
 
       return {

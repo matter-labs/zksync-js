@@ -13,12 +13,7 @@ export function formatInteropEvmChain(chainId: bigint): Hex {
   const chainRef = toBeArray(chainId);
   const chainRefLength = getBytes(toBeHex(chainRef.length, 1));
 
-  const payload = concat([
-    PREFIX_EVM_CHAIN,
-    chainRefLength,
-    chainRef,
-    new Uint8Array([0]),
-  ]);
+  const payload = concat([PREFIX_EVM_CHAIN, chainRefLength, chainRef, new Uint8Array([0])]);
 
   return hexlify(payload) as Hex;
 }

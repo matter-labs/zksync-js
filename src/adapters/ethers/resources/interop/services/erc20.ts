@@ -62,4 +62,3 @@ export async function resolveErc20AssetIds(
 
   return assetIds;
 }
-

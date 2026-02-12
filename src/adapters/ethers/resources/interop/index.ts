@@ -33,6 +33,7 @@ import {
   createInteropFinalizationServices,
   type InteropFinalizationServices,
 } from './services/finalization';
+import type { DestinationLogsQueryOptions } from './services/finalization/data-fetchers';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -72,7 +73,7 @@ function resolveWaitableInput(waitableInput: InteropWaitable): {
   const input = waitableInput as { waitable?: InteropWaitableBase };
   return {
     dstProvider: resolveDstProvider(waitableInput.dstChain),
-    waitable: input.waitable ? input.waitable : waitableInput as InteropHandle<unknown>,
+    waitable: input.waitable ? input.waitable : (waitableInput as InteropHandle<unknown>),
   };
 }
 
@@ -97,7 +98,7 @@ export interface InteropResource {
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
 
-  status(h: InteropWaitable): Promise<InteropStatus>;
+  status(h: InteropWaitable, opts?: DestinationLogsQueryOptions): Promise<InteropStatus>;
 
   wait(
     h: InteropWaitable,
@@ -109,10 +110,14 @@ export interface InteropResource {
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
-  finalize(h: InteropWaitable | InteropFinalizationInfo): Promise<InteropFinalizationResult>;
+  finalize(
+    h: InteropWaitable | InteropFinalizationInfo,
+    opts?: DestinationLogsQueryOptions,
+  ): Promise<InteropFinalizationResult>;
 
   tryFinalize(
     h: InteropWaitable | InteropFinalizationInfo,
+    opts?: DestinationLogsQueryOptions,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
@@ -296,9 +301,12 @@ export function createInteropResource(
     toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
   // status → non-blocking lifecycle inspection
-  const status = (h: InteropWaitable): Promise<InteropStatus> => {
+  const status = (
+    h: InteropWaitable,
+    opts?: DestinationLogsQueryOptions,
+  ): Promise<InteropStatus> => {
     const { dstProvider, waitable } = resolveWaitableInput(h);
-    return wrap(OP_INTEROP.status, () => svc.status(dstProvider, waitable), {
+    return wrap(OP_INTEROP.status, () => svc.status(dstProvider, waitable, opts), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
@@ -331,6 +339,7 @@ export function createInteropResource(
   // returns finalization metadata for UI / explorers.
   const finalize = (
     h: InteropWaitable | InteropFinalizationInfo,
+    opts?: DestinationLogsQueryOptions,
   ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
@@ -345,12 +354,12 @@ export function createInteropResource(
             });
           }
           const dstProvider = resolveDstProvider(h.dstChain);
-          return svc.finalize(dstProvider, h);
+          return svc.finalize(dstProvider, h, opts);
         }
 
         const { dstProvider, waitable } = resolveWaitableInput(h);
         const info = await svc.wait(dstProvider, waitable);
-        return svc.finalize(dstProvider, info);
+        return svc.finalize(dstProvider, info, opts);
       },
       {
         message: 'Failed to finalize/execute interop bundle on destination.',
@@ -358,8 +367,10 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (h: InteropWaitable | InteropFinalizationInfo) =>
-    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h));
+  const tryFinalize = (
+    h: InteropWaitable | InteropFinalizationInfo,
+    opts?: DestinationLogsQueryOptions,
+  ) => toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h, opts));
 
   return {
     quote,

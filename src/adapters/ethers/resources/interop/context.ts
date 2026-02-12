@@ -42,8 +42,8 @@ export async function commonCtx(
   attributes: AttributesResource,
 ): Promise<BuildCtx> {
   const sender = (await client.signer.getAddress()) as Address;
-  const chainId = BigInt((await client.l2.getNetwork()).chainId);
-  const dstChainId = BigInt((await dstProvider.getNetwork()).chainId);
+  const chainId = (await client.l2.getNetwork()).chainId;
+  const dstChainId = (await dstProvider.getNetwork()).chainId;
 
   const {
     bridgehub,

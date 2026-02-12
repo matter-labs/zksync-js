@@ -8,8 +8,14 @@ import { InteropRootStorageABI } from '../../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
 
 const { wrap } = createErrorHandlers('interop');
-const DEFAULT_LOG_CHUNK_SIZE = 1_000;
+const DEFAULT_BLOCKS_RANGE_SIZE = 10_000;
 const DEFAULT_MAX_BLOCKS_BACK = 20_000;
+const SAFE_BLOCKS_RANGE_SIZE = 1_000;
+
+export interface DestinationLogsQueryOptions {
+  maxBlocksBack?: number;
+  logChunkSize?: number;
+}
 
 // Server returns an error if the there is a block range limit and the requested range exceeds it.
 // The error returned in such case is UNKNOWN_ERROR with a message containing "query exceeds max block range {limit}".
@@ -48,15 +54,19 @@ export async function getDestinationLogs(
   dstProvider: AbstractProvider,
   address: Address,
   topics: Array<Hex | null>,
+  opts?: DestinationLogsQueryOptions,
 ): Promise<Log[]> {
+  const maxBlocksBack = opts?.maxBlocksBack ?? DEFAULT_MAX_BLOCKS_BACK;
+  const initialChunkSize = opts?.logChunkSize ?? DEFAULT_BLOCKS_RANGE_SIZE;
+
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
       const currentBlock = await dstProvider.getBlockNumber();
-      const minBlock = Math.max(0, currentBlock - DEFAULT_MAX_BLOCKS_BACK);
+      const minBlock = Math.max(0, currentBlock - maxBlocksBack);
 
       let toBlock = currentBlock;
-      let chunkSize = DEFAULT_LOG_CHUNK_SIZE;
+      let chunkSize = initialChunkSize;
 
       while (toBlock >= minBlock) {
         const fromBlock = Math.max(minBlock, toBlock - chunkSize + 1);
@@ -84,16 +94,23 @@ export async function getDestinationLogs(
           const serverLimit = parseMaxBlockRangeLimit(error);
           // If we can't determine the server limit, rethrow the error.
           if (serverLimit == null) {
-            throw error;
+            // In case the error message cannot be parsed or a different error message format is returned by
+            // a provider, try once again with a small chunk size.
+            if (chunkSize > SAFE_BLOCKS_RANGE_SIZE) {
+              chunkSize = SAFE_BLOCKS_RANGE_SIZE;
+            } else {
+              throw error;
+            }
+          } else {
+            chunkSize = Math.min(chunkSize, serverLimit);
           }
-          chunkSize = serverLimit;
         }
       }
 
       return [];
     },
     {
-      ctx: { address },
+      ctx: { address, maxBlocksBack, logChunkSize: initialChunkSize },
       message: 'Failed to query destination bundle lifecycle logs.',
     },
   );
