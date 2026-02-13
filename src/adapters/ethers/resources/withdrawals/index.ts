@@ -193,7 +193,13 @@ export function createWithdrawalsResource(
 
         const managed = new NonceManager(client.getL2Signer());
         const from = await managed.getAddress();
-        let next = await client.l2.getTransactionCount(from, 'pending');
+        let next: number;
+        if (typeof p.l2TxOverrides?.nonce === 'number') {
+          next = p.l2TxOverrides.nonce;
+        } else {
+          const blockTag = p.l2TxOverrides?.nonce ?? 'pending';
+          next = await client.l2.getTransactionCount(from, blockTag);
+        }
 
         for (const step of plan.steps) {
           step.tx.nonce = next++;

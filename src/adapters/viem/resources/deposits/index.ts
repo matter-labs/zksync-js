@@ -188,8 +188,13 @@ export function createDepositsResource(
         const stepHashes: Record<string, Hex> = {};
 
         const from = client.account.address;
-        // TODO: remove this
-        let next = await client.l1.getTransactionCount({ address: from, blockTag: 'latest' });
+        let next: number;
+        if (typeof p.l1TxOverrides?.nonce === 'number') {
+          next = p.l1TxOverrides.nonce;
+        } else {
+          const blockTag = p.l1TxOverrides?.nonce ?? 'latest';
+          next = await client.l1.getTransactionCount({ address: from, blockTag });
+        }
 
         for (const step of plan.steps) {
           // Re-check allowance
