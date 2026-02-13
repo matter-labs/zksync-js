@@ -12,15 +12,15 @@ import {
 } from '../../../../../../core/resources/interop/finalization';
 import { getTopics } from './topics';
 import { decodeInteropBundleSent } from './decoders';
-import { getSourceReceipt } from './data-fetchers';
+import { getTxReceipt } from './data-fetchers';
 import { getBundleStatus } from './bundle';
-import type { DestinationLogsQueryOptions } from './data-fetchers';
+import type { LogsQueryOptions } from './data-fetchers';
 
 export async function getStatus(
   client: EthersClient,
   dstProvider: AbstractProvider,
   input: InteropWaitable,
-  opts?: DestinationLogsQueryOptions,
+  opts?: LogsQueryOptions,
 ): Promise<InteropStatus> {
   const { topics, centerIface } = getTopics();
   const baseIds = resolveIdsFromWaitable(input);
@@ -30,7 +30,7 @@ export async function getStatus(
     if (!baseIds.l2SrcTxHash) return baseIds;
 
     const { interopCenter } = await client.ensureAddresses();
-    const receipt = await getSourceReceipt(client, baseIds.l2SrcTxHash);
+    const receipt = await getTxReceipt(client.l2, baseIds.l2SrcTxHash);
     if (!receipt) return baseIds;
 
     const { bundleHash } = parseBundleSentFromReceipt({

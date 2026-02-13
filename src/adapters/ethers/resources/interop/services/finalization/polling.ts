@@ -87,7 +87,7 @@ async function waitForProof(
 }
 
 async function waitForRoot(
-  dstProvider: AbstractProvider,
+  provider: AbstractProvider,
   expectedRoot: { rootChainId: bigint; batchNumber: bigint; expectedRoot: Hex },
   pollMs: number,
   deadline: number,
@@ -105,7 +105,7 @@ async function waitForRoot(
     let interopRoot: Hex | null = null;
     try {
       const root = await getInteropRoot(
-        dstProvider,
+        provider,
         expectedRoot.rootChainId,
         expectedRoot.batchNumber,
       );
@@ -124,7 +124,7 @@ async function waitForRoot(
       throw createError('STATE', {
         resource: 'interop',
         operation: OP_INTEROP.wait,
-        message: 'Interop root mismatch on destination chain.',
+        message: 'Interop root mismatch.',
         context: {
           expected: expectedRoot.expectedRoot,
           got: interopRoot,

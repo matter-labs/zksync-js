@@ -15,7 +15,7 @@ import IInteropHandlerAbi from '../../../../../../core/internal/abis/IInteropHan
 import { getTopics } from './topics';
 import type { InteropPhase } from '../../../../../../core/types/flows/interop';
 import type { InteropTopics } from '../../../../../../core/resources/interop/events';
-import { getDestinationLogs, type DestinationLogsQueryOptions } from './data-fetchers';
+import { getLogs, type LogsQueryOptions } from './data-fetchers';
 
 const { wrap } = createErrorHandlers('interop');
 
@@ -24,16 +24,11 @@ export async function getBundleStatus(
   dstProvider: AbstractProvider,
   topics: InteropTopics,
   bundleHash: Hex,
-  opts?: DestinationLogsQueryOptions,
+  opts?: LogsQueryOptions,
 ): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
   const { interopHandler } = await client.ensureAddresses();
   // Single call: filter only by bundleHash (topic1), then classify via topic0 locally.
-  const bundleLogs = await getDestinationLogs(
-    dstProvider,
-    interopHandler,
-    [null, bundleHash],
-    opts,
-  );
+  const bundleLogs = await getLogs(dstProvider, interopHandler, [null, bundleHash], opts);
 
   const findLastByTopic = (eventTopic: Hex) =>
     bundleLogs.findLast((log) => log.topics[0].toLowerCase() === eventTopic.toLowerCase());
@@ -61,7 +56,7 @@ export async function executeBundle(
   client: EthersClient,
   dstProvider: AbstractProvider,
   info: InteropFinalizationInfo,
-  opts?: DestinationLogsQueryOptions,
+  opts?: LogsQueryOptions,
 ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
   const { topics } = getTopics();
   const { bundleHash, encodedData, proof } = info;

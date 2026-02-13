@@ -33,7 +33,7 @@ import {
   createInteropFinalizationServices,
   type InteropFinalizationServices,
 } from './services/finalization';
-import type { DestinationLogsQueryOptions } from './services/finalization/data-fetchers';
+import type { LogsQueryOptions } from './services/finalization/data-fetchers';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -98,7 +98,7 @@ export interface InteropResource {
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
 
-  status(h: InteropWaitable, opts?: DestinationLogsQueryOptions): Promise<InteropStatus>;
+  status(h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus>;
 
   wait(
     h: InteropWaitable,
@@ -112,12 +112,12 @@ export interface InteropResource {
 
   finalize(
     h: InteropWaitable | InteropFinalizationInfo,
-    opts?: DestinationLogsQueryOptions,
+    opts?: LogsQueryOptions,
   ): Promise<InteropFinalizationResult>;
 
   tryFinalize(
     h: InteropWaitable | InteropFinalizationInfo,
-    opts?: DestinationLogsQueryOptions,
+    opts?: LogsQueryOptions,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 }
 
@@ -301,10 +301,7 @@ export function createInteropResource(
     toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(params));
 
   // status → non-blocking lifecycle inspection
-  const status = (
-    h: InteropWaitable,
-    opts?: DestinationLogsQueryOptions,
-  ): Promise<InteropStatus> => {
+  const status = (h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus> => {
     const { dstProvider, waitable } = resolveWaitableInput(h);
     return wrap(OP_INTEROP.status, () => svc.status(dstProvider, waitable, opts), {
       message: 'Internal error while checking interop status.',
@@ -339,7 +336,7 @@ export function createInteropResource(
   // returns finalization metadata for UI / explorers.
   const finalize = (
     h: InteropWaitable | InteropFinalizationInfo,
-    opts?: DestinationLogsQueryOptions,
+    opts?: LogsQueryOptions,
   ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
@@ -367,10 +364,8 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (
-    h: InteropWaitable | InteropFinalizationInfo,
-    opts?: DestinationLogsQueryOptions,
-  ) => toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h, opts));
+  const tryFinalize = (h: InteropWaitable | InteropFinalizationInfo, opts?: LogsQueryOptions) =>
+    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h, opts));
 
   return {
     quote,

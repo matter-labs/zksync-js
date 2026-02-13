@@ -1,7 +1,6 @@
 import { Contract, isError, type AbstractProvider } from 'ethers';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
-import type { EthersClient } from '../../../../client';
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { InteropRootStorageABI } from '../../../../../../core/abi';
@@ -12,7 +11,7 @@ const DEFAULT_BLOCKS_RANGE_SIZE = 10_000;
 const DEFAULT_MAX_BLOCKS_BACK = 20_000;
 const SAFE_BLOCKS_RANGE_SIZE = 1_000;
 
-export interface DestinationLogsQueryOptions {
+export interface LogsQueryOptions {
   maxBlocksBack?: number;
   logChunkSize?: number;
 }
@@ -30,10 +29,10 @@ function parseMaxBlockRangeLimit(error: unknown): number | null {
   return Number.isInteger(limit) && limit > 0 ? limit : null;
 }
 
-export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
+export async function getTxReceipt(provider: AbstractProvider, txHash: Hex) {
   const receipt = await wrap(
     OP_INTEROP.svc.status.sourceReceipt,
-    () => client.l2.getTransactionReceipt(txHash),
+    () => provider.getTransactionReceipt(txHash),
     {
       ctx: { where: 'l2.getTransactionReceipt', l2SrcTxHash: txHash },
       message: 'Failed to fetch source L2 receipt for interop tx.',
@@ -50,11 +49,11 @@ export async function getSourceReceipt(client: EthersClient, txHash: Hex) {
   };
 }
 
-export async function getDestinationLogs(
-  dstProvider: AbstractProvider,
+export async function getLogs(
+  provider: AbstractProvider,
   address: Address,
   topics: Array<Hex | null>,
-  opts?: DestinationLogsQueryOptions,
+  opts?: LogsQueryOptions,
 ): Promise<Log[]> {
   const maxBlocksBack = opts?.maxBlocksBack ?? DEFAULT_MAX_BLOCKS_BACK;
   const initialChunkSize = opts?.logChunkSize ?? DEFAULT_BLOCKS_RANGE_SIZE;
@@ -62,7 +61,7 @@ export async function getDestinationLogs(
   return await wrap(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
-      const currentBlock = await dstProvider.getBlockNumber();
+      const currentBlock = await provider.getBlockNumber();
       const minBlock = Math.max(0, currentBlock - maxBlocksBack);
 
       let toBlock = currentBlock;
@@ -72,7 +71,7 @@ export async function getDestinationLogs(
         const fromBlock = Math.max(minBlock, toBlock - chunkSize + 1);
 
         try {
-          const rawLogs = await dstProvider.getLogs({
+          const rawLogs = await provider.getLogs({
             address,
             topics,
             fromBlock,
@@ -92,13 +91,13 @@ export async function getDestinationLogs(
         } catch (error) {
           // If the error is due to exceeding the server's max block range, reduce the chunk size and retry.
           const serverLimit = parseMaxBlockRangeLimit(error);
-          // If we can't determine the server limit, rethrow the error.
           if (serverLimit == null) {
             // In case the error message cannot be parsed or a different error message format is returned by
             // a provider, try once again with a small chunk size.
             if (chunkSize > SAFE_BLOCKS_RANGE_SIZE) {
               chunkSize = SAFE_BLOCKS_RANGE_SIZE;
             } else {
+              // If we can't determine the server limit and the safe limit doesn't work, rethrow the error.
               throw error;
             }
           } else {
@@ -117,7 +116,7 @@ export async function getDestinationLogs(
 }
 
 export async function getInteropRoot(
-  dstProvider: AbstractProvider,
+  provider: AbstractProvider,
   rootChainId: bigint,
   batchNumber: bigint,
 ): Promise<Hex> {
@@ -127,7 +126,7 @@ export async function getInteropRoot(
       const rootStorage = new Contract(
         L2_INTEROP_ROOT_STORAGE_ADDRESS,
         InteropRootStorageABI,
-        dstProvider,
+        provider,
       );
 
       return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;

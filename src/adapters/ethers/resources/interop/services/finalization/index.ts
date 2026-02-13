@@ -9,13 +9,13 @@ import type { EthersClient } from '../../../../client';
 import { executeBundle } from './bundle';
 import { waitForFinalization } from './polling';
 import { getStatus } from './status';
-import type { DestinationLogsQueryOptions } from './data-fetchers';
+import type { LogsQueryOptions } from './data-fetchers';
 
 export interface InteropFinalizationServices {
   status(
     dstProvider: AbstractProvider,
     input: InteropWaitable,
-    opts?: DestinationLogsQueryOptions,
+    opts?: LogsQueryOptions,
   ): Promise<InteropStatus>;
   wait(
     dstProvider: AbstractProvider,
@@ -25,7 +25,7 @@ export interface InteropFinalizationServices {
   finalize(
     dstProvider: AbstractProvider,
     info: InteropFinalizationInfo,
-    opts?: DestinationLogsQueryOptions,
+    opts?: LogsQueryOptions,
   ): Promise<InteropFinalizationResult>;
 }
 

@@ -1,6 +1,5 @@
 import { AbiCoder, Contract, JsonRpcProvider, Wallet } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../src/adapters/ethers';
-import { type Address } from '../../../src/core';
 import { getGreetingTokenAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
@@ -13,30 +12,18 @@ const GREETING_ABI = ['function message() view returns (string)'] as const;
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set your PRIVATE_KEY in env');
 
-  // Providers:
-  // - l2: source chain where we initiate the interop send
-  // - l1: still required by client
   const l1 = new JsonRpcProvider(L1_RPC);
   const l2Source = new JsonRpcProvider(SRC_L2_RPC);
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
-  // Signer must be funded on source L2 (client.l2)
   const signer = new Wallet(PRIVATE_KEY, l2Source);
-
   const client = await createEthersClient({
     l1,
     l2: l2Source,
     signer,
   });
   const sdk = createEthersSdk(client);
-
-  const me = (await signer.getAddress()) as Address;
   const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);
-
-  const l1Balance = await l1.getBalance(me);
-  console.log('L1 balance:', l1Balance.toString());
-  console.log('L2 source balance:', (await l2Source.getBalance(me)).toString());
-  console.log('L2 destination balance:', (await l2Destination.getBalance(me)).toString());
 
   // ---- Deploy Greeter on destination ----
   console.log('=== DEPLOYING GREETER ON DESTINATION ===');
