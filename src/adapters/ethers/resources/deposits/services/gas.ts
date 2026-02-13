@@ -3,7 +3,7 @@
 import type { TransactionRequest } from 'ethers';
 import type { BuildCtx } from '../context';
 import type { DepositRoute } from '../../../../../core/types/flows/deposits';
-import type { TxOverrides } from '../../../../../core/types/fees';
+import type { TxGasOverrides } from '../../../../../core/types/fees';
 import type { Address } from '../../../../../core/types/primitives';
 import {
   quoteL1Gas as coreQuoteL1Gas,
@@ -17,7 +17,7 @@ export type { GasQuote };
 export type QuoteL1GasInput = {
   ctx: BuildCtx;
   tx: TransactionRequest;
-  overrides?: TxOverrides;
+  overrides?: TxGasOverrides;
   fallbackGasLimit?: bigint;
 };
 
