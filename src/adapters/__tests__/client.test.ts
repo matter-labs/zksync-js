@@ -70,21 +70,21 @@ describeForAdapters('adapters client', (kind, factory) => {
     expect(toLower(baseToken)).toBe(toLower(ADAPTER_TEST_ADDRESSES.baseTokenFor324));
   });
 
-  it('getSemverProtocolVersion resolves the registered CTM semver', async () => {
+  it('getProtocolVersion resolves the registered CTM semver', async () => {
     const harness = factory();
     if (harness.kind !== 'ethers') {
-      expect('getSemverProtocolVersion' in harness.client).toBe(false);
+      expect('getProtocolVersion' in harness.client).toBe(false);
       return;
     }
 
-    const semver = await harness.client.getSemverProtocolVersion();
-    expect(semver).toEqual([0, 31, 0]);
+    const semver = await harness.client.getProtocolVersion();
+    expect(semver).toEqual([0n, 31n, 0n]);
   });
 
-  it('getSemverProtocolVersion returns null when chain CTM is not registered', async () => {
+  it('getProtocolVersion throws when chain CTM is not registered', async () => {
     const harness = factory();
     if (harness.kind !== 'ethers') {
-      expect('getSemverProtocolVersion' in harness.client).toBe(false);
+      expect('getProtocolVersion' in harness.client).toBe(false);
       return;
     }
 
@@ -96,8 +96,9 @@ describeForAdapters('adapters client', (kind, factory) => {
       [324n],
     );
 
-    const semver = await harness.client.getSemverProtocolVersion();
-    expect(semver).toBeNull();
+    await expect(harness.client.getProtocolVersion()).rejects.toThrow(
+      /no registered chain type manager/i,
+    );
   });
 
   it('respects manual overrides without hitting discovery calls', async () => {

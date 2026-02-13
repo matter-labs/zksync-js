@@ -153,6 +153,6 @@ describe('adapters/interop/resource', () => {
     }
 
     expect(caught).toBeDefined();
-    expect(String(caught)).toMatch(/interop requires protocol version 31\+/i);
+    expect(String(caught)).toMatch(/interop requires protocol version 31\.0\+/i);
   });
 });
