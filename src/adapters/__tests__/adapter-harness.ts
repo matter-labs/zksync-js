@@ -38,6 +38,9 @@ const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
 const IL1Nullifier = new Interface(IL1NullifierABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const L2NativeTokenVault = new Interface(L2NativeTokenVaultABI as any);
+const IChainTypeManager = new Interface([
+  'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+]);
 
 const lower = (value: string) => value.toLowerCase();
 type ResultValue = unknown | unknown[];
@@ -77,6 +80,7 @@ export const ADAPTER_TEST_ADDRESSES = {
   l1Nullifier: '0xc000000000000000000000000000000000000000' as Address,
   l1NativeTokenVault: '0xd000000000000000000000000000000000000000' as Address,
   baseTokenFor324: '0xbee0000000000000000000000000000000000000' as Address,
+  chainTypeManager: '0xe000000000000000000000000000000000000000' as Address,
   signer: '0x1111111111111111111111111111111111111111' as Address,
 } as const;
 
@@ -365,6 +369,26 @@ function seedDefaults(registry: CallRegistry, baseToken: Address) {
     ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
   );
   registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'baseToken', baseToken, [324n]);
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.bridgehub,
+    IBridgehub,
+    'chainTypeManager',
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    [324n],
+  );
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.bridgehub,
+    IBridgehub,
+    'chainTypeManager',
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    [325n],
+  );
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    IChainTypeManager,
+    'getSemverProtocolVersion',
+    [0n, 31n, 0n],
+  );
 }
 
 export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {

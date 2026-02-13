@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'bun:test';
+import { Interface } from 'ethers';
 
 import { createInteropResource } from '../../ethers/resources/interop/index.ts';
 import {
+  ADAPTER_TEST_ADDRESSES,
   createEthersHarness,
   setErc20Allowance,
   setL2TokenRegistration,
@@ -12,6 +14,9 @@ const RECIPIENT = '0x2222222222222222222222222222222222222222' as Address;
 const TX_HASH = `0x${'aa'.repeat(32)}` as Hex;
 const ERC20_TOKEN = '0x3333333333333333333333333333333333333333' as Address;
 const ASSET_ID = `0x${'11'.repeat(32)}` as Hex;
+const IChainTypeManager = new Interface([
+  'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+]);
 
 describe('adapters/interop/resource', () => {
   it('status returns SENT when source receipt is not yet available', async () => {
@@ -124,5 +129,30 @@ describe('adapters/interop/resource', () => {
 
     expect(txCountCalls).toBe(0);
     expect(sentNonces).toEqual([42, 43, 44]);
+  });
+
+  it('prepare fails when protocol minor version is below 31', async () => {
+    const harness = createEthersHarness();
+    const interop = createInteropResource(harness.client);
+
+    harness.registry.set(
+      ADAPTER_TEST_ADDRESSES.chainTypeManager,
+      IChainTypeManager,
+      'getSemverProtocolVersion',
+      [0n, 30n, 0n],
+    );
+
+    let caught: unknown;
+    try {
+      await interop.prepare({
+        dstChain: harness.l2 as any,
+        actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
+      });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeDefined();
+    expect(String(caught)).toMatch(/interop requires protocol version 31\+/i);
   });
 });

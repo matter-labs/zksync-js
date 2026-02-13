@@ -195,6 +195,7 @@ export type TryResult<T> = { ok: true; value: T } | { ok: false; error: ZKsyncEr
 
 export const OP_CLIENT = {
   ensureAddresses: 'client.ensureAddresses',
+  getSemverProtocolVersion: 'client.getSemverProtocolVersion',
 } as const;
 
 // Operation constants for Deposit error contexts
@@ -314,7 +315,10 @@ export const OP_INTEROP = {
   tryWait: 'interop.tryWait',
   finalize: 'interop.finalize',
   tryFinalize: 'interop.tryFinalize',
-
+  context: {
+    chainTypeManager: 'interop.chainTypeManager',
+    protocolVersion: 'interop.protocolVersion',
+  },
   // route-specific ops (keep names aligned with files)
   routes: {
     direct: {

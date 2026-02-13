@@ -28,9 +28,16 @@ import {
 import { createError } from '../../core/errors/factory';
 import { OP_DEPOSITS, OP_CLIENT } from '../../core/types';
 import { createErrorHandlers } from './errors/error-ops';
+import { FORMAL_ETH_ADDRESS } from '../../core/constants';
 
 // error handling
 const { wrapAs, wrap } = createErrorHandlers('client');
+// Single function, instead of the whole ABI. If more fns are needed, consider adding the whole ABI.
+const ChainTypeManagerABI = [
+  'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+] as const;
+
+export type ProtocolVersion = readonly [number, number, number];
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -83,6 +90,9 @@ export interface EthersClient {
 
   /** Lookup the base token for a given chain ID via Bridgehub.baseToken(chainId) */
   baseToken(chainId: bigint): Promise<Address>;
+
+  /** Read semver protocol version for the CTM of a chain. */
+  getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion>;
 
   /** Get a signer connected to a specific provider */
   signerFor(target?: 'l1' | AbstractProvider): Signer;
@@ -298,6 +308,48 @@ export function createEthersClient(args: InitArgs): EthersClient {
     })) as Address;
   }
 
+  async function getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion> {
+    const targetChainId = chainId ?? (await l2.getNetwork()).chainId;
+    const { bridgehub } = await ensureAddresses();
+    const bh = new Contract(bridgehub, IBridgehubABI, l1);
+
+    const chainTypeManager = (await wrapAs(
+      'CONTRACT',
+      OP_CLIENT.getSemverProtocolVersion,
+      () => bh.chainTypeManager(targetChainId),
+      {
+        ctx: { where: 'bridgehub.chainTypeManager', bridgehub, chainId: targetChainId },
+        message: 'Failed to read chain type manager.',
+      },
+    )) as Address;
+
+    if (chainTypeManager.toLowerCase() === FORMAL_ETH_ADDRESS) {
+      throw createError('STATE', {
+        resource: 'client',
+        operation: OP_CLIENT.getSemverProtocolVersion,
+        message: 'No registered chain type manager for the chain.',
+        context: { chainId },
+      });
+    }
+
+    const ctm = new Contract(chainTypeManager, ChainTypeManagerABI, l1);
+    const semver = (await wrapAs(
+      'CONTRACT',
+      OP_CLIENT.getSemverProtocolVersion,
+      () => ctm.getSemverProtocolVersion(),
+      {
+        ctx: {
+          where: 'chainTypeManager.getSemverProtocolVersion',
+          chainId: targetChainId,
+          chainTypeManager,
+        },
+        message: 'Failed to read semver protocol version.',
+      },
+    )) as [number, number, number];
+
+    return semver;
+  }
+
   /** Signer helpers */
   function signerFor(target?: 'l1' | AbstractProvider): Signer {
     if (target === 'l1') {
@@ -323,6 +375,7 @@ export function createEthersClient(args: InitArgs): EthersClient {
     contracts,
     refresh,
     baseToken,
+    getProtocolVersion,
     signerFor,
   };
 
