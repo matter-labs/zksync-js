@@ -9,10 +9,6 @@ import type {
   InteropQuote,
   InteropStatus,
   InteropFinalizationResult,
-  InteropParams as InteropParamsBase,
-  InteropHandle as InteropHandleBase,
-  InteropWaitable as InteropWaitableBase,
-  InteropFinalizationInfo as InteropFinalizationInfoBase,
 } from '../../../../core/types/flows/interop';
 import { isInteropFinalizationInfo as isInteropFinalizationInfoBase } from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
@@ -23,7 +19,6 @@ import { routeIndirect } from './routes/indirect';
 import { routeDirect } from './routes/direct';
 import type { InteropRouteStrategy } from './routes/types';
 import type { AbstractProvider, TransactionRequest } from 'ethers';
-import { JsonRpcProvider } from 'ethers';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
 import { createErrorHandlers } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
@@ -34,7 +29,13 @@ import {
   type InteropFinalizationServices,
 } from './services/finalization';
 import type { LogsQueryOptions } from './services/finalization/data-fetchers';
-
+import type {
+  InteropParams,
+  InteropHandle,
+  InteropWaitable,
+  InteropFinalizationInfo,
+} from './types';
+import { resolveDstProvider, resolveWaitableInput } from './resolvers';
 const { wrap, toResult } = createErrorHandlers('interop');
 
 // Interop Route map
@@ -42,40 +43,6 @@ export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
   direct: routeDirect(),
   indirect: routeIndirect(),
 };
-
-export type DstChain = string | AbstractProvider;
-
-export interface InteropParams extends InteropParamsBase {
-  dstChain: DstChain;
-}
-
-export interface InteropHandle<Tx> extends InteropHandleBase<Tx> {
-  dstChain: DstChain;
-}
-
-export interface InteropFinalizationInfo extends InteropFinalizationInfoBase {
-  dstChain: DstChain;
-}
-
-export type InteropWaitable =
-  | InteropHandle<unknown>
-  | { dstChain: DstChain; waitable: InteropWaitableBase };
-
-/** Resolve a destination chain input (URL string or provider) into an AbstractProvider. */
-function resolveDstProvider(dstChain: DstChain): AbstractProvider {
-  return typeof dstChain === 'string' ? new JsonRpcProvider(dstChain) : dstChain;
-}
-
-function resolveWaitableInput(waitableInput: InteropWaitable): {
-  dstProvider: AbstractProvider;
-  waitable: InteropWaitableBase;
-} {
-  const input = waitableInput as { waitable?: InteropWaitableBase };
-  return {
-    dstProvider: resolveDstProvider(waitableInput.dstChain),
-    waitable: input.waitable ? input.waitable : (waitableInput as InteropHandle<unknown>),
-  };
-}
 
 export interface InteropResource {
   quote(params: InteropParams): Promise<InteropQuote>;
