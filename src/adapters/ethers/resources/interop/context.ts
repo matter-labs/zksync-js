@@ -5,7 +5,7 @@ import type { EthersClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams } from '../../../../core/types/flows/interop';
-import type { TxOverrides } from '../../../../core/types/fees';
+import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
@@ -30,7 +30,7 @@ export interface BuildCtx extends CommonCtx {
   baseTokens: { src: Address; dst: Address; matches: boolean };
   ifaces: { interopCenter: Interface; interopHandler: Interface };
   attributes: AttributesResource;
-  gasOverrides?: TxOverrides;
+  gasOverrides?: TxGasOverrides;
 }
 
 export async function commonCtx(
@@ -81,6 +81,6 @@ export async function commonCtx(
     baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
     ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
     attributes,
-    gasOverrides: params.txOverrides,
+    gasOverrides: params.txOverrides ? toGasOverrides(params.txOverrides) : undefined,
   } satisfies BuildCtx;
 }

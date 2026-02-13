@@ -225,13 +225,18 @@ export function createInteropResource(
         const srcProvider = ctx.client.l2;
 
         const from = await signer.getAddress();
-        let next = await srcProvider.getTransactionCount(from, 'pending');
+        let next: number;
+        if (typeof params.txOverrides?.nonce === 'number') {
+          next = params.txOverrides.nonce;
+        } else {
+          const blockTag = params.txOverrides?.nonce ?? 'pending';
+          next = await srcProvider.getTransactionCount(from, blockTag);
+        }
 
         const stepHashes: Record<string, Hex> = {};
 
         for (const step of plan.steps) {
-          // lock in nonce
-          step.tx.nonce = step.tx.nonce ?? next++;
+          step.tx.nonce = next++;
 
           // lock in chainId so ethers doesn't guess
           if (!step.tx.chainId) {
