@@ -8,6 +8,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 
 import {
@@ -18,13 +21,23 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
+  InteropCenterABI,
+  IInteropHandlerABI,
+  L2MessageVerificationABI,
 } from '../../core/abi';
 import { createError } from '../../core/errors/factory';
-import { OP_DEPOSITS } from '../../core/types';
+import { OP_DEPOSITS, OP_CLIENT } from '../../core/types';
 import { createErrorHandlers } from './errors/error-ops';
+import { FORMAL_ETH_ADDRESS } from '../../core/constants';
 
 // error handling
-const { wrapAs } = createErrorHandlers('client');
+const { wrapAs, wrap } = createErrorHandlers('client');
+// Single function, instead of the whole ABI. If more fns are needed, consider adding the whole ABI.
+const ChainTypeManagerABI = [
+  'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+] as const;
+
+export type ProtocolVersion = readonly [number, number, number];
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -34,6 +47,9 @@ export interface ResolvedAddresses {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
 }
 
 export interface EthersClient {
@@ -64,6 +80,9 @@ export interface EthersClient {
     l2AssetRouter: Contract;
     l2NativeTokenVault: Contract;
     l2BaseTokenSystem: Contract;
+    interopCenter: Contract;
+    interopHandler: Contract;
+    l2MessageVerification: Contract;
   }>;
 
   /** Clear all cached addresses/contracts. */
@@ -71,6 +90,12 @@ export interface EthersClient {
 
   /** Lookup the base token for a given chain ID via Bridgehub.baseToken(chainId) */
   baseToken(chainId: bigint): Promise<Address>;
+
+  /** Read semver protocol version for the CTM of a chain. */
+  getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion>;
+
+  /** Get a signer connected to a specific provider */
+  signerFor(target?: 'l1' | AbstractProvider): Signer;
 }
 
 type InitArgs = {
@@ -80,6 +105,7 @@ type InitArgs = {
   l2: AbstractProvider;
   /** Signer for sending txs. */
   signer: Signer;
+
   /** Optional manual overrides */
   overrides?: Partial<ResolvedAddresses>;
 };
@@ -150,50 +176,77 @@ export function createEthersClient(args: InitArgs): EthersClient {
         l2AssetRouter: Contract;
         l2NativeTokenVault: Contract;
         l2BaseTokenSystem: Contract;
+        interopCenter: Contract;
+        interopHandler: Contract;
+        l2MessageVerification: Contract;
       }
     | undefined;
 
   async function ensureAddresses(): Promise<ResolvedAddresses> {
     if (addrCache) return addrCache;
 
-    // Bridgehub
-    const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
+    return await wrap(
+      OP_CLIENT.ensureAddresses,
+      async () => {
+        // Bridgehub
+        const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
 
-    // L1 AssetRouter via Bridgehub.assetRouter()
-    const IBridgehub = new Interface(IBridgehubABI);
-    const bh = new Contract(bridgehub, IBridgehub, l1);
-    const l1AssetRouter = args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
+        // L1 AssetRouter via Bridgehub.assetRouter()
+        const IBridgehub = new Interface(IBridgehubABI);
+        const bh = new Contract(bridgehub, IBridgehub, l1);
+        const l1AssetRouter =
+          args.overrides?.l1AssetRouter ?? ((await bh.assetRouter()) as Address);
 
-    // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
-    const IL1AssetRouter = new Interface(IL1AssetRouterABI);
-    const ar = new Contract(l1AssetRouter, IL1AssetRouter, l1);
-    const l1Nullifier = args.overrides?.l1Nullifier ?? ((await ar.L1_NULLIFIER()) as Address);
+        // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
+        const IL1AssetRouter = new Interface(IL1AssetRouterABI);
+        const ar = new Contract(l1AssetRouter, IL1AssetRouter, l1);
+        const l1Nullifier = args.overrides?.l1Nullifier ?? ((await ar.L1_NULLIFIER()) as Address);
 
-    // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
-    const IL1Nullifier = new Interface(IL1NullifierABI);
-    const nf = new Contract(l1Nullifier, IL1Nullifier, l1);
-    const l1NativeTokenVault =
-      args.overrides?.l1NativeTokenVault ?? ((await nf.l1NativeTokenVault()) as Address);
+        // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
+        const IL1Nullifier = new Interface(IL1NullifierABI);
+        const nf = new Contract(l1Nullifier, IL1Nullifier, l1);
+        const l1NativeTokenVault =
+          args.overrides?.l1NativeTokenVault ?? ((await nf.l1NativeTokenVault()) as Address);
 
-    // L2AssetRouter
-    const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
+        // L2AssetRouter
+        const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
 
-    // L2NativeTokenVault
-    const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
+        // L2NativeTokenVault
+        const l2NativeTokenVault =
+          args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
 
-    // L2BaseToken
-    const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
+        // L2BaseToken
+        const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
-    addrCache = {
-      bridgehub,
-      l1AssetRouter,
-      l1Nullifier,
-      l1NativeTokenVault,
-      l2AssetRouter,
-      l2NativeTokenVault,
-      l2BaseTokenSystem,
-    };
-    return addrCache;
+        // InteropCenter
+        const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+
+        // InteropHandler
+        const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+
+        // L2MessageVerification
+        const l2MessageVerification =
+          args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
+
+        addrCache = {
+          bridgehub,
+          l1AssetRouter,
+          l1Nullifier,
+          l1NativeTokenVault,
+          l2AssetRouter,
+          l2NativeTokenVault,
+          l2BaseTokenSystem,
+          interopCenter,
+          interopHandler,
+          l2MessageVerification,
+        };
+        return addrCache;
+      },
+      {
+        ctx: { where: 'ensureAddresses' },
+        message: 'Failed to ensure contract addresses.',
+      },
+    );
   }
 
   // lazily create connected contract instances for convenience
@@ -209,6 +262,9 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter: new Contract(a.l2AssetRouter, IL2AssetRouterABI, l2),
       l2NativeTokenVault: new Contract(a.l2NativeTokenVault, L2NativeTokenVaultABI, l2),
       l2BaseTokenSystem: new Contract(a.l2BaseTokenSystem, IBaseTokenABI, l2),
+      interopCenter: new Contract(a.interopCenter, InteropCenterABI, l2),
+      interopHandler: new Contract(a.interopHandler, IInteropHandlerABI, l2),
+      l2MessageVerification: new Contract(a.l2MessageVerification, L2MessageVerificationABI, l2),
     };
     return cCache;
   }
@@ -247,9 +303,60 @@ export function createEthersClient(args: InitArgs): EthersClient {
     const bh = new Contract(bridgehub, IBridgehubABI, l1);
 
     return (await wrapAs('CONTRACT', OP_DEPOSITS.base.baseToken, () => bh.baseToken(chainId), {
-      ctx: { where: 'bridgehub.baseToken', chainIdL2: chainId },
+      ctx: { where: 'bridgehub.baseToken', chainId: chainId },
       message: 'Failed to read base token.',
     })) as Address;
+  }
+
+  async function getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion> {
+    const targetChainId = chainId ?? (await l2.getNetwork()).chainId;
+    const { bridgehub } = await ensureAddresses();
+    const bh = new Contract(bridgehub, IBridgehubABI, l1);
+
+    const chainTypeManager = (await wrapAs(
+      'CONTRACT',
+      OP_CLIENT.getSemverProtocolVersion,
+      () => bh.chainTypeManager(targetChainId),
+      {
+        ctx: { where: 'bridgehub.chainTypeManager', bridgehub, chainId: targetChainId },
+        message: 'Failed to read chain type manager.',
+      },
+    )) as Address;
+
+    if (chainTypeManager.toLowerCase() === FORMAL_ETH_ADDRESS) {
+      throw createError('STATE', {
+        resource: 'client',
+        operation: OP_CLIENT.getSemverProtocolVersion,
+        message: 'No registered chain type manager for the chain.',
+        context: { chainId },
+      });
+    }
+
+    const ctm = new Contract(chainTypeManager, ChainTypeManagerABI, l1);
+    const semver = (await wrapAs(
+      'CONTRACT',
+      OP_CLIENT.getSemverProtocolVersion,
+      () => ctm.getSemverProtocolVersion(),
+      {
+        ctx: {
+          where: 'chainTypeManager.getSemverProtocolVersion',
+          chainId: targetChainId,
+          chainTypeManager,
+        },
+        message: 'Failed to read semver protocol version.',
+      },
+    )) as [number, number, number];
+
+    return semver;
+  }
+
+  /** Signer helpers */
+  function signerFor(target?: 'l1' | AbstractProvider): Signer {
+    if (target === 'l1') {
+      return boundSigner.provider === l1 ? boundSigner : boundSigner.connect(l1);
+    }
+    const provider = target ?? l2; // default to current/source L2
+    return boundSigner.provider === provider ? boundSigner : boundSigner.connect(provider);
   }
 
   const client: EthersClient = {
@@ -268,6 +375,8 @@ export function createEthersClient(args: InitArgs): EthersClient {
     contracts,
     refresh,
     baseToken,
+    getProtocolVersion,
+    signerFor,
   };
 
   return client;

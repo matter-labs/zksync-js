@@ -1,0 +1,121 @@
+// src/adapters/ethers/resources/interop/context.ts
+import type { AbstractProvider } from 'ethers';
+import { Interface } from 'ethers';
+import type { EthersClient, ProtocolVersion } from '../../client';
+import type { Address } from '../../../../core/types/primitives';
+import type { CommonCtx } from '../../../../core/types/flows/base';
+import type { InteropParams } from '../../../../core/types/flows/interop';
+import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees';
+import type { TokensResource } from '../../../../core/types/flows/token';
+import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
+import type { ContractsResource } from '../contracts';
+import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
+import { createError } from '../../../../core/errors/factory';
+import { OP_INTEROP } from '../../../../core/types/errors';
+
+const MIN_INTEROP_PROTOCOL = 31;
+
+async function assertInteropProtocolVersion(
+  client: EthersClient,
+  srcChainId: bigint,
+  dstChainId: bigint,
+): Promise<void> {
+  const [srcProtocolVersion, dstProtocolVersion] = await Promise.all([
+    client.getProtocolVersion(srcChainId),
+    client.getProtocolVersion(dstChainId),
+  ]);
+
+  const assertProtocolVersion = (chainId: bigint, protocolVersion: ProtocolVersion): void => {
+    if (protocolVersion[1] < MIN_INTEROP_PROTOCOL) {
+      throw createError('VALIDATION', {
+        resource: 'interop',
+        operation: OP_INTEROP.context.protocolVersion,
+        message: `Interop requires protocol version 31.0+. Found: ${protocolVersion[1]}.${protocolVersion[2]} for chain: ${chainId}.`,
+        context: {
+          chainId,
+          requiredMinor: MIN_INTEROP_PROTOCOL,
+          semver: protocolVersion,
+        },
+      });
+    }
+  };
+
+  assertProtocolVersion(srcChainId, srcProtocolVersion);
+  assertProtocolVersion(dstChainId, dstProtocolVersion);
+}
+
+// Common context for building interop (L2 -> L2) transactions
+export interface BuildCtx extends CommonCtx {
+  client: EthersClient;
+  tokens: TokensResource;
+  contracts: ContractsResource;
+
+  bridgehub: Address;
+  dstChainId: bigint;
+  dstProvider: AbstractProvider;
+  chainId: bigint;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
+  l2AssetRouter: Address;
+  l2NativeTokenVault: Address;
+
+  baseTokens: { src: Address; dst: Address; matches: boolean };
+  ifaces: { interopCenter: Interface; interopHandler: Interface };
+  attributes: AttributesResource;
+  gasOverrides?: TxGasOverrides;
+}
+
+export async function commonCtx(
+  dstProvider: AbstractProvider,
+  params: InteropParams,
+  client: EthersClient,
+  tokens: TokensResource,
+  contracts: ContractsResource,
+  attributes: AttributesResource,
+): Promise<BuildCtx> {
+  const sender = (await client.signer.getAddress()) as Address;
+  const chainId = (await client.l2.getNetwork()).chainId;
+  const dstChainId = (await dstProvider.getNetwork()).chainId;
+
+  const {
+    bridgehub,
+    l2AssetRouter,
+    l2NativeTokenVault,
+    interopCenter,
+    interopHandler,
+    l2MessageVerification,
+  } = await contracts.addresses();
+
+  await assertInteropProtocolVersion(client, chainId, dstChainId);
+
+  const [srcBaseToken, dstBaseToken] = await Promise.all([
+    client.baseToken(chainId),
+    client.baseToken(dstChainId),
+  ]);
+
+  const interopCenterIface = new Interface(InteropCenterABI);
+  const interopHandlerIface = new Interface(IInteropHandlerABI);
+  const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
+
+  return {
+    client,
+    tokens,
+    contracts,
+    sender,
+    chainIdL2: chainId,
+    chainId,
+    bridgehub,
+    dstChainId,
+    dstProvider,
+    interopCenter,
+    interopHandler,
+    l2MessageVerification,
+    l2AssetRouter,
+    l2NativeTokenVault,
+    baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
+    ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
+    attributes,
+    gasOverrides: params.txOverrides ? toGasOverrides(params.txOverrides) : undefined,
+  } satisfies BuildCtx;
+}

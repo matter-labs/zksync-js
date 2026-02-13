@@ -2,36 +2,7 @@
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
 import { isHash, isHash66, isHash66Array, isAddress, isBigint, isNumber } from '../../utils';
-
-/** Encoded call attributes for interop */
-export type EncodedCallAttributes = readonly Hex[];
-
-/** Encoded bundle attributes for interop */
-export type EncodedBundleAttributes = readonly Hex[];
-
-/**
- * A decoded interop attribute with its function selector and arguments.
- */
-export interface DecodedAttribute {
-  /** Function selector (0x + 8 hex chars, representing 4 bytes) */
-  selector: Hex;
-  /** Name of the attribute function */
-  name: string;
-  /** Full function signature (e.g. "interopCallValue(uint256)") when ABI is known */
-  signature?: string;
-  /** Decoded arguments array (types vary based on function) */
-  args: unknown[];
-}
-
-/**
- * Summary of all decoded attributes for both call-level and bundle-level attributes.
- */
-export interface DecodedAttributesSummary {
-  /** Attributes that apply to individual interop calls */
-  call: DecodedAttribute[];
-  /** Attributes that apply to the entire interop bundle */
-  bundle: DecodedAttribute[];
-}
+import type { TxOverrides } from '../fees';
 
 /**
  * The routing mechanism for interop execution.
@@ -53,16 +24,14 @@ export type InteropAction =
  * Input parameters for initiating an interop operation.
  */
 export interface InteropParams {
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId: bigint;
   /** Ordered list of actions to execute on destination chain */
   actions: InteropAction[];
-  /** Optional: Override default sender address for the operation */
-  sender?: Address;
   /** Optional: Restrict execution to a specific address on destination */
   execution?: { only: Address };
   /** Optional: Specify who can unbundle actions */
   unbundling?: { by: Address };
+  /** Optional: Gas overrides for L2 transaction */
+  txOverrides?: TxOverrides;
 }
 
 /**
@@ -85,6 +54,16 @@ export interface InteropQuote {
 }
 
 /**
+ * Quote add-ons a route can compute
+ */
+export interface QuoteExtras {
+  /** Sum of msg.value across actions (sendNative + call.value). */
+  totalActionValue: bigint;
+  /** Sum of ERC-20 amounts across actions (for approvals/bridging). */
+  bridgedTokenTotal: bigint;
+}
+
+/**
  * Execution plan for an interop operation.
  * Contains transaction details, routing, and quote before submission.
  */
@@ -104,8 +83,6 @@ export interface InteropHandle<Tx>
   l1MsgHash?: Hex;
   /** Interop bundle hash */
   bundleHash?: Hex;
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId?: bigint;
   /** Transaction hash of execution on destination chain (once executed) */
   dstExecTxHash?: Hex;
 }
@@ -148,8 +125,6 @@ export interface InteropStatus {
   bundleHash?: Hex;
   /** Destination chain execution transaction hash */
   dstExecTxHash?: Hex;
-  /** Destination chain ID (EIP-155 format) */
-  dstChainId?: bigint;
 }
 
 /**
@@ -258,8 +233,6 @@ export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizat
 export interface InteropFinalizationResult {
   /** Interop bundle hash that was finalized */
   bundleHash: Hex;
-  /** Destination chain ID */
-  dstChainId: bigint;
   /** Transaction hash of the successful execution on destination */
   dstExecTxHash: Hex;
 }

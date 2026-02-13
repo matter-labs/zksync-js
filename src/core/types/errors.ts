@@ -103,14 +103,33 @@ if (kInspect) {
 }
 
 //  ---- Factory & type guards ----
-export function isZKsyncError(e: unknown): e is ZKsyncError {
+export function isZKsyncError(
+  e: unknown,
+  opts?: {
+    type?: ErrorType;
+    resource?: Resource;
+    operation?: string;
+    messageIncludes?: string;
+  },
+): e is ZKsyncError {
   if (!e || typeof e !== 'object') return false;
 
   const maybe = e as { envelope?: unknown };
   if (!('envelope' in maybe)) return false;
 
   const envelope = maybe.envelope as Record<string, unknown> | undefined;
-  return typeof envelope?.type === 'string' && typeof envelope?.message === 'string';
+  if (typeof envelope?.type !== 'string' || typeof envelope?.message !== 'string') return false;
+
+  if (opts?.type && envelope.type !== opts.type) return false;
+  if (opts?.resource && envelope.resource !== opts.resource) return false;
+  if (opts?.operation && envelope.operation !== opts.operation) return false;
+  if (
+    opts?.messageIncludes &&
+    !envelope.message.toLowerCase().includes(opts.messageIncludes.toLowerCase())
+  )
+    return false;
+
+  return true;
 }
 
 // "receipt not found" detector across viem / ethers / generic RPC.
@@ -173,6 +192,11 @@ export function isReceiptNotFound(e: unknown): boolean {
 
 // TryResult type for operations that can fail without throwing
 export type TryResult<T> = { ok: true; value: T } | { ok: false; error: ZKsyncError };
+
+export const OP_CLIENT = {
+  ensureAddresses: 'client.ensureAddresses',
+  getSemverProtocolVersion: 'client.getSemverProtocolVersion',
+} as const;
 
 // Operation constants for Deposit error contexts
 export const OP_DEPOSITS = {
@@ -265,10 +289,8 @@ export const OP_WITHDRAWALS = {
       messengerIndex: 'withdrawals.finalize.fetchParams:messengerIndex',
       proof: 'withdrawals.finalize.fetchParams:proof',
       network: 'withdrawals.finalize.fetchParams:network',
-      ensureAddresses: 'withdrawals.finalize.fetchParams:ensureAddresses',
     },
     readiness: {
-      ensureAddresses: 'withdrawals.finalize.readiness:ensureAddresses',
       isFinalized: 'withdrawals.finalize.readiness:isWithdrawalFinalized',
       simulate: 'withdrawals.finalize.readiness:simulate',
     },
@@ -293,7 +315,10 @@ export const OP_INTEROP = {
   tryWait: 'interop.tryWait',
   finalize: 'interop.finalize',
   tryFinalize: 'interop.tryFinalize',
-
+  context: {
+    chainTypeManager: 'interop.chainTypeManager',
+    protocolVersion: 'interop.protocolVersion',
+  },
   // route-specific ops (keep names aligned with files)
   routes: {
     direct: {
@@ -315,11 +340,10 @@ export const OP_INTEROP = {
   svc: {
     status: {
       sourceReceipt: 'interop.svc.status:sourceReceipt',
-      ensureAddresses: 'interop.svc.status:ensureAddresses',
       parseSentLog: 'interop.svc.status:parseSentLog',
-      requireDstProvider: 'interop.svc.status:requireDstProvider',
       dstLogs: 'interop.svc.status:dstLogs',
       derive: 'interop.svc.status:derive',
+      getRoot: 'interop.svc.status:getRoot',
     },
     wait: {
       poll: 'interop.svc.wait:poll',

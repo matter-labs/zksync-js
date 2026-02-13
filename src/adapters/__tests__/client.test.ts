@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'bun:test';
+import { Interface } from 'ethers';
 
 import {
   ADAPTER_TEST_ADDRESSES,
@@ -6,8 +7,11 @@ import {
   describeForAdapters,
 } from './adapter-harness';
 import type { Address } from '../../core/types/primitives';
+import { IBridgehubABI } from '../../core/abi';
 
 const toLower = (value: Address) => value.toLowerCase();
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+const IBridgehub = new Interface(IBridgehubABI as any);
 
 function assertContractAddress(harness: AdapterHarness, contract: any, expected: Address) {
   if (harness.kind === 'ethers') {
@@ -64,6 +68,37 @@ describeForAdapters('adapters client', (kind, factory) => {
     const harness = factory();
     const baseToken = await harness.client.baseToken(324n);
     expect(toLower(baseToken)).toBe(toLower(ADAPTER_TEST_ADDRESSES.baseTokenFor324));
+  });
+
+  it('getProtocolVersion resolves the registered CTM semver', async () => {
+    const harness = factory();
+    if (harness.kind !== 'ethers') {
+      expect('getProtocolVersion' in harness.client).toBe(false);
+      return;
+    }
+
+    const semver = await harness.client.getProtocolVersion();
+    expect(semver).toEqual([0n, 31n, 0n]);
+  });
+
+  it('getProtocolVersion throws when chain CTM is not registered', async () => {
+    const harness = factory();
+    if (harness.kind !== 'ethers') {
+      expect('getProtocolVersion' in harness.client).toBe(false);
+      return;
+    }
+
+    harness.registry.set(
+      ADAPTER_TEST_ADDRESSES.bridgehub,
+      IBridgehub,
+      'chainTypeManager',
+      ZERO_ADDRESS,
+      [324n],
+    );
+
+    await expect(harness.client.getProtocolVersion()).rejects.toThrow(
+      /no registered chain type manager/i,
+    );
   });
 
   it('respects manual overrides without hitting discovery calls', async () => {

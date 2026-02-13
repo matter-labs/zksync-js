@@ -193,8 +193,10 @@ export function buildIndirectBundle(
         return [directTo, '0x' as Hex, callAttributes];
       case 'call':
         return [directTo, action.data ?? ('0x' as Hex), callAttributes];
+      case 'sendErc20':
+        throw new Error('buildIndirectBundle: missing assetRouterPayload for sendErc20 action.');
       default:
-        return [directTo, '0x' as Hex, callAttributes];
+        return assertNever(action);
     }
   });
 

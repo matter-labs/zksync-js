@@ -18,6 +18,7 @@ import {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
 } from '../../core/constants';
+import { OP_CLIENT } from '../../core/types';
 
 // ABIs from internal snapshot (same as ethers adapter)
 import {
@@ -29,6 +30,9 @@ import {
   L1NativeTokenVaultABI,
   IBaseTokenABI,
 } from '../../core/abi';
+import { createErrorHandlers } from '../ethers/errors/error-ops';
+
+const { wrap } = createErrorHandlers('client');
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -97,51 +101,61 @@ export function createViemClient(args: InitArgs): ViemClient {
   async function ensureAddresses(): Promise<ResolvedAddresses> {
     if (addrCache) return addrCache;
 
-    // Bridgehub via zks_getBridgehubContract
-    const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
+    return await wrap(
+      OP_CLIENT.ensureAddresses,
+      async () => {
+        // Bridgehub via zks_getBridgehubContract
+        const bridgehub = args.overrides?.bridgehub ?? (await zks.getBridgehubAddress());
 
-    // L1 AssetRouter via Bridgehub.assetRouter()
-    const l1AssetRouter =
-      args.overrides?.l1AssetRouter ??
-      ((await l1.readContract({
-        address: bridgehub,
-        abi: IBridgehubABI as Abi,
-        functionName: 'assetRouter',
-      })) as Address);
+        // L1 AssetRouter via Bridgehub.assetRouter()
+        const l1AssetRouter =
+          args.overrides?.l1AssetRouter ??
+          ((await l1.readContract({
+            address: bridgehub,
+            abi: IBridgehubABI as Abi,
+            functionName: 'assetRouter',
+          })) as Address);
 
-    // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
-    const l1Nullifier =
-      args.overrides?.l1Nullifier ??
-      ((await l1.readContract({
-        address: l1AssetRouter,
-        abi: IL1AssetRouterABI as Abi,
-        functionName: 'L1_NULLIFIER',
-      })) as Address);
+        // L1Nullifier via L1AssetRouter.L1_NULLIFIER()
+        const l1Nullifier =
+          args.overrides?.l1Nullifier ??
+          ((await l1.readContract({
+            address: l1AssetRouter,
+            abi: IL1AssetRouterABI as Abi,
+            functionName: 'L1_NULLIFIER',
+          })) as Address);
 
-    // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
-    const l1NativeTokenVault =
-      args.overrides?.l1NativeTokenVault ??
-      ((await l1.readContract({
-        address: l1Nullifier,
-        abi: IL1NullifierABI as Abi,
-        functionName: 'l1NativeTokenVault',
-      })) as Address);
+        // L1NativeTokenVault via L1Nullifier.l1NativeTokenVault()
+        const l1NativeTokenVault =
+          args.overrides?.l1NativeTokenVault ??
+          ((await l1.readContract({
+            address: l1Nullifier,
+            abi: IL1NullifierABI as Abi,
+            functionName: 'l1NativeTokenVault',
+          })) as Address);
 
-    // L2 addresses from constants (overridable)
-    const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
-    const l2NativeTokenVault = args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
-    const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
+        // L2 addresses from constants (overridable)
+        const l2AssetRouter = args.overrides?.l2AssetRouter ?? L2_ASSET_ROUTER_ADDRESS;
+        const l2NativeTokenVault =
+          args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
+        const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
 
-    addrCache = {
-      bridgehub,
-      l1AssetRouter,
-      l1Nullifier,
-      l1NativeTokenVault,
-      l2AssetRouter,
-      l2NativeTokenVault,
-      l2BaseTokenSystem,
-    };
-    return addrCache;
+        addrCache = {
+          bridgehub,
+          l1AssetRouter,
+          l1Nullifier,
+          l1NativeTokenVault,
+          l2AssetRouter,
+          l2NativeTokenVault,
+          l2BaseTokenSystem,
+        };
+        return addrCache;
+      },
+      {
+        ctx: { where: 'ensureAddresses' },
+        message: 'Failed to ensure contract addresses.',
+      },
+    );
   }
 
   async function contracts() {

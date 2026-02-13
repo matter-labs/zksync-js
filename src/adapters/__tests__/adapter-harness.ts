@@ -27,6 +27,9 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 import { isBigint } from '../../core/utils';
 
@@ -35,6 +38,9 @@ const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
 const IL1Nullifier = new Interface(IL1NullifierABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const L2NativeTokenVault = new Interface(L2NativeTokenVaultABI as any);
+const IChainTypeManager = new Interface([
+  'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+]);
 
 const lower = (value: string) => value.toLowerCase();
 type ResultValue = unknown | unknown[];
@@ -74,6 +80,7 @@ export const ADAPTER_TEST_ADDRESSES = {
   l1Nullifier: '0xc000000000000000000000000000000000000000' as Address,
   l1NativeTokenVault: '0xd000000000000000000000000000000000000000' as Address,
   baseTokenFor324: '0xbee0000000000000000000000000000000000000' as Address,
+  chainTypeManager: '0xe000000000000000000000000000000000000000' as Address,
   signer: '0x1111111111111111111111111111111111111111' as Address,
 } as const;
 
@@ -362,6 +369,26 @@ function seedDefaults(registry: CallRegistry, baseToken: Address) {
     ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
   );
   registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'baseToken', baseToken, [324n]);
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.bridgehub,
+    IBridgehub,
+    'chainTypeManager',
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    [324n],
+  );
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.bridgehub,
+    IBridgehub,
+    'chainTypeManager',
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    [325n],
+  );
+  registry.set(
+    ADAPTER_TEST_ADDRESSES.chainTypeManager,
+    IChainTypeManager,
+    'getSemverProtocolVersion',
+    [0n, 31n, 0n],
+  );
 }
 
 export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {
@@ -569,6 +596,56 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
       ...(extras.fee ?? {}),
     },
   } as WithdrawalTestContext<T>;
+}
+
+export type InteropTestContext<T extends AdapterHarness> = {
+  client: T['client'];
+  contracts: T extends { kind: 'ethers' } ? EthersContractsResource : ViemContractsResource;
+  sender: Address;
+  chainId: bigint;
+  dstChainId: bigint;
+  bridgehub: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
+  l2AssetRouter: Address;
+  l2NativeTokenVault: Address;
+  baseTokens: { src: Address; dst: Address; matches: boolean };
+  gasOverrides?: Record<string, unknown>;
+} & Record<string, unknown>;
+
+export function makeInteropContext<T extends AdapterHarness>(
+  harness: T,
+  extras: Partial<InteropTestContext<T>> = {},
+): InteropTestContext<T> {
+  const contracts =
+    harness.kind === 'ethers'
+      ? createEthersContractsResource(harness.client)
+      : createViemContractsResource(harness.client);
+
+  const baseCtx: InteropTestContext<T> = {
+    client: harness.client as InteropTestContext<T>['client'],
+    contracts: contracts as InteropTestContext<T>['contracts'],
+    sender: ADAPTER_TEST_ADDRESSES.signer,
+    chainId: 324n,
+    dstChainId: 325n,
+    bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
+    interopCenter: L2_INTEROP_CENTER_ADDRESS,
+    interopHandler: L2_INTEROP_HANDLER_ADDRESS,
+    l2MessageVerification: L2_MESSAGE_VERIFICATION_ADDRESS,
+    l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
+    l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    baseTokens: {
+      src: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+      dst: ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+      matches: true,
+    },
+  };
+
+  return {
+    ...baseCtx,
+    ...extras,
+  } as InteropTestContext<T>;
 }
 
 type BaseCostCtx<T extends AdapterHarness> = Pick<

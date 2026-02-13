@@ -46,14 +46,12 @@ describe('interop/finalization', () => {
       const handle = {
         l2SrcTxHash: TX_HASH,
         bundleHash: BUNDLE_HASH,
-        dstChainId: 2n,
         dstExecTxHash: '0xexec' as Hex,
       };
       const result = resolveIdsFromWaitable(handle as any);
       expect(result).toEqual({
         l2SrcTxHash: TX_HASH,
         bundleHash: BUNDLE_HASH,
-        dstChainId: 2n,
         dstExecTxHash: '0xexec',
       });
     });
@@ -63,7 +61,6 @@ describe('interop/finalization', () => {
       const result = resolveIdsFromWaitable(handle as any);
       expect(result.l2SrcTxHash).toBe(TX_HASH);
       expect(result.bundleHash).toBeUndefined();
-      expect(result.dstChainId).toBeUndefined();
     });
   });
 
