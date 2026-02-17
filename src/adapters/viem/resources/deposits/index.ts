@@ -26,7 +26,7 @@ import { routeEthNonBase } from './routes/eth-nonbase';
 import { routeErc20Base } from './routes/erc20-base';
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './routes/types';
 
-import { extractL2TxHashFromL1Logs, waitForL2ExecutionFromL1Tx } from './services/verification';
+import { getL2TransactionHashFromLogs, waitForL2ExecutionFromL1Tx } from './services/verification';
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
@@ -382,14 +382,14 @@ export function createDepositsResource(
 
         let l2TxHash: Hex | undefined;
         try {
-          l2TxHash = extractL2TxHashFromL1Logs(l1Rcpt.logs) ?? undefined;
+          l2TxHash = getL2TransactionHashFromLogs(l1Rcpt.logs) ?? undefined;
         } catch (e) {
           throw toZKsyncError(
             'INTERNAL',
             {
               resource: 'deposits',
-              operation: 'deposits.status.extractL2TxHashFromL1Logs',
-              context: { where: 'extractL2TxHashFromL1Logs', l1TxHash },
+              operation: 'deposits.status.getL2TransactionHashFromLogs',
+              context: { where: 'getL2TransactionHashFromLogs', l1TxHash },
               message: 'Failed to derive L2 transaction hash from L1 logs.',
             },
             e,

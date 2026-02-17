@@ -22,7 +22,7 @@ const I_BRIDGEHUB_NEW_PRIORITY_REQUEST = {
 
 // Extracts the L2 transaction hash from L1 logs emitted by Bridgehub during deposit
 // Returns null if not found
-export function extractL2TxHashFromL1Logs(logs: ReadonlyArray<Log>): Hex | null {
+export function getL2TransactionHashFromLogs(logs: ReadonlyArray<Log>): Hex | null {
   for (const lg of logs) {
     try {
       const parsed = decodeEventLog({
@@ -69,7 +69,7 @@ export async function waitForL2ExecutionFromL1Tx(
   if (!l1Receipt) throw new Error('No L1 receipt found');
 
   // Extract L2 tx hash from logs
-  const l2TxHash = extractL2TxHashFromL1Logs(l1Receipt.logs as ReadonlyArray<Log>);
+  const l2TxHash = getL2TransactionHashFromLogs(l1Receipt.logs as ReadonlyArray<Log>);
   if (!l2TxHash) {
     throw createError('VERIFICATION', {
       message: 'Failed to extract L2 transaction hash from L1 logs',
