@@ -162,6 +162,21 @@ Result-style `wait`.
 
 ---
 
+## Utility Helpers
+
+### `getL2TransactionHashFromLogs(logs) → Hex | null`
+
+Extracts the L2 transaction hash from L1 logs emitted by `Bridgehub` during deposit. Returns `null` if not found.
+
+```ts
+import { getL2TransactionHashFromLogs } from '@matterlabs/zksync-js/ethers';
+
+const l1Receipt = await client.l1.waitForTransaction(l1TxHash);
+const l2TxHash = l1Receipt ? getL2TransactionHashFromLogs(l1Receipt.logs) : null;
+```
+
+---
+
 ## Types (Overview)
 
 ### Deposit Params

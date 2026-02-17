@@ -160,6 +160,23 @@ Result-style `wait`.
 {{#include ../../../snippets/viem/reference/deposits.test.ts:create-token-deposit}}
 ```
 
+---
+
+## Utility Helpers
+
+### `getL2TransactionHashFromLogs(logs) → Hex | null`
+
+Extracts the L2 transaction hash from L1 logs emitted by `Bridgehub` during deposit. Returns `null` if not found.
+
+```ts
+import { getL2TransactionHashFromLogs } from '@matterlabs/zksync-js/viem';
+
+const l1Receipt = await client.l1.waitForTransactionReceipt({ hash: l1TxHash });
+const l2TxHash = getL2TransactionHashFromLogs(l1Receipt.logs);
+```
+
+---
+
 ## Types (Overview)
 
 ### Deposit Params
