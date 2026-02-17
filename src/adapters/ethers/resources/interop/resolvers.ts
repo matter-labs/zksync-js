@@ -1,4 +1,4 @@
-import { AbstractProvider, JsonRpcProvider } from 'ethers';
+import { type AbstractProvider, JsonRpcProvider } from 'ethers';
 import type { InteropWaitable as InteropWaitableBase } from '../../../../core/types/flows/interop';
 import type { DstChain, InteropWaitable, InteropHandle } from './types';
 

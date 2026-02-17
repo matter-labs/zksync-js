@@ -10,7 +10,10 @@ import type {
   DepositStatus,
 } from '../../../../core/types/flows/deposits.ts';
 import type { Address, Hex } from '../../../../core/types/primitives.ts';
-import { getL2TransactionHashFromLogs, waitForL2ExecutionFromL1Tx } from './services/verification.ts';
+import {
+  getL2TransactionHashFromLogs,
+  waitForL2ExecutionFromL1Tx,
+} from './services/verification.ts';
 
 import { Contract, type TransactionRequest, type TransactionReceipt, NonceManager } from 'ethers';
 import { IERC20ABI } from '../../../../core/abi.ts';

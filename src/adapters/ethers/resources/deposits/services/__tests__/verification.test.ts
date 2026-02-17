@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'bun:test';
 import { type Log } from 'ethers';
 import {
-  extractL2TxHashFromL1Logs,
+  getL2TransactionHashFromLogs,
   waitForL2ExecutionFromL1Tx,
   I_BRIDGEHUB,
   TOPIC_BRIDGEHUB_NPR,
@@ -68,23 +68,23 @@ function makeTopicOnlyLog(topic0: string, extraTopics: string[] = []): Log {
   } as unknown as Log;
 }
 
-describe('services/verification.extractL2TxHashFromL1Logs', () => {
+describe('services/verification.getL2TransactionHashFromLogs', () => {
   it('extracts from Bridgehub.NewPriorityRequest', () => {
     const target = H.l2tx as `0x${string}`;
     const log = makeNprLog({ txHash: target });
-    const out = extractL2TxHashFromL1Logs([log]);
+    const out = getL2TransactionHashFromLogs([log]);
     expect(out).toBe(target);
   });
 
   it('falls back to TOPIC_CANONICAL_ASSIGNED (hash at topic[2])', () => {
     const assigned = makeTopicOnlyLog(TOPIC_CANONICAL_ASSIGNED, ['0x', H.l2tx, '0xdead']);
-    const out = extractL2TxHashFromL1Logs([assigned]);
+    const out = getL2TransactionHashFromLogs([assigned]);
     expect(out).toBe(H.l2tx);
   });
 
   it('falls back to TOPIC_CANONICAL_SUCCESS (hash at topic[3])', () => {
     const success = makeTopicOnlyLog(TOPIC_CANONICAL_SUCCESS, ['0x1', '0x2', H.l2tx]);
-    const out = extractL2TxHashFromL1Logs([success]);
+    const out = getL2TransactionHashFromLogs([success]);
     expect(out).toBe(H.l2tx);
   });
 
@@ -94,12 +94,12 @@ describe('services/verification.extractL2TxHashFromL1Logs', () => {
       data: '0x1234',
     } as Log;
     const success = makeTopicOnlyLog(TOPIC_CANONICAL_SUCCESS, ['0x1', '0x2', H.l2tx]);
-    const out = extractL2TxHashFromL1Logs([badNpr, success]);
+    const out = getL2TransactionHashFromLogs([badNpr, success]);
     expect(out).toBe(H.l2tx);
   });
 
   it('returns null when no recognizable logs exist', () => {
-    const out = extractL2TxHashFromL1Logs([]);
+    const out = getL2TransactionHashFromLogs([]);
     expect(out).toBeNull();
   });
 });
