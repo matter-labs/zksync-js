@@ -5,7 +5,7 @@ export * from './sdk';
 export * from './resources/utils';
 export { createDepositsResource } from './resources/deposits';
 export type { DepositsResource } from './resources/deposits';
-export { extractL2TxHashFromL1Logs } from './resources/deposits/services/verification';
+export { getL2TransactionHashFromLogs } from './resources/deposits/services/verification';
 export { createWithdrawalsResource } from './resources/withdrawals';
 export { createFinalizationServices } from './resources/withdrawals';
 export type { WithdrawalsResource, FinalizationServices } from './resources/withdrawals';
