@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.9](https://github.com/matter-labs/zksync-js/compare/v0.0.8...v0.0.9) (2026-02-17)
+
+
+### Features
+
+* add nonce to txOverrides ([#59](https://github.com/matter-labs/zksync-js/issues/59)) ([ae36c3f](https://github.com/matter-labs/zksync-js/commit/ae36c3f802bab5e69ad58707ce4e9c2cce2e72ac))
+* export extractL2TxHashFromL1Logs ([#62](https://github.com/matter-labs/zksync-js/issues/62)) ([508d4c9](https://github.com/matter-labs/zksync-js/commit/508d4c993be5b3dee0d1fe823bf7cc419d426c93))
+* interop for ethers adapter ([#58](https://github.com/matter-labs/zksync-js/issues/58)) ([4635438](https://github.com/matter-labs/zksync-js/commit/46354387c0ca73ff03b271ecca2f128367855ecd))
+
+
+### Bug Fixes
+
+* update action ([#60](https://github.com/matter-labs/zksync-js/issues/60)) ([933b48b](https://github.com/matter-labs/zksync-js/commit/933b48bebfe18aa7b663864f817365397023aadc))
+
 ## [0.0.8](https://github.com/matter-labs/zksync-js/compare/v0.0.7...v0.0.8) (2026-02-06)
 
 
