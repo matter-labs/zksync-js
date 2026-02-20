@@ -30,7 +30,7 @@ import {
   L1NativeTokenVaultABI,
   IBaseTokenABI,
 } from '../../core/abi';
-import { createErrorHandlers } from '../ethers/errors/error-ops';
+import { createErrorHandlers } from './errors/error-ops';
 
 const { wrap } = createErrorHandlers('client');
 
