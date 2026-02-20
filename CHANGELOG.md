@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/matter-labs/zksync-js/compare/v0.0.9...v0.0.10) (2026-02-20)
+
+
+### Bug Fixes
+
+* fix import issue from cross-adapter dep ([#63](https://github.com/matter-labs/zksync-js/issues/63)) ([0c684ed](https://github.com/matter-labs/zksync-js/commit/0c684ed07adb336b5adf31eb6a0ffcb29892feae))
+
 ## [0.0.9](https://github.com/matter-labs/zksync-js/compare/v0.0.8...v0.0.9) (2026-02-17)
 
 
