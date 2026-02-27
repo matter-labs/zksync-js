@@ -20,6 +20,9 @@ _TypeScript SDK for deposits, withdrawals, and RPC access across the Elastic Net
   </b>
 </p>
 
+> [!WARNING]
+> This branch is for demo purposes only. It includes compatibility changes for the custom `zksync-os-server` branch and Interop `v31` preview used in local demos.
+
 ## ✨ Features
 
 - **Adapters for both worlds** – choose [`viem`](https://viem.sh) or [`ethers`](https://docs.ethers.io)
