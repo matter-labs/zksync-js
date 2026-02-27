@@ -10,6 +10,8 @@ const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const AMOUNT_RAW = process.env.AMOUNT ?? '100';
+const INTEROP_CENTER = process.env.INTEROP_CENTER;
+const INTEROP_HANDLER = process.env.INTEROP_HANDLER;
 
 async function main() {
   if (!PRIVATE_KEY) throw new Error('Set PRIVATE_KEY in env');
@@ -18,10 +20,18 @@ async function main() {
   const l2Source = new JsonRpcProvider(SRC_L2_RPC);
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
+  const overrides =
+    INTEROP_CENTER || INTEROP_HANDLER
+      ? {
+          ...(INTEROP_CENTER ? { interopCenter: INTEROP_CENTER as `0x${string}` } : {}),
+          ...(INTEROP_HANDLER ? { interopHandler: INTEROP_HANDLER as `0x${string}` } : {}),
+        }
+      : undefined;
   const client = await createEthersClient({
     l1,
     l2: l2Source,
     signer: new Wallet(PRIVATE_KEY),
+    overrides,
   });
   const sdk = createEthersSdk(client);
 

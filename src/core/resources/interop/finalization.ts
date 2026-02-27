@@ -197,6 +197,7 @@ export function buildFinalizationInfo(
   bundleInfo: BundleReceiptInfo,
   proof: ProofNormalized,
   messageData: Hex,
+  interopCenter: Address = L2_INTEROP_CENTER_ADDRESS,
 ): InteropFinalizationInfo {
   const expectedRoot: InteropExpectedRoot = {
     rootChainId: bundleInfo.sourceChainId,
@@ -210,7 +211,7 @@ export function buildFinalizationInfo(
     l2MessageIndex: proof.id,
     message: {
       txNumberInBatch: bundleInfo.txNumberInBatch,
-      sender: L2_INTEROP_CENTER_ADDRESS,
+      sender: interopCenter,
       data: messageData,
     },
     proof: proof.proof,

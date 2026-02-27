@@ -405,5 +405,36 @@ describe('interop/finalization', () => {
 
       expect(result.encodedData).toBe('0xencodedmsg');
     });
+
+    it('uses custom interop center as message sender when provided', () => {
+      const ids = { l2SrcTxHash: TX_HASH, bundleHash: BUNDLE_HASH };
+      const bundleInfo = {
+        bundleHash: BUNDLE_HASH,
+        dstChainId: 2n,
+        sourceChainId: 1n,
+        l1MessageData: '0x01data' as Hex,
+        l2ToL1LogIndex: 0,
+        txNumberInBatch: 5,
+        rawReceipt: {} as any,
+      };
+      const proof = {
+        batchNumber: 100n,
+        root: '0xroot1234' as Hex,
+        id: 10n,
+        proof: ['0xproof1', '0xproof2'] as Hex[],
+      };
+      const messageData = '0x01encodedmsg' as Hex;
+      const customInteropCenter = '0x0000000000000000000000000000000000010010' as Address;
+
+      const result = buildFinalizationInfo(
+        ids,
+        bundleInfo,
+        proof,
+        messageData,
+        customInteropCenter,
+      );
+
+      expect(result.proof.message.sender).toBe(customInteropCenter);
+    });
   });
 });

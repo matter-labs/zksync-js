@@ -6,6 +6,8 @@ const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const INTEROP_CENTER = process.env.INTEROP_CENTER;
+const INTEROP_HANDLER = process.env.INTEROP_HANDLER;
 
 const GREETING_ABI = ['function message() view returns (string)'] as const;
 
@@ -17,10 +19,18 @@ async function main() {
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
   const signer = new Wallet(PRIVATE_KEY, l2Source);
+  const overrides =
+    INTEROP_CENTER || INTEROP_HANDLER
+      ? {
+          ...(INTEROP_CENTER ? { interopCenter: INTEROP_CENTER as `0x${string}` } : {}),
+          ...(INTEROP_HANDLER ? { interopHandler: INTEROP_HANDLER as `0x${string}` } : {}),
+        }
+      : undefined;
   const client = await createEthersClient({
     l1,
     l2: l2Source,
     signer,
+    overrides,
   });
   const sdk = createEthersSdk(client);
   const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);

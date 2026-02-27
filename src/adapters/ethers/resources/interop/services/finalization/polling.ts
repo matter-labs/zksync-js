@@ -226,6 +226,7 @@ export async function waitForFinalization(
     bundleInfo,
     proof,
     bundleInfo.l1MessageData,
+    interopCenter,
   );
 
   await waitForRoot(dstProvider, finalizationInfo.expectedRoot, pollMs, deadline);
