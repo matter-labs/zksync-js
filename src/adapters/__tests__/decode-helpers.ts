@@ -5,14 +5,14 @@ import {
   IL2AssetRouterABI,
   IBaseTokenABI,
   IERC20ABI,
-  InteropCenterABI,
+  IInteropCenterABI,
 } from '../../core/abi.ts';
 
 const Bridgehub = new Interface(IBridgehubABI as any);
 const L2AssetRouter = new Interface(IL2AssetRouterABI as any);
 const BaseToken = new Interface(IBaseTokenABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
-const InteropCenter = new Interface(InteropCenterABI as any);
+const InteropCenter = new Interface(IInteropCenterABI as any);
 const coder = new AbiCoder();
 
 export function decodeTwoBridgeOuter(data: string) {

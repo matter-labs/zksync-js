@@ -21,7 +21,7 @@ import {
   L2NativeTokenVaultABI,
   L1NativeTokenVaultABI,
   IBaseTokenABI,
-  InteropCenterABI,
+  IInteropCenterABI,
   IInteropHandlerABI,
   L2MessageVerificationABI,
 } from '../../core/abi';
@@ -262,7 +262,7 @@ export function createEthersClient(args: InitArgs): EthersClient {
       l2AssetRouter: new Contract(a.l2AssetRouter, IL2AssetRouterABI, l2),
       l2NativeTokenVault: new Contract(a.l2NativeTokenVault, L2NativeTokenVaultABI, l2),
       l2BaseTokenSystem: new Contract(a.l2BaseTokenSystem, IBaseTokenABI, l2),
-      interopCenter: new Contract(a.interopCenter, InteropCenterABI, l2),
+      interopCenter: new Contract(a.interopCenter, IInteropCenterABI, l2),
       interopHandler: new Contract(a.interopHandler, IInteropHandlerABI, l2),
       l2MessageVerification: new Contract(a.l2MessageVerification, L2MessageVerificationABI, l2),
     };

@@ -12,7 +12,7 @@ import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
 import { interopCodec } from '../../ethers/resources/interop/address.ts';
 import {
-  InteropCenterABI,
+  IInteropCenterABI,
   IInteropHandlerABI,
   IERC20ABI,
   L2NativeTokenVaultABI,
@@ -33,7 +33,7 @@ function makeTestBuildCtx(
   const attributes = createEthersAttributesResource();
   const tokens = createTokensResource(harness.client);
 
-  const interopCenterIface = new Interface(InteropCenterABI);
+  const interopCenterIface = new Interface(IInteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
 
   return {

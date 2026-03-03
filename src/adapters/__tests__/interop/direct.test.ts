@@ -6,7 +6,7 @@ import { createEthersHarness, makeInteropContext } from '../adapter-harness.ts';
 import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
 import { interopCodec } from '../../ethers/resources/interop/address.ts';
-import { InteropCenterABI, IInteropHandlerABI } from '../../../core/abi.ts';
+import { IInteropCenterABI, IInteropHandlerABI } from '../../../core/abi.ts';
 import type { BuildCtx } from '../../ethers/resources/interop/context.ts';
 import type { Hex, Address } from '../../../core/types/primitives.ts';
 
@@ -19,7 +19,7 @@ function makeTestBuildCtx(
   const ctx = makeInteropContext(harness);
   const attributes = createEthersAttributesResource();
 
-  const interopCenterIface = new Interface(InteropCenterABI);
+  const interopCenterIface = new Interface(IInteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
 
   return {
