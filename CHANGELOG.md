@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.11](https://github.com/matter-labs/zksync-js/compare/v0.0.10...v0.0.11) (2026-03-03)
+
+
+### Bug Fixes
+
+* update interop contract abis ([#65](https://github.com/matter-labs/zksync-js/issues/65)) ([1b8cd60](https://github.com/matter-labs/zksync-js/commit/1b8cd606e743ddc92e4b561b1a6d9ebd89b1d45f))
+
 ## [0.0.10](https://github.com/matter-labs/zksync-js/compare/v0.0.9...v0.0.10) (2026-02-20)
 
 
