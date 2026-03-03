@@ -1,6 +1,6 @@
 import { Interface } from 'ethers';
 import type { InteropTopics } from '../../../../../../core/resources/interop/events';
-import InteropCenterAbi from '../../../../../../core/internal/abis/InteropCenter';
+import InteropCenterAbi from '../../../../../../core/internal/abis/IInteropCenter';
 import IInteropHandlerAbi from '../../../../../../core/internal/abis/IInteropHandler';
 import type { Hex } from '../../../../../../core';
 

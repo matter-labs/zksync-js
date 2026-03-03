@@ -1,214 +1,283 @@
 const IInteropHandlerABI = [
   {
-    anonymous: false,
-    inputs: [
+    type: 'function',
+    name: 'L1_CHAIN_ID',
+    inputs: [],
+    outputs: [
       {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'bundleHash',
-        type: 'bytes32',
-      },
-    ],
-    name: 'BundleExecuted',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'bundleHash',
-        type: 'bytes32',
-      },
-    ],
-    name: 'BundleUnbundled',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'bundleHash',
-        type: 'bytes32',
-      },
-    ],
-    name: 'BundleVerified',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'bundleHash',
-        type: 'bytes32',
-      },
-      {
-        indexed: true,
+        name: '',
+        type: 'uint256',
         internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'bundleStatus',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint8',
+        internalType: 'enum BundleStatus',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'callStatus',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+      {
         name: 'callIndex',
         type: 'uint256',
-      },
-      {
-        indexed: false,
-        internalType: 'enum CallStatus',
-        name: 'status',
-        type: 'uint8',
+        internalType: 'uint256',
       },
     ],
-    name: 'CallProcessed',
-    type: 'event',
+    outputs: [
+      {
+        name: '',
+        type: 'uint8',
+        internalType: 'enum CallStatus',
+      },
+    ],
+    stateMutability: 'view',
   },
   {
+    type: 'function',
+    name: 'executeBundle',
     inputs: [
       {
-        internalType: 'bytes',
         name: '_bundle',
         type: 'bytes',
+        internalType: 'bytes',
       },
       {
-        components: [
-          {
-            internalType: 'uint256',
-            name: 'chainId',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'l1BatchNumber',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'l2MessageIndex',
-            type: 'uint256',
-          },
-          {
-            components: [
-              {
-                internalType: 'uint16',
-                name: 'txNumberInBatch',
-                type: 'uint16',
-              },
-              {
-                internalType: 'address',
-                name: 'sender',
-                type: 'address',
-              },
-              {
-                internalType: 'bytes',
-                name: 'data',
-                type: 'bytes',
-              },
-            ],
-            internalType: 'struct L2Message',
-            name: 'message',
-            type: 'tuple',
-          },
-          {
-            internalType: 'bytes32[]',
-            name: 'proof',
-            type: 'bytes32[]',
-          },
-        ],
-        internalType: 'struct MessageInclusionProof',
         name: '_proof',
         type: 'tuple',
+        internalType: 'struct MessageInclusionProof',
+        components: [
+          {
+            name: 'chainId',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'l1BatchNumber',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'l2MessageIndex',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'message',
+            type: 'tuple',
+            internalType: 'struct L2Message',
+            components: [
+              {
+                name: 'txNumberInBatch',
+                type: 'uint16',
+                internalType: 'uint16',
+              },
+              {
+                name: 'sender',
+                type: 'address',
+                internalType: 'address',
+              },
+              {
+                name: 'data',
+                type: 'bytes',
+                internalType: 'bytes',
+              },
+            ],
+          },
+          {
+            name: 'proof',
+            type: 'bytes32[]',
+            internalType: 'bytes32[]',
+          },
+        ],
       },
     ],
-    name: 'executeBundle',
     outputs: [],
     stateMutability: 'nonpayable',
-    type: 'function',
   },
   {
+    type: 'function',
+    name: 'initL2',
     inputs: [
       {
+        name: '_l1ChainId',
+        type: 'uint256',
         internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'unbundleBundle',
+    inputs: [
+      {
         name: '_sourceChainId',
         type: 'uint256',
+        internalType: 'uint256',
       },
       {
-        internalType: 'bytes',
         name: '_bundle',
         type: 'bytes',
+        internalType: 'bytes',
       },
       {
-        internalType: 'enum CallStatus[]',
         name: '_callStatus',
         type: 'uint8[]',
+        internalType: 'enum CallStatus[]',
       },
     ],
-    name: 'unbundleBundle',
     outputs: [],
     stateMutability: 'nonpayable',
-    type: 'function',
   },
   {
+    type: 'function',
+    name: 'verifyBundle',
     inputs: [
       {
-        internalType: 'bytes',
         name: '_bundle',
         type: 'bytes',
+        internalType: 'bytes',
       },
       {
-        components: [
-          {
-            internalType: 'uint256',
-            name: 'chainId',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'l1BatchNumber',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'l2MessageIndex',
-            type: 'uint256',
-          },
-          {
-            components: [
-              {
-                internalType: 'uint16',
-                name: 'txNumberInBatch',
-                type: 'uint16',
-              },
-              {
-                internalType: 'address',
-                name: 'sender',
-                type: 'address',
-              },
-              {
-                internalType: 'bytes',
-                name: 'data',
-                type: 'bytes',
-              },
-            ],
-            internalType: 'struct L2Message',
-            name: 'message',
-            type: 'tuple',
-          },
-          {
-            internalType: 'bytes32[]',
-            name: 'proof',
-            type: 'bytes32[]',
-          },
-        ],
-        internalType: 'struct MessageInclusionProof',
         name: '_proof',
         type: 'tuple',
+        internalType: 'struct MessageInclusionProof',
+        components: [
+          {
+            name: 'chainId',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'l1BatchNumber',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'l2MessageIndex',
+            type: 'uint256',
+            internalType: 'uint256',
+          },
+          {
+            name: 'message',
+            type: 'tuple',
+            internalType: 'struct L2Message',
+            components: [
+              {
+                name: 'txNumberInBatch',
+                type: 'uint16',
+                internalType: 'uint16',
+              },
+              {
+                name: 'sender',
+                type: 'address',
+                internalType: 'address',
+              },
+              {
+                name: 'data',
+                type: 'bytes',
+                internalType: 'bytes',
+              },
+            ],
+          },
+          {
+            name: 'proof',
+            type: 'bytes32[]',
+            internalType: 'bytes32[]',
+          },
+        ],
       },
     ],
-    name: 'verifyBundle',
     outputs: [],
     stateMutability: 'nonpayable',
-    type: 'function',
+  },
+  {
+    type: 'event',
+    name: 'BundleExecuted',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BundleUnbundled',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BundleVerified',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'CallProcessed',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'callIndex',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'status',
+        type: 'uint8',
+        indexed: false,
+        internalType: 'enum CallStatus',
+      },
+    ],
+    anonymous: false,
   },
 ] as const;
 

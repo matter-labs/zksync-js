@@ -3,7 +3,7 @@ import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
-import { InteropRootStorageABI } from '../../../../../../core/abi';
+import { IInteropRootStorageABI } from '../../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
 
 const { wrap } = createErrorHandlers('interop');
@@ -125,7 +125,7 @@ export async function getInteropRoot(
     async () => {
       const rootStorage = new Contract(
         L2_INTEROP_ROOT_STORAGE_ADDRESS,
-        InteropRootStorageABI,
+        IInteropRootStorageABI,
         provider,
       );
 

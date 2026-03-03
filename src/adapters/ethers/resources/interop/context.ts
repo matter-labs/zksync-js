@@ -9,7 +9,7 @@ import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
-import { IInteropHandlerABI, InteropCenterABI } from '../../../../core/abi';
+import { IInteropHandlerABI, IInteropCenterABI } from '../../../../core/abi';
 import { createError } from '../../../../core/errors/factory';
 import { OP_INTEROP } from '../../../../core/types/errors';
 
@@ -94,7 +94,7 @@ export async function commonCtx(
     client.baseToken(dstChainId),
   ]);
 
-  const interopCenterIface = new Interface(InteropCenterABI);
+  const interopCenterIface = new Interface(IInteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
   const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
