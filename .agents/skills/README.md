@@ -18,6 +18,10 @@ These skills do not redefine policy. They orchestrate checks using the canonical
 - Purpose: Select required verification loops for each change scope.
 - Trigger summary: PR completion, CI failures, and test-debugging tasks.
 
+4. `contract-interaction-patterns`
+- Purpose: Enforce ABI-derived correctness for contract wrappers/clients and event/log decoding.
+- Trigger summary: ABI edits, calldata/method mapping changes, and contract-event decode updates.
+
 ## Explicit Invocation
 
 Use explicit invocation when the diff spans multiple risk areas:
@@ -25,6 +29,6 @@ Use explicit invocation when the diff spans multiple risk areas:
 - `$api-surface-gate`
 - `$adapter-parity-check`
 - `$sdk-verification-matrix`
+- `$contract-interaction-patterns`
 
 Implicit triggering is defined in each skill's `SKILL.md` and optional `agents/openai.yaml`.
-

@@ -42,6 +42,11 @@ Human-readable role summaries:
 - [`../agents/release.md`](../agents/release.md)
 - [`../agents/api-sentinel.md`](../agents/api-sentinel.md)
 
+## Codex Skills
+
+- Skills are explicit-only unless their policy says otherwise.
+- Use [`$contract-interaction-patterns`](../.agents/skills/contract-interaction-patterns/SKILL.md) for ABI-derived contract interaction work (ABIs, wrappers/clients, calldata, event/log decoding).
+
 ---
 
 ## All Files

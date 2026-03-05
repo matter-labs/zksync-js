@@ -76,6 +76,13 @@ Use these exact commands:
   - [`llm/release-contract.md`](./llm/release-contract.md)
   - [`llm/testing-and-quality.md`](./llm/testing-and-quality.md)
 
+## Skills
+
+- Skills are optional and should be invoked when relevant.
+- Use [`$contract-interaction-patterns`](./.agents/skills/contract-interaction-patterns/SKILL.md) for ABI edits, contract wrapper/client changes, calldata construction, and event/log decoding updates.
+- Do not invoke it for unrelated utility edits, docs-only formatting, or CI-only changes.
+- Skill index: [`.agents/skills/README.md`](./.agents/skills/README.md)
+
 ## Workflow
 
 1. Restate objective and constraints.
