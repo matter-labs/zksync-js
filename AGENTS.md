@@ -75,10 +75,19 @@ Use these exact commands:
   - [`llm/public-api-contract.md`](./llm/public-api-contract.md)
   - [`llm/release-contract.md`](./llm/release-contract.md)
   - [`llm/testing-and-quality.md`](./llm/testing-and-quality.md)
+- Codex multi-agent config:
+  - [`.codex/config.toml`](./.codex/config.toml)
+  - [`.codex/agents`](./.codex/agents) (canonical role behavior)
+  - [`agents/`](./agents) (human-readable role summaries)
 
 ## Skills
 
 - Skills are optional and should be invoked when relevant.
+- Available repository skills:
+  - [`$api-surface-gate`](./.agents/skills/api-surface-gate/SKILL.md)
+  - [`$adapter-parity-check`](./.agents/skills/adapter-parity-check/SKILL.md)
+  - [`$sdk-verification-matrix`](./.agents/skills/sdk-verification-matrix/SKILL.md)
+  - [`$contract-interaction-patterns`](./.agents/skills/contract-interaction-patterns/SKILL.md)
 - Use [`$contract-interaction-patterns`](./.agents/skills/contract-interaction-patterns/SKILL.md) for ABI edits, contract wrapper/client changes, calldata construction, and event/log decoding updates.
 - Do not invoke it for unrelated utility edits, docs-only formatting, or CI-only changes.
 - Skill index: [`.agents/skills/README.md`](./.agents/skills/README.md)
