@@ -1,49 +1,23 @@
 # Commit and PR
 
-> **Commit conventions and PR checklist.**
+> Commit, PR, and API checklist requirements for this SDK.
 
----
+## Commit and Title Conventions
 
-## Commit Conventions
+- Keep commit messages and PR titles compatible with Conventional Commits.
+- PR title lint is enforced in CI (`ci-title-check.yaml`).
+- Use small, focused commits with one logical change per commit.
 
-### Message Format
+Common types:
 
-```
-<type>: <short description>
+- `feat`
+- `fix`
+- `docs`
+- `refactor`
+- `test`
+- `chore`
 
-[optional body]
-```
-
-### Types
-
-| Type       | Use for                                                 |
-| ---------- | ------------------------------------------------------- |
-| `feat`     | New feature                                             |
-| `fix`      | Bug fix                                                 |
-| `docs`     | Documentation only                                      |
-| `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `test`     | Adding or updating tests                                |
-| `chore`    | Maintenance tasks                                       |
-
-### Examples
-
-```
-feat: add tryWait method to deposits resource
-fix: handle undefined l2GasLimit in deposit quote
-docs: update withdrawal finalization guide
-refactor: extract shared gas calculation to core
-test: add unit tests for token address mapping
-```
-
-### Guidelines
-
-- Keep commits small and focused
-- One logical change per commit
-- Use imperative mood ("add", not "added" or "adds")
-
----
-
-## PR Checklist
+## Required PR Checklist
 
 Before submitting:
 
@@ -51,31 +25,24 @@ Before submitting:
 - [ ] `bun run format:check` passes
 - [ ] `bun run test` passes
 - [ ] `bun run typecheck` passes
-- [ ] Commits are small and meaningful
-- [ ] PR description explains the change
-- [ ] Related issue linked (if applicable)
-- [ ] Docs updated (if public-facing change)
+- [ ] `bun run docs:build` passes when docs/navigation changed
+- [ ] PR description explains scope and verification
+- [ ] Docs updated when public behavior changed
 
----
+## API Change Checklist (Required When API Gate Triggers)
 
-## PR Description Template
+API Gate paths are defined in [`llm/public-api-contract.md`](./public-api-contract.md).
 
-```markdown
-## Summary
+When triggered, PR description must include:
 
-Brief description of what this PR does.
+- [ ] `No API change` **or**
+- [ ] `API change` with:
+  - entrypoints/exports changed
+  - compatibility impact (non-breaking or breaking)
+  - docs/changelog context
 
-## Changes
+## Release-Please Friendly Practices
 
-- Added X
-- Fixed Y
-- Updated Z
-
-## Testing
-
-How was this tested?
-
-## Related Issues
-
-Closes #123 (if applicable)
-```
+- Use clear conventional change intent (`feat`, `fix`, etc.).
+- Mark breaking changes explicitly in commit body/footer when applicable.
+- Keep release-relevant context in PR description to improve changelog quality.

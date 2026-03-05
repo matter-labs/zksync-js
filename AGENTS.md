@@ -1,106 +1,95 @@
-# AGENTS.md – LLM Contributing Guide
+# AGENTS.md – SDK Multi-Agent Guide
 
-> **Tool-agnostic entrypoint for AI assistants working on zksync-js.**  
-> For detailed guidance, see [`llm/README.md`](./llm/README.md).
+`zksync-js` is a TypeScript SDK for ZKsync cross-chain flows and helpers: deposits, withdrawals/finalization, typed `zks_` RPC methods, token mapping, and contract helpers. The repository is intentionally split into adapter-agnostic `src/core` and adapter translation layers in `src/adapters/{ethers,viem}`.
 
----
+For detailed guidance, start at [`llm/README.md`](./llm/README.md).
 
-## Quick Rules
+## Golden Commands
 
-| Do                                      | Don't                                          |
-| --------------------------------------- | ---------------------------------------------- |
-| Read context before editing             | Invent commands or scripts                     |
-| Make small, incremental changes         | Refactor unrelated code                        |
-| Preserve existing patterns              | Change public APIs without updating docs/tests |
-| Use adapter library's encoders/decoders | Hand-roll ABI encode/decode                    |
-| Keep `core/` adapter-agnostic           | Import `viem`/`ethers` in `core/`              |
+Use these exact commands:
 
----
+- Install: `bun install`
+- Build: `bun run build`
+- Test: `bun run test`
+- Typecheck: `bun run typecheck`
+- Lint: `bun run lint`
+- Format check: `bun run format:check`
+- Format write: `bun run format`
+- Docs build (optional): `bun run docs:build`
+- Docs serve (optional): `bun run docs:serve`
+- Adapter e2e (when relevant): `bun run test:e2e:ethers`, `bun run test:e2e:viem`
 
-## Hard Repo Rules
+## Hard Boundaries
 
-> [!CAUTION]
-> These rules are **non-negotiable**.
+1. Preserve architecture:
 
-1. **`core/` must NEVER depend on adapters**
-   - No imports from `viem`, `ethers`, or adapter-specific types in `core/`
-   - All shared logic and types live in `core/`
+- `src/core` must stay adapter-agnostic.
+- Do not import `ethers` or `viem` types/functions into `src/core`.
+- Adapters translate core abstractions into library calls.
 
-2. **Adapters are translation layers only**
-   - `src/adapters/viem/` and `src/adapters/ethers/` translate between `core` abstractions and library calls
-   - Use each library's native ABI encoders/decoders
+2. API Gate is mandatory for export-surface changes:
 
-3. **No logic duplication across adapters**
-   - If logic is duplicated, extract to `core/` as adapter-agnostic utilities
+- Trigger files:
+  - `package.json` (`exports` or `typesVersions`)
+  - `src/index.ts`
+  - `src/core/index.ts`
+  - `src/adapters/ethers/index.ts`
+  - `src/adapters/viem/index.ts`
+  - `src/core/types/**`
+  - Any newly exported type from those entrypoints
+- If triggered, PR description must include an API Change Checklist entry, including explicit `No API change` when applicable.
 
----
+3. Generated file protocol:
 
-## How to Work Here
+- Never edit generated files directly: `src/adapters/ethers/typechain/**` and `typechain/**`.
+- Regenerate using: `bun run types`.
+- If regeneration changes outputs, include generated diffs in the same PR.
 
-### Before You Start
+4. Security and safety:
 
-1. Read [`llm/repo-context.md`](./llm/repo-context.md) for architecture overview
-2. Identify which files you'll touch
-3. Check existing patterns in similar files
+- Never commit secrets, private keys, tokens, or internal endpoints.
+- Default to no network calls (no live RPC hits) during local validation.
+- Network exceptions: only when explicitly requested by maintainers or when required for approved e2e execution.
 
-### Standard Workflow
+5. Change management:
 
-1. Restate objective + constraints
-2. Identify files to modify
-3. Implement with **minimal diff**
-4. Run required scripts: `bun run lint`, `bun run format:check`, `bun run test`, `bun run typecheck`
-5. Update docs if needed: `docs/src/SUMMARY.md`, SDK reference, LLM docs
+- Ask before large refactors or dependency upgrades.
+- Keep diffs minimal and scoped; avoid unrelated cleanup.
+- Do not change public exports without updating docs and changelog context.
 
-### Definition of Done
+## Navigation
+
+- Main public API:
+  - [`src/index.ts`](./src/index.ts)
+  - [`src/core/index.ts`](./src/core/index.ts)
+  - [`src/adapters/ethers/index.ts`](./src/adapters/ethers/index.ts)
+  - [`src/adapters/viem/index.ts`](./src/adapters/viem/index.ts)
+- Core vs adapters:
+  - [`src/core`](./src/core)
+  - [`src/adapters`](./src/adapters)
+- Examples:
+  - [`examples/README.md`](./examples/README.md)
+- User docs:
+  - [`docs/src`](./docs/src)
+- Agent/contributor contracts:
+  - [`llm/public-api-contract.md`](./llm/public-api-contract.md)
+  - [`llm/release-contract.md`](./llm/release-contract.md)
+  - [`llm/testing-and-quality.md`](./llm/testing-and-quality.md)
+
+## Workflow
+
+1. Restate objective and constraints.
+2. Identify files to touch.
+3. Implement with minimal diff.
+4. Run verification commands.
+5. Update docs/contracts when public behavior or API surface changes.
+
+## Definition of Done
 
 - [ ] `bun run lint` passes
 - [ ] `bun run format:check` passes
 - [ ] `bun run test` passes
 - [ ] `bun run typecheck` passes
-- [ ] Docs updated (if public-facing change)
+- [ ] `bun run docs:build` passes when docs were touched
+- [ ] API checklist included when API Gate is triggered
 - [ ] No secrets committed
-
----
-
-## When Unsure
-
-```
-Is it about core/ vs adapters?
-  → Read llm/architecture-adapters-and-core.md
-
-Is it about adding a new resource?
-  → Read llm/resource-patterns.md
-
-Is it about code style?
-  → Read llm/style-guide.md
-
-Can't find a script?
-  → Check package.json, never invent commands
-
-Still unsure?
-  → Ask the user, don't guess
-```
-
----
-
-## Minimal Diff Principle
-
-- Change only what's necessary
-- Don't refactor adjacent code
-- Don't rename unless explicitly required
-- Don't "improve" unrelated code
-
----
-
-## Key Resources
-
-| Topic               | File                                                                               |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| Index & navigation  | [`llm/README.md`](./llm/README.md)                                                 |
-| Repo architecture   | [`llm/repo-context.md`](./llm/repo-context.md)                                     |
-| Core vs Adapters    | [`llm/architecture-adapters-and-core.md`](./llm/architecture-adapters-and-core.md) |
-| Adding resources    | [`llm/resource-patterns.md`](./llm/resource-patterns.md)                           |
-| Style guide         | [`llm/style-guide.md`](./llm/style-guide.md)                                       |
-| Testing & quality   | [`llm/testing-and-quality.md`](./llm/testing-and-quality.md)                       |
-| Commit/PR checklist | [`llm/commit-and-pr.md`](./llm/commit-and-pr.md)                                   |
-| Security            | [`llm/security-and-secrets.md`](./llm/security-and-secrets.md)                     |

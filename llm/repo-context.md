@@ -21,6 +21,15 @@
 - `viem` adapter – for viem users
 - `ethers` adapter – for ethers v6 users
 
+## Repo Shape and Tooling
+
+- Single-package repository (no workspace manager files).
+- Package manager: Bun (`bun install`).
+- Build: TypeScript declarations (`tsc`) + JS bundles (`tsup`).
+- Lint/format: ESLint + Prettier.
+- Tests: Bun test, with adapter-specific e2e commands.
+- Docs: mdBook (`docs/src` -> `docs/book`).
+
 ---
 
 ## Architecture
@@ -42,6 +51,7 @@ src/
 │   │   └── resources/       # Resource implementations
 │   │       ├── deposits/
 │   │       ├── withdrawals/
+│   │       ├── interop/
 │   │       ├── tokens/
 │   │       └── contracts/
 │   │
@@ -58,6 +68,26 @@ src/
 ```
 
 ---
+
+## Public API Surface
+
+Public API is controlled by:
+
+- `package.json` -> `exports` and `typesVersions`
+- `src/index.ts`
+- `src/core/index.ts`
+- `src/adapters/ethers/index.ts`
+- `src/adapters/viem/index.ts`
+
+Export paths include:
+
+- `@matterlabs/zksync-js`
+- `@matterlabs/zksync-js/core`
+- `@matterlabs/zksync-js/types`
+- `@matterlabs/zksync-js/ethers` (+ adapter subpaths)
+- `@matterlabs/zksync-js/viem` (+ adapter subpaths)
+
+See [`public-api-contract.md`](./public-api-contract.md) for API gate requirements.
 
 ## Resource Directory Structure
 
@@ -76,18 +106,25 @@ resources/<resource>/
 
 ## Key Directories
 
-| Directory              | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `src/core/`            | Adapter-agnostic types, constants, utilities  |
-| `src/core/types/`      | Shared types (primitives, errors, flow types) |
-| `src/core/resources/`  | Core resource interfaces                      |
-| `src/adapters/ethers/` | Ethers v6 adapter implementation              |
-| `src/adapters/viem/`   | Viem adapter implementation                   |
-| `docs/`                | User documentation (mdbook)                   |
-| `docs/src/`            | Documentation source files                    |
-| `examples/`            | Usage examples for both adapters              |
-| `tests/`               | Test files                                    |
-| `typechain/`           | Generated contract types                      |
+| Directory                        | Purpose                                       |
+| -------------------------------- | --------------------------------------------- |
+| `src/core/`                      | Adapter-agnostic types, constants, utilities  |
+| `src/core/types/`                | Shared types (primitives, errors, flow types) |
+| `src/core/resources/`            | Core resource interfaces                      |
+| `src/adapters/ethers/`           | Ethers v6 adapter implementation              |
+| `src/adapters/viem/`             | Viem adapter implementation                   |
+| `docs/`                          | User documentation (mdbook)                   |
+| `docs/src/`                      | Documentation source files                    |
+| `examples/`                      | Usage examples for both adapters              |
+| `tests/`                         | Test files                                    |
+| `typechain/`                     | Generated contract types                      |
+| `src/adapters/ethers/typechain/` | Generated adapter-local typechain bindings    |
+
+## Generated Boundaries
+
+- Never edit generated files directly: `src/adapters/ethers/typechain/**` and `typechain/**`.
+- Regenerate using: `bun run types`.
+- If regeneration changes outputs, include generated diffs in the same PR.
 
 ---
 
@@ -102,7 +139,7 @@ const sdk = createEthersSdk(client);
 const client = createViemClient({ l1, l2, l1Wallet });
 const sdk = createViemSdk(client);
 
-// Usage (same API shape for both)
+// Usage (mostly same API shape for both)
 sdk.deposits.quote({ ... });
 sdk.deposits.create({ ... });
 sdk.withdrawals.wait(handle, { for: 'finalized' });
@@ -110,14 +147,12 @@ sdk.tokens.toL2Address(address);
 sdk.contracts.getBridgehubAddress();
 ```
 
+> Note: interop resources are currently implemented in ethers adapter.
+
 ---
 
-## Package Exports
+## CI and Release
 
-| Export Path                    | Description    |
-| ------------------------------ | -------------- |
-| `@matterlabs/zksync-js`        | Main entry     |
-| `@matterlabs/zksync-js/ethers` | Ethers adapter |
-| `@matterlabs/zksync-js/viem`   | Viem adapter   |
-| `@matterlabs/zksync-js/core`   | Core utilities |
-| `@matterlabs/zksync-js/types`  | Core types     |
+- CI checks: lint, format, typecheck, build, tests, coverage, docs snippets.
+- Release automation: release-please + separate publish workflow with npm OIDC.
+- PR titles must follow conventional commit style (enforced by CI).
