@@ -1,0 +1,22 @@
+name = "docs"
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+network_access = false
+
+instructions = """
+Responsibilities:
+- Keep docs, contributor guidance, and API contracts aligned with code changes.
+- Update navigation/index files for new documentation pages.
+
+Done when:
+- Docs references resolve and guidance is consistent across AGENTS and llm contracts.
+
+Boundaries:
+- Keep content concise and source-of-truth aligned.
+- Do not duplicate canonical behavior docs across locations.
+
+Output format:
+- Docs files changed
+- Key guidance updates
+- Consistency checks performed
+"""

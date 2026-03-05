@@ -1,48 +1,53 @@
 # Change Playbook
 
-> **Standard workflow for making changes to zksync-js.**
-
----
+> Standard change flow with API gate, generated-file handling, and verification triggers.
 
 ## Before You Start
 
-1. Read [`repo-context.md`](./repo-context.md) for architecture overview
-2. Read [`architecture-adapters-and-core.md`](./architecture-adapters-and-core.md) if touching core/ or adapters
-3. Identify which files you'll modify
-
----
+1. Read [`repo-context.md`](./repo-context.md).
+2. Read [`architecture-adapters-and-core.md`](./architecture-adapters-and-core.md) when touching `src/core` or adapters.
+3. Read [`public-api-contract.md`](./public-api-contract.md) for export/type safety.
+4. Identify exact files to modify.
 
 ## Standard Workflow
 
-### 1. Restate Objective + Constraints
+### 1. Restate Objective and Constraints
 
-Before any change, clearly state:
+State:
 
-- What you're trying to accomplish
-- Any constraints (e.g., "don't change public API", "ethers only")
+- what will change
+- what must not change
+- whether API Gate is expected to trigger
 
-### 2. Identify Files to Touch
+### 2. Scope the Diff
 
-List all files you expect to modify. Consider:
+- Keep changes minimal and local.
+- Avoid opportunistic refactors.
+- Preserve existing patterns and naming.
 
-- Core types (`core/types/`)
-- Core utilities (`core/utils/`)
-- Adapter implementations (`adapters/viem/`, `adapters/ethers/`)
-- Tests (`__tests__/`, `*.test.ts`)
-- Docs (`docs/src/`)
-- Docs examples tests (`docs/snippets`)
+### 3. Apply API Gate When Triggered
 
-### 3. Implement with Minimal Diff
+API Gate trigger paths:
 
-- Change only what's necessary
-- Don't refactor adjacent code
-- Don't rename unless required
-- Don't "improve" unrelated code
-- Follow existing patterns exactly
-- Don't add hardcoded code examples directly in any markdown docs.
-  Use imported code snippets from tests in `docs/snippets` in markdown docs files
+- `package.json` (`exports` or `typesVersions`)
+- `src/index.ts`
+- `src/core/index.ts`
+- `src/adapters/ethers/index.ts`
+- `src/adapters/viem/index.ts`
+- `src/core/types/**`
+- any newly exported type from those entrypoints
 
-### 4. Run Required Scripts
+If triggered, include API Change Checklist in PR description, including explicit `No API change` when applicable.
+
+### 4. Handle Generated Files Correctly
+
+- Never edit generated files directly: `src/adapters/ethers/typechain/**` and `typechain/**`.
+- Regenerate using: `bun run types`.
+- If regeneration changes outputs, include generated diffs in the same PR.
+
+### 5. Run Verification Loops
+
+Always run fast loop:
 
 ```bash
 bun run lint
@@ -51,56 +56,37 @@ bun run test
 bun run typecheck
 ```
 
-All must pass before considering done.
+Conditional loops:
 
-### 5. Update Docs
+- Run `bun run test:e2e:ethers` for ethers adapter behavior changes.
+- Run `bun run test:e2e:viem` for viem adapter behavior changes.
+- Run `bun run docs:build` when docs/navigation files change.
 
-If your change affects public API or behavior:
+### 6. Update Docs and Contracts
 
-- [ ] Update `docs/src/SUMMARY.md` (if adding new pages)
-- [ ] Update SDK reference docs (`docs/src/sdk-reference/viem/`, `docs/src/sdk-reference/ethers/`)
-- [ ] Add/update quickstart guide if new resource (follow deposits/withdrawals structure)
-- [ ] Update the relevant docs examples tests in `docs/snippets`
-- [ ] Update LLM docs (`llm/`) if applicable
+For public behavior or API surface changes:
 
----
-
-## Minimal Diff Principle
-
-| Do                            | Don't                                           |
-| ----------------------------- | ----------------------------------------------- |
-| Change only required lines    | Reformat entire file                            |
-| Fix the specific bug          | Refactor "while you're there"                   |
-| Add the specific feature      | Add "nice to have" improvements                 |
-| Update affected tests         | Rewrite unrelated tests                         |
-| Update affected docs snippets | Add hardcoded code examples into markdown files |
-
----
+- Update user docs and/or snippets where applicable.
+- Update `llm` contracts (`public-api-contract.md`, `release-contract.md`, etc.) when contributor policy changes.
+- Update docs navigation (`docs/src/SUMMARY.md`) for new pages.
 
 ## Common Change Types
 
 ### Bug Fix
 
-1. Identify the bug location
-2. Write a failing test (if possible)
-3. Fix the bug
-4. Verify tests pass
-5. Update docs markdown files (`docs/src`) and relevant snippets (`docs/snippets`) if behavior changed
+1. Identify failing behavior.
+2. Add or update a targeted test.
+3. Implement fix with minimal diff.
+4. Run required loops.
+5. Update docs if observable behavior changed.
 
-### Add Method to Existing Resource
+### API Surface Change
 
-1. Add type to `core/types/flows/<resource>.ts`
-2. Implement in both adapters
-3. Add tests
-4. Update SDK reference docs markdown files (`docs/src/sdk-reference`) and relevant snippets (`docs/snippets`)
+1. Modify API source files intentionally.
+2. Verify export/type changes.
+3. Complete API Change Checklist in PR.
+4. Update relevant docs/contracts and changelog context.
 
-### Add New Resource
+### Resource Expansion
 
-See [`resource-patterns.md`](./resource-patterns.md) for full checklist.
-
-### Update Types
-
-1. Modify types in `core/types/`
-2. Update all usages in adapters
-3. Update tests
-4. Update docs if public-facing
+See [`resource-patterns.md`](./resource-patterns.md).

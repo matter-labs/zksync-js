@@ -1,0 +1,34 @@
+[features]
+multi_agent = true
+
+[agents.explorer]
+description = "Read-only repository exploration and API mapping."
+config_file = ".codex/agents/explorer.toml"
+
+[agents.planner]
+description = "Read-only PR planning with explicit file list and risks."
+config_file = ".codex/agents/planner.toml"
+
+[agents.implementer]
+description = "Workspace-write implementation with minimal diff and API safety gates."
+config_file = ".codex/agents/implementer.toml"
+
+[agents.reviewer]
+description = "Read-only findings-first review for regressions and boundary leaks."
+config_file = ".codex/agents/reviewer.toml"
+
+[agents.tester]
+description = "Workspace-write verification owner for fast/full loop execution."
+config_file = ".codex/agents/tester.toml"
+
+[agents.docs]
+description = "Workspace-write docs alignment for API and contributor guidance."
+config_file = ".codex/agents/docs.toml"
+
+[agents.release]
+description = "Read-only release-readiness validation aligned with release-please."
+config_file = ".codex/agents/release.toml"
+
+[agents.api_sentinel]
+description = "Read-only API surface guard for exports, entrypoints, and type drift."
+config_file = ".codex/agents/api-sentinel.toml"

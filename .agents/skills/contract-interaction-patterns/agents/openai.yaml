@@ -1,0 +1,7 @@
+interface:
+  display_name: 'Contract Interaction Patterns'
+  short_description: 'ABI-safe wrapper and event decoding workflow.'
+  default_prompt: 'Use $contract-interaction-patterns to validate ABI mappings, adapter impact, ripple map, and verification steps for this change.'
+
+policy:
+  allow_implicit_invocation: false

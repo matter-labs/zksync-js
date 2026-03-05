@@ -1,0 +1,23 @@
+interface:
+  display_name: 'API Surface Gate'
+  short_description: 'Checks export-surface diffs and API-checklist compliance.'
+  default_prompt: 'Run api-surface-gate for this diff. Report triggered API files, export/type deltas, compatibility impact, and required checklist/docs/changelog follow-ups.'
+
+activation:
+  aliases:
+    - '$api-surface-gate'
+  when_file_paths_change:
+    - 'package.json'
+    - 'src/index.ts'
+    - 'src/core/index.ts'
+    - 'src/adapters/ethers/index.ts'
+    - 'src/adapters/viem/index.ts'
+    - 'src/core/types/**'
+  when_task_mentions:
+    - 'api change'
+    - 'public api'
+    - 'exports'
+    - 'typesVersions'
+    - 'breaking change'
+
+instructions_source: '../SKILL.md'

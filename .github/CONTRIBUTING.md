@@ -49,6 +49,7 @@ Before submitting a PR, please make sure:
    Use `ANCHOR` comments with unique tags to specify a code block within a test to import into a markdown file.
    For more information, check out the [mdbook docs](https://rust-lang.github.io/mdBook/format/mdbook.html#including-files).
 - Link the related issue (if any).
+- If your change touches export surface files, complete the **API Change Checklist** in the PR template (choose `No API change` or provide API impact details).
 
 ## 🤖 AI-Assisted Development
 
@@ -56,6 +57,7 @@ If you're using AI tools (Claude, ChatGPT, Cursor, etc.) to contribute:
 
 - Start with [`AGENTS.md`](../AGENTS.md) for rules and workflow
 - See [`llm/README.md`](../llm/README.md) for detailed guidance
+- See [`docs/src/contributing/ai-codex.md`](../docs/src/contributing/ai-codex.md) for the contributor AI index and contracts
 
 ## 💬 Questions?
 

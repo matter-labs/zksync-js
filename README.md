@@ -117,6 +117,19 @@ console.log('Deposit complete ✅');
 
 Bug reports, fixes, and new features are welcome! Please read the [contributing guide](.github/CONTRIBUTING.md) to get started.
 
+## 🤖 AI Instruction Map
+
+For AI-assisted contribution workflows:
+
+| Path | Purpose |
+|---|---|
+| [`AGENTS.md`](./AGENTS.md) | Repo-wide policy, boundaries, and required verification rules. |
+| [`llm/`](./llm/) | Canonical contributor contracts (architecture, API gate, testing, release, style). |
+| [`.codex/config.toml`](./.codex/config.toml) | Codex multi-agent registry and role wiring. |
+| [`.codex/agents/`](./.codex/agents/) | Canonical role behavior (`.toml`) for explorer/planner/implementer/reviewer/tester/docs/release/api-sentinel. |
+| [`agents/`](./agents/) | Human-readable role summaries that mirror `.codex/agents` behavior. |
+| [`.agents/skills/`](./.agents/skills/) | Repo-scoped reusable skills for focused workflows (for example API gate, adapter parity, contract interaction patterns). |
+
 ## 📜 License
 
 This project is licensed under the terms of the **MIT License** – see the [LICENSE](LICENSE) file for details.

@@ -11,6 +11,15 @@
 - **Core types & shapes in `core/`** – adapters only translate
 - **Minimal adapter work** – call library, map results to core types
 
+## Adapter Parity Policy
+
+- Default expectation: new public resource methods are implemented for both adapters.
+- Allowed exception: adapter-asymmetric features are permitted only when explicitly documented in docs and PR notes.
+- If asymmetry is intentional, document:
+  - why it is adapter-specific
+  - what fallback users should use on the other adapter
+  - how this affects public API references
+
 ---
 
 ## Required Steps
