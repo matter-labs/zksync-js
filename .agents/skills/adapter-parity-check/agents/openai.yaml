@@ -1,0 +1,20 @@
+interface:
+  display_name: 'Adapter Parity Check'
+  short_description: 'Flags ethers/viem behavior mismatches and parity exceptions.'
+  default_prompt: 'Run adapter-parity-check on this change. Produce a parity matrix, mismatch list, and required exception/docs actions.'
+
+activation:
+  aliases:
+    - '$adapter-parity-check'
+  when_file_paths_change:
+    - 'src/core/**'
+    - 'src/adapters/ethers/**'
+    - 'src/adapters/viem/**'
+  when_task_mentions:
+    - 'adapter parity'
+    - 'ethers vs viem'
+    - 'core change'
+    - 'behavior mismatch'
+    - 'consistency'
+
+instructions_source: '../SKILL.md'

@@ -1,0 +1,22 @@
+interface:
+  display_name: 'SDK Verification Matrix'
+  short_description: 'Chooses required fast/e2e/docs loops from change scope.'
+  default_prompt: 'Run sdk-verification-matrix for this change. Identify required loops, list exact commands, and report pass/fail/blocker status.'
+
+activation:
+  aliases:
+    - '$sdk-verification-matrix'
+  when_file_paths_change:
+    - 'src/core/**'
+    - 'src/adapters/**'
+    - 'docs/**'
+    - 'llm/**'
+    - 'AGENTS.md'
+  when_task_mentions:
+    - 'verification'
+    - 'test matrix'
+    - 'ci failure'
+    - 'pre-merge checks'
+    - 'what tests should run'
+
+instructions_source: '../SKILL.md'
