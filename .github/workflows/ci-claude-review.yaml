@@ -1,0 +1,59 @@
+name: ci-run-claude-review
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "docs/snippets/**"
+      - "package.json"
+      - "bun.lockb"
+      - ".github/workflows/**"
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-pr-review:
+    name: claude-pr-review 🤖
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.fork == false &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Claude PR Review
+        uses: anthropics/claude-code-action@1fc90f3ed982521116d8ff6d85b948c9b12cae3e # v1.0.69
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          include_fix_links: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review only changed code and focus on concrete defects or regressions.
+
+            Repository-specific checks:
+            - Keep src/core adapter-agnostic (no ethers/viem imports in src/core)
+            - If API surface files are changed, confirm API Change Checklist is addressed in PR description
+            - Evaluate against AGENTS.md quality expectations (lint, test, typecheck, format)
+
+            Report findings with severity (P0/P1/P2), impact, and suggested fix.
+            Use inline comments for line-level issues and one concise top-level summary comment.
+            Post only GitHub comments.
+          claude_args: |
+            --max-turns 8
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
