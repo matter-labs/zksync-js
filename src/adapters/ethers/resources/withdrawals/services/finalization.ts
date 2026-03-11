@@ -111,9 +111,8 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
         'INTERNAL',
         OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
         () =>
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
           Promise.resolve(
-            messengerLogIndex(parsed as any, { index: 0, messenger: L1_MESSENGER_ADDRESS }),
+            messengerLogIndex(parsed, { index: 0, messenger: L1_MESSENGER_ADDRESS }),
           ),
         {
           ctx: { where: 'derive messenger log index', l2TxHash, receipt: parsed },
