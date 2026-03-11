@@ -30,11 +30,8 @@ export interface WithdrawQuote {
 export type WithdrawPlan<Tx> = Plan<Tx, WithdrawRoute, WithdrawQuote>;
 
 /** Handle */
-export interface WithdrawHandle<Tx> extends Handle<
-  Record<string, Hex>,
-  WithdrawRoute,
-  WithdrawPlan<Tx>
-> {
+export interface WithdrawHandle<Tx>
+  extends Handle<Record<string, Hex>, WithdrawRoute, WithdrawPlan<Tx>> {
   kind: 'withdrawal';
   l2TxHash: Hex;
   l1TxHash?: Hex;

@@ -42,11 +42,8 @@ export interface DepositQuote {
 export type DepositPlan<Tx> = Plan<Tx, DepositRoute, DepositQuote>;
 
 /** Handle */
-export interface DepositHandle<Tx> extends Handle<
-  Record<string, Hex>,
-  DepositRoute,
-  DepositPlan<Tx>
-> {
+export interface DepositHandle<Tx>
+  extends Handle<Record<string, Hex>, DepositRoute, DepositPlan<Tx>> {
   kind: 'deposit';
   l1TxHash: Hex;
   l2ChainId?: number;
