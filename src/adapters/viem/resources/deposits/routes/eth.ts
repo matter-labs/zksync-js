@@ -8,7 +8,7 @@ import { buildDirectRequestStruct } from '../../utils';
 import { IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
-import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { quoteL2Gas, quoteL1Gas, fetchL1MarketFees, marketToGasPrice } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
@@ -43,8 +43,16 @@ export function routeEthDirect(): DepositRouteStrategy {
         throw new Error('Failed to estimate L2 gas for deposit.');
       }
 
+      // Pre-fetch L1 market fees once; reused by quoteL2BaseCost and quoteL1Gas to avoid
+      // redundant eth_feeHistory / eth_gasPrice RPC calls.
+      const l1Market = await fetchL1MarketFees(ctx);
+
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        precomputedGasPrice: marketToGasPrice(l1Market),
+      });
 
       const l2Contract = p.to ?? ctx.sender;
       const l2Value = p.amount;
@@ -97,6 +105,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         ctx,
         tx: l1TxCandidate,
         overrides: ctx.gasOverrides,
+        precomputedMarket: l1Market,
       });
 
       const steps: PlanStep<ViemPlanWriteRequest>[] = [

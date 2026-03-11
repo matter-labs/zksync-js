@@ -12,7 +12,7 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { quoteL2Gas, quoteL1Gas, fetchL1MarketFees, marketToGasPrice } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
@@ -84,8 +84,15 @@ export function routeEthNonBase(): DepositRouteStrategy {
 
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
+      // Pre-fetch L1 market fees once; reused by quoteL2BaseCost and quoteL1Gas.
+      const l1Market = await fetchL1MarketFees(ctx);
+
       // L2TransactionBase cost
-      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const l2BaseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2Gas.gasLimit,
+        precomputedGasPrice: marketToGasPrice(l1Market),
+      });
       const mintValue = l2BaseCost + ctx.operatorTip;
 
       // -- Approvals --
@@ -222,6 +229,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         tx: l1TxCandidate,
         overrides: ctx.gasOverrides,
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
+        precomputedMarket: l1Market,
       });
 
       if (l1Gas) {

@@ -6,7 +6,7 @@ import { buildDirectRequestStruct } from '../../utils';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
-import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { quoteL1Gas, quoteL2Gas, fetchL1MarketFees } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 // ETH deposit route via Bridgehub.requestL2TransactionDirect
@@ -43,8 +43,16 @@ export function routeEthDirect(): DepositRouteStrategy {
         throw new Error('Failed to estimate L2 gas for deposit.');
       }
 
+      // Pre-fetch L1 market fees once; reused by quoteL2BaseCost and quoteL1Gas to avoid
+      // redundant eth_feeHistory / eth_gasPrice RPC calls.
+      const l1Market = await fetchL1MarketFees(ctx);
+
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        precomputedMarket: l1Market,
+      });
       const mintValue = baseCost + ctx.operatorTip + p.amount;
 
       const req = buildDirectRequestStruct({
@@ -71,6 +79,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         ctx,
         tx: l1TxCandidate,
         overrides: ctx.gasOverrides,
+        precomputedMarket: l1Market,
       });
       if (l1GasParams) {
         l1TxCandidate.gasLimit = l1GasParams.gasLimit;
