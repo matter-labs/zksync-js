@@ -73,8 +73,11 @@ export type InteropPlan<Tx> = Plan<Tx, InteropRoute, InteropQuote>;
  * Handle returned after initiating an interop operation.
  * Tracks the interop message through its entire lifecycle from source to destination.
  */
-export interface InteropHandle<Tx>
-  extends Handle<Record<string, Hex>, InteropRoute, InteropPlan<Tx>> {
+export interface InteropHandle<Tx> extends Handle<
+  Record<string, Hex>,
+  InteropRoute,
+  InteropPlan<Tx>
+> {
   /** Discriminator for type-safe handling */
   kind: 'interop';
   /** L2 send bundle transaction hash */

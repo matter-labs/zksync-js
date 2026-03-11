@@ -13,8 +13,9 @@ import type {
   LogDescription,
 } from 'ethers';
 
-export interface TypedDeferredTopicFilter<_TCEvent extends TypedContractEvent>
-  extends DeferredTopicFilter {}
+export interface TypedDeferredTopicFilter<
+  _TCEvent extends TypedContractEvent,
+> extends DeferredTopicFilter {}
 
 export interface TypedContractEvent<
   InputTuple extends Array<any> = any,
@@ -37,8 +38,10 @@ export interface TypedEventLog<TCEvent extends TypedContractEvent> extends Omit<
   args: __TypechainAOutputTuple<TCEvent> & __TypechainOutputObject<TCEvent>;
 }
 
-export interface TypedLogDescription<TCEvent extends TypedContractEvent>
-  extends Omit<LogDescription, 'args'> {
+export interface TypedLogDescription<TCEvent extends TypedContractEvent> extends Omit<
+  LogDescription,
+  'args'
+> {
   args: __TypechainAOutputTuple<TCEvent> & __TypechainOutputObject<TCEvent>;
 }
 

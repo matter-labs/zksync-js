@@ -13,7 +13,12 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL1Gas, determineErc20L2Gas, fetchL1MarketFees, marketToGasPrice } from '../services/gas.ts';
+import {
+  quoteL1Gas,
+  determineErc20L2Gas,
+  fetchL1MarketFees,
+  marketToGasPrice,
+} from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
