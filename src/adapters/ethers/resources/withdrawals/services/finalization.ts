@@ -111,9 +111,7 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
         'INTERNAL',
         OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
         () =>
-          Promise.resolve(
-            messengerLogIndex(parsed, { index: 0, messenger: L1_MESSENGER_ADDRESS }),
-          ),
+          Promise.resolve(messengerLogIndex(parsed, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
         {
           ctx: { where: 'derive messenger log index', l2TxHash, receipt: parsed },
           message: 'Failed to derive messenger log index.',
