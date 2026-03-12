@@ -5,6 +5,7 @@ import type { BuildCtx } from '../context';
 import type { DepositRoute } from '../../../../../core/types/flows/deposits';
 import type { TxGasOverrides } from '../../../../../core/types/fees';
 import type { Address } from '../../../../../core/types/primitives';
+import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants.ts';
 import {
   quoteL1Gas as coreQuoteL1Gas,
   quoteL2Gas as coreQuoteL2Gas,
@@ -33,6 +34,17 @@ export type ResolveErc20L2GasLimitInput = {
   ctx: BuildCtx;
   l1Token: Address;
 };
+
+type DetermineNonBaseL2GasInput = {
+  ctx: BuildCtx;
+  route: 'erc20-nonbase' | 'eth-nonbase';
+  l1Token: Address;
+  knownL2Token?: Address;
+  modelTx?: TransactionRequest;
+};
+
+const DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT = 3_000_000n;
+const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
@@ -75,38 +87,37 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
  * Resolve a safe L2 gas limit for ERC20 deposits based on whether the
  * L2 token contract is already deployed.
  */
-export async function determineErc20L2Gas(input: {
-  ctx: BuildCtx;
-  l1Token: Address;
-  modelTx?: TransactionRequest;
-}): Promise<GasQuote | undefined> {
-  const { ctx, l1Token } = input;
-
-  // Arbitrarily chosen safe gas limit for ERC20 deposits
-  const DEFAULT_SAFE_L2_GAS_LIMIT = 3_000_000n;
+async function determineNonBaseL2Gas(
+  input: DetermineNonBaseL2GasInput,
+): Promise<GasQuote | undefined> {
+  const { ctx, l1Token, route } = input;
+  const fallbackQuote = () =>
+    quoteL2Gas({
+      ctx,
+      route,
+      overrideGasLimit: DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT,
+    });
 
   if (ctx.l2GasLimit != null) {
     return quoteL2Gas({
       ctx,
-      route: 'erc20-nonbase',
+      route,
       overrideGasLimit: ctx.l2GasLimit,
     });
   }
 
   try {
-    const l2TokenAddress = ctx.tokens
-      ? await ctx.tokens.toL2Address(l1Token)
-      : ((await (await ctx.contracts.l2NativeTokenVault()).l2TokenAddress(l1Token)) as Address);
+    const l2TokenAddress =
+      input.knownL2Token ??
+      (ctx.tokens
+        ? await ctx.tokens.toL2Address(l1Token)
+        : ((await (await ctx.contracts.l2NativeTokenVault()).l2TokenAddress(l1Token)) as Address));
 
     // we can assume that the token has not been deployed to L2 if
     // the l2TokenAddress is the zero address. This essentially means
     // the token has not been registered on L2 yet.
-    if (l2TokenAddress === ('0x0000000000000000000000000000000000000000' as Address)) {
-      return quoteL2Gas({
-        ctx,
-        route: 'erc20-nonbase',
-        overrideGasLimit: DEFAULT_SAFE_L2_GAS_LIMIT,
-      });
+    if (l2TokenAddress === ZERO_L2_TOKEN_ADDRESS) {
+      return fallbackQuote();
     }
 
     const modelTx: TransactionRequest = {
@@ -117,26 +128,43 @@ export async function determineErc20L2Gas(input: {
     };
     const gas = await quoteL2Gas({
       ctx,
-      route: 'erc20-nonbase',
+      route,
       l2TxForModeling: modelTx,
     });
 
-    if (!gas) {
-      return quoteL2Gas({
-        ctx,
-        route: 'erc20-nonbase',
-        overrideGasLimit: DEFAULT_SAFE_L2_GAS_LIMIT,
-      });
+    if (!gas || gas.gasLimit === 0n) {
+      return fallbackQuote();
     }
     return gas;
   } catch (err) {
     // TODO: add proper logging
-    console.warn('Failed to determine ERC20 L2 gas; defaulting to safe gas limit.', err);
+    console.warn('Failed to determine non-base deposit L2 gas; defaulting to safe gas limit.', err);
 
-    return quoteL2Gas({
-      ctx,
-      route: 'erc20-nonbase',
-      overrideGasLimit: DEFAULT_SAFE_L2_GAS_LIMIT,
-    });
+    return fallbackQuote();
   }
+}
+
+export async function determineErc20L2Gas(input: {
+  ctx: BuildCtx;
+  l1Token: Address;
+  modelTx?: TransactionRequest;
+}): Promise<GasQuote | undefined> {
+  return determineNonBaseL2Gas({
+    ...input,
+    route: 'erc20-nonbase',
+    knownL2Token: input.ctx.resolvedToken?.l2,
+  });
+}
+
+export async function determineEthNonBaseL2Gas(input: {
+  ctx: BuildCtx;
+  modelTx?: TransactionRequest;
+}): Promise<GasQuote | undefined> {
+  return determineNonBaseL2Gas({
+    ctx: input.ctx,
+    route: 'eth-nonbase',
+    l1Token: input.ctx.resolvedToken?.l1 ?? FORMAL_ETH_ADDRESS,
+    knownL2Token: input.ctx.resolvedToken?.l2,
+    modelTx: input.modelTx,
+  });
 }

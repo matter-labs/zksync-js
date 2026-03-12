@@ -9,7 +9,7 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
-import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
@@ -79,11 +79,9 @@ export function routeEthNonBase(): DepositRouteStrategy {
         data: '0x',
         value: 0n,
       };
-      const l2GasParams = await quoteL2Gas({
+      const l2GasParams = await determineEthNonBaseL2Gas({
         ctx,
-        route: 'eth-nonbase',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
+        modelTx: l2TxModel,
       });
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
@@ -109,7 +107,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
       if (allowance < mintValue) {
         approvals.push({ token: baseToken, spender: ctx.l1AssetRouter, amount: mintValue });
         steps.push({
-          key: `approve:${baseToken}`,
+          key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
           kind: 'approve',
           description: `Approve base token for fees (mintValue)`,
           tx: {
