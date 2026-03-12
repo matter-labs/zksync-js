@@ -10,6 +10,7 @@ export type L2ToL1Log = {
 };
 
 export type ReceiptWithL2ToL1 = {
+  to: Address;
   transactionIndex: Hex;
   transactionHash?: Hex;
   status?: string | number;
