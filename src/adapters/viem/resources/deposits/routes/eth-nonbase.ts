@@ -12,7 +12,7 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
@@ -75,11 +75,9 @@ export function routeEthNonBase(): DepositRouteStrategy {
         data: '0x',
         value: 0n,
       };
-      const l2Gas = await quoteL2Gas({
+      const l2Gas = await determineEthNonBaseL2Gas({
         ctx,
-        route: 'eth-nonbase',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
+        modelTx: l2TxModel,
       });
 
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
