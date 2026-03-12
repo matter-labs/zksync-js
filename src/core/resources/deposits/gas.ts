@@ -40,11 +40,13 @@ function makeGasQuote(p: {
   };
 }
 
-// Fetches current fee data from the estimator.
-async function fetchFees(estimator: GasEstimator): Promise<{
+export type MarketFees = {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
-}> {
+};
+
+// Fetches current fee data from the estimator.
+export async function fetchFees(estimator: GasEstimator): Promise<MarketFees> {
   try {
     const fees = await estimator.estimateFeesPerGas();
     if (fees.maxFeePerGas != null) {
@@ -76,13 +78,15 @@ export type QuoteL1GasInput = {
   tx: CoreTransactionRequest;
   overrides?: TxOverrides;
   fallbackGasLimit?: bigint;
+  /** Pre-fetched market fees to avoid a redundant RPC call. */
+  precomputedMarket?: MarketFees;
 };
 
 // Quotes L1 gas for a deposit tx.
 export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | undefined> {
-  const { estimator, tx, overrides, fallbackGasLimit } = input;
+  const { estimator, tx, overrides, fallbackGasLimit, precomputedMarket } = input;
 
-  let market: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | undefined;
+  let market: MarketFees | undefined = precomputedMarket;
   const getMarket = async () => {
     if (market) return market;
     market = await fetchFees(estimator);
@@ -197,14 +201,17 @@ export type QuoteL2BaseCostInput = {
   chainIdL2: bigint;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
+  /** Pre-fetched market fees to avoid a redundant RPC call. */
+  precomputedMarket?: MarketFees;
 };
 
 // Quotes L2 base cost for a deposit tx.
 // Calls L1 Bridgehub contract - l2TransactionBaseCost function.
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
-  const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata } = input;
+  const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata, precomputedMarket } =
+    input;
 
-  const market = await fetchFees(estimator);
+  const market = precomputedMarket ?? (await fetchFees(estimator));
   const l1GasPrice = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n;
 
   if (l1GasPrice === 0n) {

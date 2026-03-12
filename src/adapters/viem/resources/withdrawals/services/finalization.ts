@@ -118,32 +118,13 @@ export function createFinalizationServices(client: ViemClient): FinalizationServ
         },
       );
 
-      // Fetch raw receipt again
-      const raw = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-        () => client.zks.getReceiptWithL2ToL1(l2TxHash),
-        {
-          ctx: { where: 'getReceiptWithL2ToL1 (raw)', l2TxHash },
-          message: 'Failed to fetch raw L2 receipt.',
-        },
-      );
-      if (!raw) {
-        throw createError('STATE', {
-          resource: 'withdrawals',
-          operation: OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-          message: 'Raw L2 receipt not found.',
-          context: { l2TxHash },
-        });
-      }
-
       const idx = await wrapAs(
         'INTERNAL',
         OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
         () =>
-          Promise.resolve(messengerLogIndex(raw, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
+          Promise.resolve(messengerLogIndex(parsed, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
         {
-          ctx: { where: 'derive messenger log index', l2TxHash, receipt: raw },
+          ctx: { where: 'derive messenger log index', l2TxHash, receipt: parsed },
           message: 'Failed to derive messenger log index.',
         },
       );

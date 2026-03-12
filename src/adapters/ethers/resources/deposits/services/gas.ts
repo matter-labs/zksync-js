@@ -8,17 +8,21 @@ import type { Address } from '../../../../../core/types/primitives';
 import {
   quoteL1Gas as coreQuoteL1Gas,
   quoteL2Gas as coreQuoteL2Gas,
+  fetchFees,
   type GasQuote,
+  type MarketFees,
 } from '../../../../../core/resources/deposits/gas';
 import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
 
-export type { GasQuote };
+export type { GasQuote, MarketFees };
 
 export type QuoteL1GasInput = {
   ctx: BuildCtx;
   tx: TransactionRequest;
   overrides?: TxGasOverrides;
   fallbackGasLimit?: bigint;
+  /** Pre-fetched market fees to skip a redundant L1 fee RPC call. */
+  precomputedMarket?: MarketFees;
 };
 
 export type QuoteL2GasInput = {
@@ -39,10 +43,18 @@ export type ResolveErc20L2GasLimitInput = {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Fetch L1 market fees once so callers can share them across multiple quote functions.
+ * Avoids redundant RPC calls when both quoteL2BaseCost and quoteL1Gas are called.
+ */
+export async function fetchL1MarketFees(ctx: BuildCtx): Promise<MarketFees> {
+  return fetchFees(ethersToGasEstimator(ctx.client.l1));
+}
+
+/**
  * Quote L1 gas for a deposit transaction.
  */
 export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | undefined> {
-  const { ctx, tx, overrides, fallbackGasLimit } = input;
+  const { ctx, tx, overrides, fallbackGasLimit, precomputedMarket } = input;
   const estimator = ethersToGasEstimator(ctx.client.l1);
 
   return coreQuoteL1Gas({
@@ -50,6 +62,7 @@ export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | und
     tx: toCoreTx(tx),
     overrides,
     fallbackGasLimit,
+    precomputedMarket,
   });
 }
 

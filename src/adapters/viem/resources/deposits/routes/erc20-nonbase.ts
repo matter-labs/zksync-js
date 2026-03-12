@@ -13,7 +13,12 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
+import {
+  quoteL1Gas,
+  determineErc20L2Gas,
+  fetchL1MarketFees,
+  marketToGasPrice,
+} from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
@@ -69,8 +74,15 @@ export function routeErc20NonBase(): DepositRouteStrategy {
 
       if (!l2Gas) throw new Error('Failed to establish L2 gas parameters.');
 
+      // Pre-fetch L1 market fees once; reused by quoteL2BaseCost and quoteL1Gas.
+      const l1Market = await fetchL1MarketFees(ctx);
+
       // L2TransactionBase cost
-      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const l2BaseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2Gas.gasLimit,
+        precomputedGasPrice: marketToGasPrice(l1Market),
+      });
       const mintValue = l2BaseCost + ctx.operatorTip;
 
       // -- Approvals --
@@ -212,6 +224,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         tx: l1TxCandidate,
         overrides: ctx.gasOverrides,
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
+        precomputedMarket: l1Market,
       });
 
       const approvalsNeeded = approvals.length > 0;

@@ -10,18 +10,24 @@ const { wrapAs } = createErrorHandlers('deposits');
 export type QuoteL2BaseCostInput = {
   ctx: BuildCtx;
   l2GasLimit: bigint;
+  /** Pre-fetched L1 gas price to skip a redundant fee RPC call. */
+  precomputedGasPrice?: bigint;
 };
 
 // Quotes the L2 base cost for a deposit transaction.
 // Calls `l2TransactionBaseCost` on Bridgehub contract.
 // For Viem adapter - we still rely on readContract
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
-  const { ctx, l2GasLimit } = input;
+  const { ctx, l2GasLimit, precomputedGasPrice } = input;
   const estimator = viemToGasEstimator(ctx.client.l1);
 
-  // fetch gas price done in core estimator
-  const fees = await estimator.estimateFeesPerGas();
-  const gasPrice = fees.maxFeePerGas ?? fees.gasPrice ?? (await estimator.getGasPrice());
+  let gasPrice: bigint;
+  if (precomputedGasPrice != null) {
+    gasPrice = precomputedGasPrice;
+  } else {
+    const fees = await estimator.estimateFeesPerGas();
+    gasPrice = fees.maxFeePerGas ?? fees.gasPrice ?? (await estimator.getGasPrice());
+  }
 
   return wrapAs(
     'RPC',
