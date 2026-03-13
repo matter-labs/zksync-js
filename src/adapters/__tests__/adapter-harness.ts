@@ -21,6 +21,7 @@ import {
   IL1NullifierABI,
   IERC20ABI,
   L2NativeTokenVaultABI,
+  IInteropCenterABI,
 } from '../../core/abi.ts';
 import type { Address } from '../../core/types/primitives';
 import {
@@ -38,6 +39,7 @@ const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
 const IL1Nullifier = new Interface(IL1NullifierABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const L2NativeTokenVault = new Interface(L2NativeTokenVaultABI as any);
+const IInteropCenter = new Interface(IInteropCenterABI as any);
 const IChainTypeManager = new Interface([
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
 ]);
@@ -707,6 +709,14 @@ export function setL2TokenRegistration<T extends AdapterHarness>(
   assetId: `0x${string}`,
 ) {
   harness.registry.set(vault, L2NativeTokenVault, 'ensureTokenIsRegistered', assetId, [token]);
+}
+
+export function setInteropProtocolFee<T extends AdapterHarness>(
+  harness: T,
+  interopCenter: Address,
+  value: bigint,
+) {
+  harness.registry.set(interopCenter, IInteropCenter, 'interopProtocolFee', value);
 }
 
 export function createAdapterHarness(kind: 'ethers', opts?: BaseOpts): EthersHarness;

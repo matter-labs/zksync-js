@@ -7,7 +7,9 @@ import {
   createEthersHarness,
   setErc20Allowance,
   setL2TokenRegistration,
+  setInteropProtocolFee,
 } from '../adapter-harness.ts';
+import { L2_INTEROP_CENTER_ADDRESS } from '../../../core/constants.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
 
 const RECIPIENT = '0x2222222222222222222222222222222222222222' as Address;
@@ -35,6 +37,7 @@ describe('adapters/interop/resource', () => {
 
   it('create fetches nonce from pending transaction count by default', async () => {
     const harness = createEthersHarness();
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client);
 
     let requestedBlockTag: string | undefined;
@@ -59,6 +62,7 @@ describe('adapters/interop/resource', () => {
 
   it('create fetches nonce using txOverrides block tag', async () => {
     const harness = createEthersHarness();
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client);
 
     let requestedBlockTag: string | undefined;
@@ -88,6 +92,7 @@ describe('adapters/interop/resource', () => {
 
   it('create uses numeric txOverrides nonce as starting nonce', async () => {
     const harness = createEthersHarness();
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client);
 
     const sender = (await harness.signer.getAddress()) as Address;

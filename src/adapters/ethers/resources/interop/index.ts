@@ -132,7 +132,7 @@ export function createInteropResource(
     });
 
     // Build concrete steps, approvals, and quote extras
-    const { steps, approvals, quoteExtras } = await wrap(
+    const { steps, approvals, quoteExtras, interopFee } = await wrap(
       OP_INTEROP.routes[route].build,
       () => ROUTES[route].build(params, ctx),
       {
@@ -147,6 +147,7 @@ export function createInteropResource(
       approvalsNeeded: approvals,
       totalActionValue: quoteExtras.totalActionValue,
       bridgedTokenTotal: quoteExtras.bridgedTokenTotal,
+      interopFee: interopFee
     };
 
     return { plan: { route, summary, steps }, ctx };

@@ -30,8 +30,16 @@ export interface InteropParams {
   execution?: { only: Address };
   /** Optional: Specify who can unbundle actions */
   unbundling?: { by: Address };
+  /** Optional: true - to use fixed ZK fee for the bundle, false - to use dynamic base token fee */
+  fee?: { useFixed: boolean };
   /** Optional: Gas overrides for L2 transaction */
   txOverrides?: TxOverrides;
+}
+
+/** Fee token address and total fee amount. Value is added to msg.value for protocol-fee path. */
+export interface InteropFee {
+  tokenAddress: Address;
+  value: bigint;
 }
 
 /**
@@ -47,6 +55,8 @@ export interface InteropQuote {
   totalActionValue: bigint;
   /** Total ERC-20 token amounts to be bridged */
   bridgedTokenTotal: bigint;
+  /** Interop fee details */
+  interopFee: InteropFee;
   /** Optional: Estimated L1 fee */
   l1Fee?: bigint;
   /** Optional: Estimated L2 fee */

@@ -1,17 +1,26 @@
 // src/core/resources/interop/plan.ts
 import type { Address, Hex } from '../../types/primitives';
 import type { ApprovalNeed } from '../../types/flows/base';
-import type { InteropParams } from '../../types/flows/interop';
+import type { InteropParams, InteropFee } from '../../types/flows/interop';
 import { sumActionMsgValue, sumErc20Amounts } from './route';
 import { assertNever } from '../../utils/index';
 
 export type InteropStarter = [Hex, Hex, Hex[]];
+
+/** Fee token and amount to include in quoteExtras. */
+export interface InteropFeeInfo {
+  /** Approval needed to cover the fee (ZK fixed-fee path). null = no approval needed. */
+  approval: ApprovalNeed | null;
+  /** Interop fee token address and total fee amount. fee.value is added to msg.value for protocol-fee path. */
+  fee: InteropFee;
+}
 
 export interface InteropBundleBuild {
   dstChain: Hex;
   starters: InteropStarter[];
   bundleAttributes: Hex[];
   approvals: ApprovalNeed[];
+  interopFee: InteropFee;
   quoteExtras: {
     totalActionValue: bigint;
     bridgedTokenTotal: bigint;
@@ -80,6 +89,7 @@ export function buildDirectBundle(
   params: InteropParams,
   ctx: InteropBuildCtx,
   attrs: InteropAttributes,
+  interopFeeInfo: InteropFeeInfo,
 ): InteropBundleBuild {
   const totalActionValue = sumActionMsgValue(params.actions);
   const starters: InteropStarter[] = params.actions.map((action, index) => {
@@ -99,7 +109,8 @@ export function buildDirectBundle(
     dstChain: ctx.codec.formatChain(ctx.dstChainId),
     starters,
     bundleAttributes: attrs.bundleAttributes,
-    approvals: [],
+    approvals: interopFeeInfo.approval ? [interopFeeInfo.approval] : [],
+    interopFee: interopFeeInfo.fee,
     quoteExtras: {
       totalActionValue,
       bridgedTokenTotal: 0n,
@@ -154,6 +165,7 @@ export function buildIndirectBundle(
   ctx: InteropBuildCtx,
   attrs: InteropAttributes,
   starterData: InteropStarterData[],
+  interopFeeInfo: InteropFeeInfo,
 ): InteropBundleBuild {
   const totalActionValue = sumActionMsgValue(params.actions);
   const bridgedTokenTotal = sumErc20Amounts(params.actions);
@@ -175,6 +187,7 @@ export function buildIndirectBundle(
     }
   }
   const approvals = Array.from(approvalMap.values());
+  if (interopFeeInfo.approval) approvals.push(interopFeeInfo.approval);
 
   const starters: InteropStarter[] = params.actions.map((action, index) => {
     const callAttributes = attrs.callAttributes[index] ?? [];
@@ -205,6 +218,7 @@ export function buildIndirectBundle(
     starters,
     bundleAttributes: attrs.bundleAttributes,
     approvals,
+    interopFee: interopFeeInfo.fee,
     quoteExtras: {
       totalActionValue,
       bridgedTokenTotal,

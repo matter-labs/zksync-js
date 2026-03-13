@@ -3,7 +3,7 @@ import type { TransactionRequest } from 'ethers';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
-import type { QuoteExtras } from '../../../../../core/types/flows/interop';
+import type { QuoteExtras, InteropFee } from '../../../../../core/types/flows/interop';
 
 export interface InteropRouteStrategy {
   // Preflight checks. Throw with a descriptive message on invalid inputs.
@@ -17,5 +17,6 @@ export interface InteropRouteStrategy {
     steps: Array<PlanStep<TransactionRequest>>;
     approvals: ApprovalNeed[];
     quoteExtras: QuoteExtras;
+    interopFee: InteropFee;
   }>;
 }

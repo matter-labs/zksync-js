@@ -5,6 +5,8 @@ import type { InteropRouteStrategy } from './types';
 import { buildDirectBundle, preflightDirect } from '../../../../../core/resources/interop/plan';
 import { interopCodec } from '../address';
 import { getInteropAttributes } from '../attributes/resource';
+import { buildFeeInfo } from '../services/fee';
+import { buildApproveSteps } from '../services/erc20';
 
 export function routeDirect(): InteropRouteStrategy {
   return {
@@ -18,7 +20,6 @@ export function routeDirect(): InteropRouteStrategy {
         codec: interopCodec,
       });
     },
-    // eslint-disable-next-line @typescript-eslint/require-await
     async build(params: InteropParams, ctx: BuildCtx) {
       const steps: Array<{
         key: string;
@@ -28,6 +29,7 @@ export function routeDirect(): InteropRouteStrategy {
       }> = [];
 
       const attrs = getInteropAttributes(params, ctx);
+      const feeInfo = await buildFeeInfo(params, ctx, params.actions.length);
       const built = buildDirectBundle(
         params,
         {
@@ -38,7 +40,10 @@ export function routeDirect(): InteropRouteStrategy {
           codec: interopCodec,
         },
         attrs,
+        feeInfo,
       );
+
+      steps.push(...(await buildApproveSteps(built.approvals, ctx)));
 
       const data = ctx.ifaces.interopCenter.encodeFunctionData('sendBundle', [
         built.dstChain,
@@ -50,12 +55,11 @@ export function routeDirect(): InteropRouteStrategy {
         key: 'sendBundle',
         kind: 'interop.center',
         description: `Send interop bundle (direct route; ${params.actions.length} actions)`,
-        // In direct route, msg.value equals the total forwarded value across
-        // all calls (sendNative.amount + call.value).
+        // msg.value = forwarded action value + protocol fee (0 for fixed ZK-fee path).
         tx: {
           to: ctx.interopCenter,
           data,
-          value: built.quoteExtras.totalActionValue,
+          value: built.quoteExtras.totalActionValue + feeInfo.fee.value,
           ...ctx.gasOverrides,
         },
       });
@@ -64,6 +68,7 @@ export function routeDirect(): InteropRouteStrategy {
         steps,
         approvals: built.approvals,
         quoteExtras: built.quoteExtras,
+        interopFee: feeInfo.fee,
       };
     },
   };
