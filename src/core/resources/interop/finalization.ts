@@ -2,7 +2,6 @@
 import type { Address, Hex } from '../../types/primitives';
 import type {
   InteropFinalizationInfo,
-  InteropExpectedRoot,
   InteropMessageProof,
   InteropWaitable,
 } from '../../types/flows/interop';
@@ -192,18 +191,22 @@ export function getBundleEncodedData(messageData: Hex): Hex {
   return `0x${messageData.slice(4)}`;
 }
 
+// Extracts GW block number from the proof
+export function extractGwBlockNumber(proof: Hex[]): bigint {
+  const first = proof[0];
+  const byte1 = parseInt(first.slice(4, 6), 16);
+  const byte2 = parseInt(first.slice(6, 8), 16);
+  const gwProofIndex = 1 + byte1 + 1 + byte2;
+  const elem = proof[gwProofIndex];
+  return BigInt('0x' + elem.slice(2, 34));
+}
+
 export function buildFinalizationInfo(
   ids: { l2SrcTxHash: Hex; bundleHash?: Hex },
   bundleInfo: BundleReceiptInfo,
   proof: ProofNormalized,
   messageData: Hex,
 ): InteropFinalizationInfo {
-  const expectedRoot: InteropExpectedRoot = {
-    rootChainId: bundleInfo.sourceChainId,
-    batchNumber: proof.batchNumber,
-    expectedRoot: proof.root,
-  };
-
   const messageProof: InteropMessageProof = {
     chainId: bundleInfo.sourceChainId,
     l1BatchNumber: proof.batchNumber,
@@ -220,7 +223,6 @@ export function buildFinalizationInfo(
     l2SrcTxHash: ids.l2SrcTxHash,
     bundleHash: bundleInfo.bundleHash,
     dstChainId: bundleInfo.dstChainId,
-    expectedRoot,
     proof: messageProof,
     encodedData: getBundleEncodedData(messageData),
   };

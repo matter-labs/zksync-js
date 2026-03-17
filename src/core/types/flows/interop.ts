@@ -138,28 +138,6 @@ export interface InteropStatus {
 }
 
 /**
- * Interop expected root data.
- */
-export interface InteropExpectedRoot {
-  /** Chain ID where the state root is published (settlement layer) */
-  rootChainId: bigint;
-  /** Batch number containing the interop message */
-  batchNumber: bigint;
-  /** Expected merkle root hash for verification */
-  expectedRoot: Hex;
-}
-
-/**
- * Type guard to safely check if an object is InteropExpectedRoot.
- * Validates all required and nested fields.
- */
-export function isInteropExpectedRoot(obj: unknown): obj is InteropExpectedRoot {
-  if (typeof obj !== 'object' || obj === null) return false;
-  const root = obj as InteropExpectedRoot;
-  return isBigint(root.rootChainId) && isBigint(root.batchNumber) && isHash(root.expectedRoot);
-}
-
-/**
  * Interop message proof.
  */
 export interface InteropMessageProof {
@@ -212,8 +190,6 @@ export interface InteropFinalizationInfo {
   bundleHash: Hex;
   /** Destination chain ID (EIP-155 format) */
   dstChainId: bigint;
-  /** Expected state root for batch verification */
-  expectedRoot: InteropExpectedRoot;
   /** Interop message proof */
   proof: InteropMessageProof;
   /** Encoded calldata for the finalization transaction */
@@ -232,7 +208,6 @@ export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizat
     isHash66(info.bundleHash) &&
     isBigint(info.dstChainId) &&
     isHash(info.encodedData) &&
-    isInteropExpectedRoot(info.expectedRoot) &&
     isInteropMessageProof(info.proof)
   );
 }

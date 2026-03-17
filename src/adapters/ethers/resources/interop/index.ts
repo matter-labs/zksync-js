@@ -147,7 +147,7 @@ export function createInteropResource(
       approvalsNeeded: approvals,
       totalActionValue: quoteExtras.totalActionValue,
       bridgedTokenTotal: quoteExtras.bridgedTokenTotal,
-      interopFee: interopFee
+      interopFee: interopFee,
     };
 
     return { plan: { route, summary, steps }, ctx };

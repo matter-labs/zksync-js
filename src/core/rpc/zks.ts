@@ -29,7 +29,11 @@ export interface ZksRpc {
   getBytecodeSupplierAddress(): Promise<Address>;
 
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
-  getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget): Promise<ProofNormalized>;
+  getL2ToL1LogProof(
+    txHash: Hex,
+    index: number,
+    proofTarget?: ProofTarget,
+  ): Promise<ProofNormalized>;
 
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;

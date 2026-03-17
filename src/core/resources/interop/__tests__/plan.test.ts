@@ -6,7 +6,12 @@ import {
   preflightIndirect,
   buildIndirectBundle,
 } from '../plan';
-import type { InteropBuildCtx, InteropAttributes, InteropStarterData, InteropFeeInfo } from '../plan';
+import type {
+  InteropBuildCtx,
+  InteropAttributes,
+  InteropStarterData,
+  InteropFeeInfo,
+} from '../plan';
 import type { InteropAction, InteropParams } from '../../../types/flows/interop';
 import type { Address, Hex } from '../../../types/primitives';
 import { assertNever } from '../../../utils/index';
@@ -267,7 +272,13 @@ describe('interop/plan', () => {
         { assetRouterPayload: '0xpayload1' },
         { assetRouterPayload: '0xpayload2' },
       ];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.approvals).toHaveLength(2);
       expect(result.approvals[0]).toEqual({
@@ -288,7 +299,13 @@ describe('interop/plan', () => {
         actions: [{ type: 'sendErc20', token: TOKEN, to: ADDR_A, amount: 100n }],
       };
       const starterData: InteropStarterData[] = [{ assetRouterPayload: '0xpayload' }];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.starters[0][0]).toBe(L2_ASSET_ROUTER.toLowerCase() as Hex);
       expect(result.starters[0][1]).toBe('0xpayload');
@@ -300,9 +317,9 @@ describe('interop/plan', () => {
       };
       const starterData: InteropStarterData[] = [{}];
 
-      expect(() => buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo)).toThrow(
-        'buildIndirectBundle: missing assetRouterPayload for sendErc20 action.',
-      );
+      expect(() =>
+        buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo),
+      ).toThrow('buildIndirectBundle: missing assetRouterPayload for sendErc20 action.');
     });
 
     it('routes sendNative with matching base tokens directly', () => {
@@ -313,7 +330,13 @@ describe('interop/plan', () => {
         ],
       };
       const starterData: InteropStarterData[] = [{ assetRouterPayload: '0xpayload' }, {}];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.starters[1][0]).toBe(ADDR_B.toLowerCase() as Hex);
       expect(result.starters[1][1]).toBe('0x');
@@ -328,7 +351,13 @@ describe('interop/plan', () => {
         ],
       };
       const starterData: InteropStarterData[] = [{ assetRouterPayload: '0xpayload' }, {}];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.starters[1][0]).toBe(ADDR_B.toLowerCase() as Hex);
       expect(result.starters[1][1]).toBe('0xabcdef');
@@ -358,7 +387,13 @@ describe('interop/plan', () => {
         ],
       };
       const starterData: InteropStarterData[] = [{ assetRouterPayload: '0xpayload' }, {}];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.starters[1][1]).toBe('0x');
     });
@@ -376,7 +411,13 @@ describe('interop/plan', () => {
         { assetRouterPayload: '0xpayload2' },
         { assetRouterPayload: '0xpayload3' },
       ];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.approvals).toHaveLength(1);
       expect(result.approvals[0]).toEqual({
@@ -399,7 +440,13 @@ describe('interop/plan', () => {
         { assetRouterPayload: '0xpayload1' },
         { assetRouterPayload: '0xpayload2' },
       ];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.approvals).toHaveLength(1);
       expect(result.approvals[0].amount).toBe(300n);
@@ -421,7 +468,13 @@ describe('interop/plan', () => {
         { assetRouterPayload: '0xpayload3' },
         { assetRouterPayload: '0xpayload4' },
       ];
-      const result = buildIndirectBundle(params, baseCtx(), emptyAttrs, starterData, defaultFeeInfo);
+      const result = buildIndirectBundle(
+        params,
+        baseCtx(),
+        emptyAttrs,
+        starterData,
+        defaultFeeInfo,
+      );
 
       expect(result.approvals).toHaveLength(2);
       const tokenApproval = result.approvals.find(
