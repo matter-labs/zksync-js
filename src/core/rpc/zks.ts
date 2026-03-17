@@ -15,6 +15,11 @@ import { withRpcOp } from '../errors/rpc';
 import { isZKsyncError, type Resource } from '../types/errors';
 import { isBigint, isNumber } from '../utils';
 
+export enum ProofTarget {
+  MessageRoot = 'messageRoot',
+  L1BatchRoot = 'l1BatchRoot',
+}
+
 /** ZKsync-specific RPC methods. */
 export interface ZksRpc {
   // Fetches the Bridgehub contract address.
@@ -24,7 +29,7 @@ export interface ZksRpc {
   getBytecodeSupplierAddress(): Promise<Address>;
 
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
-  getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
+  getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget): Promise<ProofNormalized>;
 
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
@@ -425,13 +430,15 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
     },
 
     // Fetches a proof for an L2→L1 log emitted in the given transaction.
-    async getL2ToL1LogProof(txHash, index) {
+    async getL2ToL1LogProof(txHash, index, proofTarget) {
       return withRpcOp(
         'zksrpc.getL2ToL1LogProof',
         'Failed to fetch L2→L1 log proof.',
-        { txHash, index },
+        { txHash, index, proofTarget },
         async () => {
-          const proof: unknown = await transport(METHODS.getL2ToL1LogProof, [txHash, index]);
+          const params: [Hex, number, ProofTarget?] = [txHash, index];
+          if (proofTarget != undefined) params.push(proofTarget);
+          const proof: unknown = await transport(METHODS.getL2ToL1LogProof, params);
           if (!proof) {
             throw createError('STATE', {
               resource: 'zksrpc' as Resource,
