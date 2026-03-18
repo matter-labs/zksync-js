@@ -20,7 +20,7 @@ import { routeDirect } from './routes/direct';
 import type { InteropRouteStrategy } from './routes/types';
 import type { AbstractProvider, TransactionRequest } from 'ethers';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
-import { createErrorHandlers } from '../../errors/error-ops';
+import { createErrorHandlers, toZKsyncError } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
@@ -240,17 +240,20 @@ export function createInteropResource(
             }
           } catch (e) {
             if (isZKsyncError(e)) throw e;
-            throw createError('EXECUTION', {
-              resource: 'interop',
-              operation: 'interop.create.sendTransaction',
-              message: 'Failed to send or confirm an interop transaction step.',
-              context: {
-                step: step.key,
-                txHash: hash,
-                nonce: Number(step.tx.nonce ?? -1),
+            throw toZKsyncError(
+              'EXECUTION',
+              {
+                resource: 'interop',
+                operation: 'interop.create.sendTransaction',
+                message: 'Failed to send or confirm an interop transaction step.',
+                context: {
+                  step: step.key,
+                  txHash: hash,
+                  nonce: Number(step.tx.nonce ?? -1),
+                },
               },
-              cause: e as Error,
-            });
+              e,
+            );
           }
         }
 
