@@ -9,6 +9,8 @@ import {
   L1NativeTokenVaultABI,
   MailboxABI,
   IERC20ABI,
+  IL1ContractErrorsABI,
+  IInteropErrorsABI,
 } from '../../../core/abi';
 
 // TODO: refactor as lots of duplication here
@@ -64,6 +66,16 @@ const IFACE_PANIC = new Interface(['error Panic(uint256)']);
   }
   try {
     ERROR_IFACES.push({ name: 'Mailbox', iface: new Interface(MailboxABI) });
+  } catch {
+    // ignore
+  }
+  try {
+    ERROR_IFACES.push({ name: 'IL1ContractErrors', iface: new Interface(IL1ContractErrorsABI) });
+  } catch {
+    // ignore
+  }
+  try {
+    ERROR_IFACES.push({ name: 'IInteropErrors', iface: new Interface(IInteropErrorsABI) });
   } catch {
     // ignore
   }
