@@ -22,7 +22,6 @@ async function main() {
   const genesis = await zks.getGenesis();
 
   console.log('--- zks_getGenesis -------------------------------------------------');
-  console.log('Execution version:', genesis.executionVersion);
   console.log('Genesis root     :', genesis.genesisRoot);
   console.log('Initial contracts:', genesis.initialContracts.length);
   console.log('Additional storage entries:', genesis.additionalStorage.length);
