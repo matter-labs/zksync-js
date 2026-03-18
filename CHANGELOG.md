@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.13](https://github.com/matter-labs/zksync-js/compare/v0.0.12...v0.0.13) (2026-03-18)
+
+
+### Bug Fixes
+
+* improve interop error messages ([#74](https://github.com/matter-labs/zksync-js/issues/74)) ([a0a015a](https://github.com/matter-labs/zksync-js/commit/a0a015a56a3c74f6e3b915a70e394b95c1f30819))
+* remove execution version from genesis input ([#75](https://github.com/matter-labs/zksync-js/issues/75)) ([26a4361](https://github.com/matter-labs/zksync-js/commit/26a4361dea506fa5ff1c6cec9c48223378153a5d))
+
 ## [0.0.12](https://github.com/matter-labs/zksync-js/compare/v0.0.11...v0.0.12) (2026-03-12)
 
 
