@@ -3,6 +3,7 @@ import { createEthersClient, createEthersSdk } from '../../../src/adapters/ether
 import { getGreetingTokenAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
+const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -17,12 +18,14 @@ async function main() {
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
   const signer = new Wallet(PRIVATE_KEY, l2Source);
-  const client = await createEthersClient({
+  const client = createEthersClient({
     l1,
     l2: l2Source,
     signer,
   });
-  const sdk = createEthersSdk(client);
+  const sdk = createEthersSdk(client, {
+    interop: { gwChain: GW_RPC, dstChain: l2Destination },
+  });
   const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);
 
   // ---- Deploy Greeter on destination ----
@@ -41,7 +44,6 @@ async function main() {
   const data = AbiCoder.defaultAbiCoder().encode(['string'], [newGreeting]) as `0x${string}`;
 
   const params = {
-    dstChain: l2Destination,
     actions: [
       {
         type: 'call' as const,

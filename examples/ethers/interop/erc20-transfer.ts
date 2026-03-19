@@ -6,6 +6,7 @@ import { IERC20ABI, L2NativeTokenVaultABI } from '../../../src/core/abi';
 import { getErc20TokenAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
+const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -27,7 +28,9 @@ async function main() {
     l2: l2Source,
     signer: new Wallet(PRIVATE_KEY),
   });
-  const sdk = createEthersSdk(client);
+  const sdk = createEthersSdk(client, {
+    interop: { gwChain: GW_RPC, dstChain: l2Destination },
+  });
 
   console.log('Sender address:', me);
 
@@ -46,7 +49,11 @@ async function main() {
   // Deposit the full supply from L1 to Chain A. This routes through
   // handleChainBalanceIncreaseOnGateway on the gateway, populating
   // GWAssetTracker.chainBalance[chainA][assetId].
-  const depositHandle = await sdk.deposits.create({ token: tokenL1Address, amount: initialSupply, to: me });
+  const depositHandle = await sdk.deposits.create({
+    token: tokenL1Address,
+    amount: initialSupply,
+    to: me,
+  });
 
   console.log('Waiting for deposit to land on source chain...');
   await sdk.deposits.wait(depositHandle, { for: 'l2' });
@@ -64,7 +71,6 @@ async function main() {
   console.log('=== STEP 3: INTEROP TRANSFER TO DESTINATION ===');
 
   const params = {
-    dstChain: l2Destination,
     actions: [
       {
         type: 'sendErc20' as const,

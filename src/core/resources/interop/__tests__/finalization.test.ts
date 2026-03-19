@@ -402,7 +402,7 @@ describe('interop/finalization', () => {
   });
 
   describe('extractGwBlockNumber', () => {
-    it("extracts GW block number", () => {
+    it('extracts GW block number', () => {
       const proofs = [
         '0x010f040000000000000000000000000000000000000000000000000000000000',
         '0x72abee45b59e344af8a6e520241c4744aff26ed411f4c4b00f8af09adada43ba',

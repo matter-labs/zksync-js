@@ -160,6 +160,7 @@ async function waitForTxReceipt(
 export async function waitForFinalization(
   client: EthersClient,
   dstProvider: AbstractProvider,
+  gwProvider: AbstractProvider,
   input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
@@ -217,7 +218,7 @@ export async function waitForFinalization(
   );
 
   const gwBlockNumber = extractGwBlockNumber(proof.proof);
-  const gwChainId = 506n;
+  const { chainId: gwChainId } = await gwProvider.getNetwork();
 
   await waitForRoot(dstProvider, gwChainId, gwBlockNumber, pollMs, deadline);
   return finalizationInfo;

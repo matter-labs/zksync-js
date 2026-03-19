@@ -7,6 +7,12 @@ import { createTokensResource } from './resources/tokens/index';
 import type { TokensResource } from '../../core/types/flows/token';
 import type { ContractsResource } from './resources/contracts/index';
 import { createContractsResource } from './resources/contracts/index';
+import type { InteropConfig } from './resources/interop/types';
+
+export interface EthersSdkOptions {
+  /** Configuration required for interop operations. */
+  interop?: InteropConfig;
+}
 
 // SDK interface, combining deposits, withdrawals, tokens, contracts, and interop
 export interface EthersSdk {
@@ -17,10 +23,10 @@ export interface EthersSdk {
   interop: InteropResource;
 }
 
-export function createEthersSdk(client: EthersClient): EthersSdk {
+export function createEthersSdk(client: EthersClient, options?: EthersSdkOptions): EthersSdk {
   const tokens = createTokensResource(client);
   const contracts = createContractsResource(client);
-  const interop = createInteropResource(client);
+  const interop = createInteropResource(client, options?.interop, tokens, contracts);
 
   return {
     deposits: createDepositsResource(client, tokens, contracts),
