@@ -5,9 +5,11 @@ import type { AttributesCodec } from './types';
 export function createBundleAttributes(codec: AttributesCodec) {
   const executionAddress = (executor: Address): Hex => codec.encode('executionAddress', [executor]);
   const unbundlerAddress = (addr: Address): Hex => codec.encode('unbundlerAddress', [addr]);
+  const useFixedFee = (enabled: boolean): Hex => codec.encode('useFixedFee', [enabled]);
 
   return {
     executionAddress,
     unbundlerAddress,
+    useFixedFee,
   };
 }

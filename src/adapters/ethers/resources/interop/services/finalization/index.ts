@@ -19,6 +19,7 @@ export interface InteropFinalizationServices {
   ): Promise<InteropStatus>;
   wait(
     dstProvider: AbstractProvider,
+    gwProvider: AbstractProvider,
     input: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
@@ -37,8 +38,8 @@ export function createInteropFinalizationServices(
       return getStatus(client, dstProvider, input, opts);
     },
 
-    wait(dstProvider, input, opts) {
-      return waitForFinalization(client, dstProvider, input, opts);
+    wait(dstProvider, gwProvider, input, opts) {
+      return waitForFinalization(client, dstProvider, gwProvider, input, opts);
     },
 
     async finalize(dstProvider, info, opts) {

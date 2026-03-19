@@ -19,6 +19,7 @@ export function getInteropAttributes(params: InteropParams, ctx: BuildCtx): Inte
   if (params.unbundling?.by) {
     bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
   }
+  bundleAttributes.push(ctx.attributes.bundle.useFixedFee(params.fee?.useFixed ?? false));
 
   const callAttributes = params.actions.map((action) => {
     switch (action.type) {

@@ -9,6 +9,7 @@ import {
   buildFinalizationInfo,
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
+  extractGwBlockNumber,
 } from '../finalization';
 import { isL1MessageSentLog } from '../../../utils/events';
 import type { Log } from '../../../types/transactions';
@@ -384,13 +385,6 @@ describe('interop/finalization', () => {
       expect(result.l2SrcTxHash).toBe(TX_HASH);
       expect(result.bundleHash).toBe(BUNDLE_HASH);
       expect(result.dstChainId).toBe(2n);
-
-      expect(result.expectedRoot).toEqual({
-        rootChainId: 1n,
-        batchNumber: 100n,
-        expectedRoot: '0xroot1234',
-      });
-
       expect(result.proof).toEqual({
         chainId: 1n,
         l1BatchNumber: 100n,
@@ -404,6 +398,41 @@ describe('interop/finalization', () => {
       });
 
       expect(result.encodedData).toBe('0xencodedmsg');
+    });
+  });
+
+  describe('extractGwBlockNumber', () => {
+    it('extracts GW block number', () => {
+      const proofs = [
+        '0x010f040000000000000000000000000000000000000000000000000000000000',
+        '0x72abee45b59e344af8a6e520241c4744aff26ed411f4c4b00f8af09adada43ba',
+        '0xc3d03eebfd83049991ea3d3e358b6712e7aa2e2e63dc2d4b438987cec28ac8d0',
+        '0xe3697c7f33c31a9b0f0aeb8542287d0d21e8c4cf82163d0c44c7a98aa11aa111',
+        '0x199cc5812543ddceeddd0fc82807646a4899444240db2c0d2f20c3cceb5f51fa',
+        '0xe4733f281f18ba3ea8775dd62d2fcd84011c8c938f16ea5790fd29a03bf8db89',
+        '0x1798a1fd9c8fbb818c98cff190daa7cc10b6e5ac9716b4a2649f7c2ebcef2272',
+        '0x66d7c5983afe44cf15ea8cf565b34c6c31ff0cb4dd744524f7842b942d08770d',
+        '0xb04e5ee349086985f74b73971ce9dfe76bbed95c84906c5dffd96504e1e5396c',
+        '0xac506ecb5465659b3a927143f6d724f91d8d9c4bdb2463aee111d9aa869874db',
+        '0x124b05ec272cecd7538fdafe53b6628d31188ffb6f345139aac3c3c1fd2e470f',
+        '0xc3be9cbd19304d84cca3d045e06b8db3acd68c304fc9cd4cbffe6d18036cb13f',
+        '0xfef7bd9f889811e59e4076a0174087135f080177302763019adaf531257e3a87',
+        '0xa707d1c62d8be699d34cb74804fdd7b4c568b6c1a821066f126c680d4b83e00b',
+        '0xf6e093070e0389d2e529d60fadb855fdded54976ec50ac709e3a36ceaa64c291',
+        '0xff84f4b0eb3607f9bbcf0d6070ae0037ae6efdcc4ee53bf65fe39b8bc8bd83dc',
+        '0x000000000000000000000000000000000000000000000000000000000000000e',
+        '0x46700b4d40ac5c35af2c22dda2787a91eb567b06c924a8fb8ae9a05b20c08c21',
+        '0x89e74aa99931d43347c39591f05b8b355bb38360d7c25735b3aab1abe4af84c8',
+        '0x4070814be0fdb6910ec9fad70042d1c4ce51ecbaf4b884bbd9a919632e997e74',
+        '0xae7e6913893dae1372162e55adea7fd8ea22d52f7a8a4c85471afd78d8cac7d1',
+        '0x0000000000000000000000000000004200000000000000000000000000000001',
+        '0x00000000000000000000000000000000000000000000000000000000000001fa',
+        '0x0102000100000000000000000000000000000000000000000000000000000000',
+        '0xf84927dc03d95cc652990ba75874891ccc5a4d79a0e10a2ffdd238a34a39f828',
+        '0xaec5f423d6f2bef743837da97ee98fcbd7c210ea938510515ed60e65e781ab90',
+      ] as Hex[];
+      const blockNumber = extractGwBlockNumber(proofs);
+      expect(blockNumber).toBe(66n);
     });
   });
 });

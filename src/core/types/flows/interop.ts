@@ -30,8 +30,16 @@ export interface InteropParams {
   execution?: { only: Address };
   /** Optional: Specify who can unbundle actions */
   unbundling?: { by: Address };
+  /** Optional: true - to use fixed ZK fee for the bundle, false - to use dynamic base token fee */
+  fee?: { useFixed: boolean };
   /** Optional: Gas overrides for L2 transaction */
   txOverrides?: TxOverrides;
+}
+
+/** Fee token address and total fee amount. Amount is added to msg.value for protocol-fee path. */
+export interface InteropFee {
+  token: Address;
+  amount: bigint;
 }
 
 /**
@@ -47,6 +55,8 @@ export interface InteropQuote {
   totalActionValue: bigint;
   /** Total ERC-20 token amounts to be bridged */
   bridgedTokenTotal: bigint;
+  /** Interop fee details */
+  interopFee: InteropFee;
   /** Optional: Estimated L1 fee */
   l1Fee?: bigint;
   /** Optional: Estimated L2 fee */
@@ -128,28 +138,6 @@ export interface InteropStatus {
 }
 
 /**
- * Interop expected root data.
- */
-export interface InteropExpectedRoot {
-  /** Chain ID where the state root is published (settlement layer) */
-  rootChainId: bigint;
-  /** Batch number containing the interop message */
-  batchNumber: bigint;
-  /** Expected merkle root hash for verification */
-  expectedRoot: Hex;
-}
-
-/**
- * Type guard to safely check if an object is InteropExpectedRoot.
- * Validates all required and nested fields.
- */
-export function isInteropExpectedRoot(obj: unknown): obj is InteropExpectedRoot {
-  if (typeof obj !== 'object' || obj === null) return false;
-  const root = obj as InteropExpectedRoot;
-  return isBigint(root.rootChainId) && isBigint(root.batchNumber) && isHash(root.expectedRoot);
-}
-
-/**
  * Interop message proof.
  */
 export interface InteropMessageProof {
@@ -202,8 +190,6 @@ export interface InteropFinalizationInfo {
   bundleHash: Hex;
   /** Destination chain ID (EIP-155 format) */
   dstChainId: bigint;
-  /** Expected state root for batch verification */
-  expectedRoot: InteropExpectedRoot;
   /** Interop message proof */
   proof: InteropMessageProof;
   /** Encoded calldata for the finalization transaction */
@@ -222,7 +208,6 @@ export function isInteropFinalizationInfo(obj: unknown): obj is InteropFinalizat
     isHash66(info.bundleHash) &&
     isBigint(info.dstChainId) &&
     isHash(info.encodedData) &&
-    isInteropExpectedRoot(info.expectedRoot) &&
     isInteropMessageProof(info.proof)
   );
 }

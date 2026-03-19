@@ -207,10 +207,11 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
       index: '5',
       batchNumber: '10',
       proof: [('0x' + '11'.repeat(32)) as `0x${string}`],
+      root: ('0x' + '22'.repeat(32)) as `0x${string}`,
     };
     const rpc = createZksRpc(fakeTransport({ zks_getL2ToL1LogProof: () => proof }));
     const out = await rpc.getL2ToL1LogProof(('0x' + 'aa'.repeat(32)) as `0x${string}`, 0);
-    expect(out).toEqual({ id: 5n, batchNumber: 10n, proof: proof.proof });
+    expect(out).toEqual({ id: 5n, batchNumber: 10n, proof: proof.proof, root: proof.root });
   });
 
   it('throws STATE error when proof is unavailable (null/undefined/falsey)', () => {

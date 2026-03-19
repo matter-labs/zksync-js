@@ -7,7 +7,9 @@ import {
   createEthersHarness,
   setErc20Allowance,
   setL2TokenRegistration,
+  setInteropProtocolFee,
 } from '../adapter-harness.ts';
+import { L2_INTEROP_CENTER_ADDRESS } from '../../../core/constants.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
 
 const RECIPIENT = '0x2222222222222222222222222222222222222222' as Address;
@@ -21,21 +23,25 @@ const IChainTypeManager = new Interface([
 describe('adapters/interop/resource', () => {
   it('status returns SENT when source receipt is not yet available', async () => {
     const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
+    const interop = createInteropResource(harness.client, {
+      gwChain: harness.l2 as any,
+      dstChain: harness.l2 as any,
+    });
 
     (harness.l2 as any).getTransactionReceipt = async () => null;
 
-    const status = await interop.status({
-      dstChain: harness.l2 as any,
-      waitable: TX_HASH,
-    });
+    const status = await interop.status(TX_HASH);
     expect(status.phase).toBe('SENT');
     expect(status.l2SrcTxHash).toBe(TX_HASH);
   });
 
   it('create fetches nonce from pending transaction count by default', async () => {
     const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
+    const interop = createInteropResource(harness.client, {
+      gwChain: harness.l2 as any,
+      dstChain: harness.l2 as any,
+    });
 
     let requestedBlockTag: string | undefined;
     (harness.l2 as any).getTransactionCount = async (_from: string, blockTag: string) => {
@@ -49,7 +55,6 @@ describe('adapters/interop/resource', () => {
     });
 
     const handle = await interop.create({
-      dstChain: harness.l2 as any,
       actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
     });
 
@@ -59,7 +64,11 @@ describe('adapters/interop/resource', () => {
 
   it('create fetches nonce using txOverrides block tag', async () => {
     const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
+    const interop = createInteropResource(harness.client, {
+      gwChain: harness.l2 as any,
+      dstChain: harness.l2 as any,
+    });
 
     let requestedBlockTag: string | undefined;
     (harness.l2 as any).getTransactionCount = async (_from: string, blockTag: string) => {
@@ -73,7 +82,6 @@ describe('adapters/interop/resource', () => {
     });
 
     const handle = await interop.create({
-      dstChain: harness.l2 as any,
       actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
       txOverrides: {
         nonce: 'latest',
@@ -88,7 +96,11 @@ describe('adapters/interop/resource', () => {
 
   it('create uses numeric txOverrides nonce as starting nonce', async () => {
     const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
+    setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
+    const interop = createInteropResource(harness.client, {
+      gwChain: harness.l2 as any,
+      dstChain: harness.l2 as any,
+    });
 
     const sender = (await harness.signer.getAddress()) as Address;
     const { l2NativeTokenVault } = await harness.client.ensureAddresses();
@@ -111,7 +123,6 @@ describe('adapters/interop/resource', () => {
     };
 
     await interop.create({
-      dstChain: harness.l2 as any,
       actions: [
         {
           type: 'sendErc20',
@@ -133,7 +144,10 @@ describe('adapters/interop/resource', () => {
 
   it('prepare fails when protocol minor version is below 31', async () => {
     const harness = createEthersHarness();
-    const interop = createInteropResource(harness.client);
+    const interop = createInteropResource(harness.client, {
+      gwChain: harness.l2 as any,
+      dstChain: harness.l2 as any,
+    });
 
     harness.registry.set(
       ADAPTER_TEST_ADDRESSES.chainTypeManager,
@@ -145,7 +159,6 @@ describe('adapters/interop/resource', () => {
     let caught: unknown;
     try {
       await interop.prepare({
-        dstChain: harness.l2 as any,
         actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
       });
     } catch (err) {
