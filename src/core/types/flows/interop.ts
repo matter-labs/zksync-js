@@ -36,10 +36,10 @@ export interface InteropParams {
   txOverrides?: TxOverrides;
 }
 
-/** Fee token address and total fee amount. Value is added to msg.value for protocol-fee path. */
+/** Fee token address and total fee amount. Amount is added to msg.value for protocol-fee path. */
 export interface InteropFee {
-  tokenAddress: Address;
-  value: bigint;
+  token: Address;
+  amount: bigint;
 }
 
 /**

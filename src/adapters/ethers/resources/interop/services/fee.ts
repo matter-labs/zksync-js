@@ -53,7 +53,7 @@ export async function buildFeeInfo(
 
     return {
       approval,
-      fee: { tokenAddress: zkTokenAddress, value: zkFeeTotal },
+      fee: { token: zkTokenAddress, amount: zkFeeTotal },
     };
   } else {
     const protocolFeePerCall = await wrap(
@@ -65,7 +65,7 @@ export async function buildFeeInfo(
 
     return {
       approval: null,
-      fee: { tokenAddress: ctx.baseTokens.src, value: totalFee },
+      fee: { token: ctx.baseTokens.src, amount: totalFee },
     };
   }
 }

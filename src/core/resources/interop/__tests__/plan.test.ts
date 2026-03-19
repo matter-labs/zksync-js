@@ -43,7 +43,7 @@ const emptyAttrs: InteropAttributes = {
 
 const defaultFeeInfo: InteropFeeInfo = {
   approval: null,
-  fee: { tokenAddress: ADDR_A, value: 0n },
+  fee: { token: ADDR_A, amount: 0n },
 };
 
 // Helper to verify exhaustiveness of InteropAction type at compile time

@@ -11,7 +11,7 @@ export type InteropStarter = [Hex, Hex, Hex[]];
 export interface InteropFeeInfo {
   /** Approval needed to cover the fee (ZK fixed-fee path). null = no approval needed. */
   approval: ApprovalNeed | null;
-  /** Interop fee token address and total fee amount. fee.value is added to msg.value for protocol-fee path. */
+  /** Interop fee token address and total fee amount. fee.amount is added to msg.value for protocol-fee path. */
   fee: InteropFee;
 }
 

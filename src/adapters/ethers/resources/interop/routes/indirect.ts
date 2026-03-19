@@ -73,7 +73,7 @@ export function routeIndirect(): InteropRouteStrategy {
         tx: {
           to: ctx.interopCenter,
           data,
-          value: bundle.quoteExtras.totalActionValue + feeInfo.fee.value,
+          value: bundle.quoteExtras.totalActionValue + feeInfo.fee.amount,
           ...ctx.gasOverrides,
         },
       });
