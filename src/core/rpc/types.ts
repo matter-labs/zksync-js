@@ -44,7 +44,6 @@ export type GenesisStorageEntry =
 export type GenesisInput = {
   initialContracts: GenesisContractDeployment[];
   additionalStorage: GenesisStorageEntry[];
-  executionVersion: number;
   genesisRoot: Hex;
 };
 

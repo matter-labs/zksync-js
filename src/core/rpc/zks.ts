@@ -305,7 +305,6 @@ export function normalizeGenesis(raw: unknown): GenesisInput {
       });
     }
 
-    const executionVersion = ensureNumber(record['execution_version'], 'execution_version');
     const genesisRoot = ensureHex(record['genesis_root'], 'genesis_root', {});
 
     const initialContracts = contractsRaw.map((entry, index) =>
@@ -317,7 +316,6 @@ export function normalizeGenesis(raw: unknown): GenesisInput {
     return {
       initialContracts,
       additionalStorage,
-      executionVersion,
       genesisRoot,
     };
   } catch (e) {

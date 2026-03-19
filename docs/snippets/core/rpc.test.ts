@@ -54,7 +54,6 @@ type ReceiptWithL2ToL1 = {
 export type GenesisInput = {
   initialContracts: GenesisContractDeployment[];
   additionalStorage: GenesisStorageEntry[];
-  executionVersion: number;
   genesisRoot: Hex;
 };
 // ANCHOR_END: genesis-type
@@ -107,7 +106,6 @@ for (const contract of genesis.initialContracts) {
   console.log('Contract at', contract.address, 'with bytecode', contract.bytecode);
 }
 
-console.log('Execution version:', genesis.executionVersion);
 console.log('Genesis root:', genesis.genesisRoot);
 // ANCHOR_END: genesis-method
 expect(genesis.initialContracts).toBeArray();

@@ -71,7 +71,6 @@ describe('rpc/zks.normalizeGenesis', () => {
       ['0x' + '22'.repeat(20), '0x' + 'bb'.repeat(4)],
     ],
     additional_storage: [['0x' + '33'.repeat(32), '0x' + '44'.repeat(32)]],
-    execution_version: 7,
     genesis_root: '0x' + '55'.repeat(32),
   };
 
@@ -90,7 +89,6 @@ describe('rpc/zks.normalizeGenesis', () => {
           value: sample.additional_storage[0][1],
         },
       ],
-      executionVersion: sample.execution_version,
       genesisRoot: sample.genesis_root,
     });
   });
@@ -125,7 +123,6 @@ describe('rpc/zks.normalizeGenesis', () => {
     const fallbackSample = {
       initial_contracts: sample.initial_contracts,
       additional_storage_raw: [['0x' + '33'.repeat(32), '0x' + '44'.repeat(32)]],
-      execution_version: sample.execution_version,
       genesis_root: sample.genesis_root,
     };
 
@@ -267,7 +264,6 @@ describe('rpc/zks.getGenesis', () => {
     const raw = {
       initial_contracts: [['0x' + '11'.repeat(20), '0x' + 'aa'.repeat(4)]],
       additional_storage: [['0x' + '22'.repeat(32), '0x' + '33'.repeat(32)]],
-      execution_version: 9,
       genesis_root: '0x' + '44'.repeat(32),
     };
 
@@ -285,7 +281,6 @@ describe('rpc/zks.getGenesis', () => {
           value: raw.additional_storage[0][1],
         },
       ],
-      executionVersion: raw.execution_version,
       genesisRoot: raw.genesis_root,
     });
   });
@@ -301,7 +296,6 @@ describe('rpc/zks.getGenesis', () => {
           [slot]: val,
         },
       },
-      execution_version: 9,
       genesis_root: '0x' + '44'.repeat(32),
     };
 

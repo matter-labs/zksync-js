@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.13](https://github.com/matter-labs/zksync-js/compare/v0.0.12...v0.0.13) (2026-03-18)
+
+
+### Bug Fixes
+
+* improve interop error messages ([#74](https://github.com/matter-labs/zksync-js/issues/74)) ([a0a015a](https://github.com/matter-labs/zksync-js/commit/a0a015a56a3c74f6e3b915a70e394b95c1f30819))
+* remove execution version from genesis input ([#75](https://github.com/matter-labs/zksync-js/issues/75)) ([26a4361](https://github.com/matter-labs/zksync-js/commit/26a4361dea506fa5ff1c6cec9c48223378153a5d))
+
+## [0.0.12](https://github.com/matter-labs/zksync-js/compare/v0.0.11...v0.0.12) (2026-03-12)
+
+
+### Features
+
+* add scheduled e2e tests ([#69](https://github.com/matter-labs/zksync-js/issues/69)) ([aeb28ca](https://github.com/matter-labs/zksync-js/commit/aeb28ca2d401ae352ba4eb5ea5761b1b20bd2f1e))
+
+
+### Bug Fixes
+
+* address issue with first time eth deployments ([#73](https://github.com/matter-labs/zksync-js/issues/73)) ([dfcede7](https://github.com/matter-labs/zksync-js/commit/dfcede71db835c4e5488fd05ba6933a30fb18da9))
+* for latest v31 protocol version ([#72](https://github.com/matter-labs/zksync-js/issues/72)) ([faea1ee](https://github.com/matter-labs/zksync-js/commit/faea1eeb592e996b28e7fb2661f49e40ab2a836d))
+
 ## [0.0.11](https://github.com/matter-labs/zksync-js/compare/v0.0.10...v0.0.11) (2026-03-03)
 
 

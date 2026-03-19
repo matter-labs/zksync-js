@@ -14,3 +14,5 @@ export { default as IInteropCenterABI } from './internal/abis/IInteropCenter';
 export { default as IInteropHandlerABI } from './internal/abis/IInteropHandler';
 export { default as IInteropRootStorageABI } from './internal/abis/IInteropRootStorage';
 export { default as L2MessageVerificationABI } from './internal/abis/L2MessageVerification';
+export { default as IInteropErrorsABI } from './internal/abis/IInteropErrors';
+export { default as IL1ContractErrorsABI } from './internal/abis/IL1ContractErrors';
