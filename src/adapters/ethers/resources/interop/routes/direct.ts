@@ -55,7 +55,7 @@ export function routeDirect(): InteropRouteStrategy {
         key: 'sendBundle',
         kind: 'interop.center',
         description: `Send interop bundle (direct route; ${params.actions.length} actions)`,
-        // msg.value = forwarded action value + protocol fee (0 for fixed ZK-fee path).
+        // msg.value = forwarded action value + protocol fee.
         tx: {
           to: ctx.interopCenter,
           data,
