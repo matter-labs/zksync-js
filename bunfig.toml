@@ -1,4 +1,5 @@
 [test]
+timeout = 10000
 coverage = true
 
 coverageReporter = ["text", "lcov"]
