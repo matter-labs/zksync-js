@@ -220,7 +220,10 @@ jobs:
         run: bun run build
 
       - name: Top up test wallet
-        run: bun run docs/snippets/setup.ts
+        env:
+          PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
+        run: |
+          bun run docs/snippets/setup.ts
 
       - name: Run docs examples tests
         env:
