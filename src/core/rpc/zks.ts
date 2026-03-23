@@ -15,9 +15,16 @@ import { withRpcOp } from '../errors/rpc';
 import { isZKsyncError, type Resource } from '../types/errors';
 import { isBigint, isNumber } from '../utils';
 
+// The root that the returned merkle proof anchors to.
 export enum ProofTarget {
-  MessageRoot = 'messageRoot',
+  // Proof anchored to the SL L1 batch aggregated root.
+  // The proof covers the full gateway batch range and includes the local-root extension,
+  // making it suitable for L1 verification.
   L1BatchRoot = 'l1BatchRoot',
+  // Proof anchored to the SL block-level message root.
+  // The proof targets the specific execution block (no local-root extension),
+  // making it suitable for cross-chain interop message verification.
+  MessageRoot = 'messageRoot',
 }
 
 /** ZKsync-specific RPC methods. */
@@ -32,6 +39,8 @@ export interface ZksRpc {
   getL2ToL1LogProof(
     txHash: Hex,
     index: number,
+    //`proofTarget` selects which root the proof anchors to (see `ProofTarget`).
+    // If omitted, `ProofTarget.L1BatchRoot` is used.
     proofTarget?: ProofTarget,
   ): Promise<ProofNormalized>;
 

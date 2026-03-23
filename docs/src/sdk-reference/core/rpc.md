@@ -38,16 +38,21 @@ Fetch the on-chain **Bytecode Supplier** contract address.
 
 ---
 
-### `getL2ToL1LogProof(txHash: Hex, index: number) → Promise<ProofNormalized>`
+### `getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget) → Promise<ProofNormalized>`
 
 Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 
 **Parameters**
 
-| Name     | Type   | Required | Description                                              |
-| -------- | ------ | -------- | -------------------------------------------------------- |
-| `txHash` | Hex    | yes      | L2 transaction hash that emitted one or more L2→L1 logs. |
-| `index`  | number | yes      | Zero-based index of the target L2→L1 log within the tx.  |
+| Name          | Type          | Required | Description                                                                                     |
+| ------------- | ------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `txHash`      | Hex           | yes      | L2 transaction hash that emitted one or more L2→L1 logs.                                        |
+| `index`       | number        | yes      | Zero-based index of the target L2→L1 log within the tx.                                         |
+| `proofTarget` | `ProofTarget` | no       | Root the proof anchors to. `L1BatchRoot` (default) for L1 verification; `MessageRoot` for cross-chain interop. |
+
+```ts
+{{#include ../../../snippets/core/rpc.test.ts:proof-target}}
+```
 
 ```ts
 {{#include ../../../snippets/viem/overview/adapter.test.ts:log-proof}}

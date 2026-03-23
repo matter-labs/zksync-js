@@ -3,7 +3,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'bun:test';
-import { createZksRpc, normalizeProof, normalizeGenesis, normalizeBlockMetadata } from '../zks';
+import {
+  createZksRpc,
+  normalizeProof,
+  normalizeGenesis,
+  normalizeBlockMetadata,
+  ProofTarget,
+} from '../zks';
 import type { RpcTransport } from '../types';
 import { isZKsyncError } from '../../types/errors';
 
@@ -219,6 +225,32 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     return expect(
       rpc.getL2ToL1LogProof(('0x' + 'bb'.repeat(32)) as `0x${string}`, 1),
     ).rejects.toThrow(/Proof not yet available/);
+  });
+
+  it('forwards proofTarget as third RPC param when provided', async () => {
+    let capturedParams: unknown[] = [];
+    const proof = { index: '0', batchNumber: '1', proof: [], root: '0x' + '00'.repeat(32) };
+    const rpc = createZksRpc((_method, params = []) => {
+      capturedParams = params;
+      return Promise.resolve(proof);
+    });
+    await rpc.getL2ToL1LogProof(
+      ('0x' + 'cc'.repeat(32)) as `0x${string}`,
+      0,
+      ProofTarget.MessageRoot,
+    );
+    expect(capturedParams[2]).toBe(ProofTarget.MessageRoot);
+  });
+
+  it('omits proofTarget from RPC params when not provided', async () => {
+    let capturedParams: unknown[] = [];
+    const proof = { index: '0', batchNumber: '1', proof: [], root: '0x' + '00'.repeat(32) };
+    const rpc = createZksRpc((_method, params = []) => {
+      capturedParams = params;
+      return Promise.resolve(proof);
+    });
+    await rpc.getL2ToL1LogProof(('0x' + 'dd'.repeat(32)) as `0x${string}`, 0);
+    expect(capturedParams.length).toBe(2);
   });
 });
 

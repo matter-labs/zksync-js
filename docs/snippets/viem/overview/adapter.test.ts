@@ -10,6 +10,7 @@ import { ETH_ADDRESS } from '../../../../src/core';
 import type { ViemSdk, ViemClient } from '../../../../src/adapters/viem';
 import type { Account } from 'viem';
 import { l1Chain, l2Chain } from '../chains';
+import { ProofTarget } from '../../../../src/core/rpc/zks';
 
 describe('viem adapter setup', () => {
 
@@ -249,12 +250,17 @@ console.log("L2 to L1 logs:", rcpt?.l2ToL1Logs); // always an array
 // ANCHOR_END: receipt-with-logs
 
 // ANCHOR: log-proof
+// Default (L1BatchRoot) — suitable for L1 verification:
 const proof = await client.zks.getL2ToL1LogProof(l2TxHash, 0);
+
+// MessageRoot — suitable for cross-chain interop verification:
+const interopProof = await client.zks.getL2ToL1LogProof(l2TxHash, 0, ProofTarget.MessageRoot);
 /*
 {
   id: bigint,
   batchNumber: bigint,
-  proof: Hex[]
+  proof: Hex[],
+  root: Hex,
 }
 */
 // ANCHOR_END: log-proof
