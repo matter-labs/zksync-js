@@ -197,18 +197,26 @@ export function createInteropResource(
     toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(dstChain, params));
 
   // prepare → build plan without executing
-  const prepare = (dstChain: ChainRef, params: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
+  const prepare = (
+    dstChain: ChainRef,
+    params: InteropParams,
+  ): Promise<InteropPlan<TransactionRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(resolveChainRef(dstChain), params), {
       message: 'Internal error while preparing an interop plan.',
       ctx: { where: 'interop.prepare' },
     });
 
   const tryPrepare = (dstChain: ChainRef, params: InteropParams) =>
-    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(dstChain, params));
+    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () =>
+      prepare(dstChain, params),
+    );
 
   // create → execute the source-chain step(s)
   // waits for each tx receipt to confirm (status != 0)
-  const create = (dstChain: ChainRef, params: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
+  const create = (
+    dstChain: ChainRef,
+    params: InteropParams,
+  ): Promise<InteropHandle<TransactionRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
@@ -298,10 +306,16 @@ export function createInteropResource(
     );
 
   const tryCreate = (dstChain: ChainRef, params: InteropParams) =>
-    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(dstChain, params));
+    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () =>
+      create(dstChain, params),
+    );
 
   // status → non-blocking lifecycle inspection
-  const status = (dstChain: ChainRef, h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus> =>
+  const status = (
+    dstChain: ChainRef,
+    h: InteropWaitable,
+    opts?: LogsQueryOptions,
+  ): Promise<InteropStatus> =>
     wrap(OP_INTEROP.status, () => svc.status(resolveChainRef(dstChain), h, opts), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
@@ -318,8 +332,11 @@ export function createInteropResource(
       ctx: { where: 'interop.wait' },
     });
 
-  const tryWait = (dstChain: ChainRef, h: InteropWaitable, opts?: { pollMs?: number; timeoutMs?: number }) =>
-    toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(dstChain, h, opts));
+  const tryWait = (
+    dstChain: ChainRef,
+    h: InteropWaitable,
+    opts?: { pollMs?: number; timeoutMs?: number },
+  ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(dstChain, h, opts));
 
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,
@@ -346,7 +363,11 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (dstChain: ChainRef, h: InteropWaitable | InteropFinalizationInfo, opts?: LogsQueryOptions) =>
+  const tryFinalize = (
+    dstChain: ChainRef,
+    h: InteropWaitable | InteropFinalizationInfo,
+    opts?: LogsQueryOptions,
+  ) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(dstChain, h, opts));
 
   return {
