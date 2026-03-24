@@ -25,12 +25,11 @@ describe('adapters/interop/resource', () => {
     const harness = createEthersHarness();
     const interop = createInteropResource(harness.client, {
       gwChain: harness.l2 as any,
-      dstChain: harness.l2 as any,
     });
 
     (harness.l2 as any).getTransactionReceipt = async () => null;
 
-    const status = await interop.status(TX_HASH);
+    const status = await interop.status(harness.l2 as any, TX_HASH);
     expect(status.phase).toBe('SENT');
     expect(status.l2SrcTxHash).toBe(TX_HASH);
   });
@@ -40,7 +39,6 @@ describe('adapters/interop/resource', () => {
     setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client, {
       gwChain: harness.l2 as any,
-      dstChain: harness.l2 as any,
     });
 
     let requestedBlockTag: string | undefined;
@@ -54,7 +52,7 @@ describe('adapters/interop/resource', () => {
       wait: async () => ({ status: 1 }),
     });
 
-    const handle = await interop.create({
+    const handle = await interop.create(harness.l2 as any, {
       actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
     });
 
@@ -67,7 +65,6 @@ describe('adapters/interop/resource', () => {
     setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client, {
       gwChain: harness.l2 as any,
-      dstChain: harness.l2 as any,
     });
 
     let requestedBlockTag: string | undefined;
@@ -81,7 +78,7 @@ describe('adapters/interop/resource', () => {
       wait: async () => ({ status: 1 }),
     });
 
-    const handle = await interop.create({
+    const handle = await interop.create(harness.l2 as any, {
       actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
       txOverrides: {
         nonce: 'latest',
@@ -99,7 +96,6 @@ describe('adapters/interop/resource', () => {
     setInteropProtocolFee(harness, L2_INTEROP_CENTER_ADDRESS, 0n);
     const interop = createInteropResource(harness.client, {
       gwChain: harness.l2 as any,
-      dstChain: harness.l2 as any,
     });
 
     const sender = (await harness.signer.getAddress()) as Address;
@@ -122,7 +118,7 @@ describe('adapters/interop/resource', () => {
       };
     };
 
-    await interop.create({
+    await interop.create(harness.l2 as any, {
       actions: [
         {
           type: 'sendErc20',
@@ -146,7 +142,6 @@ describe('adapters/interop/resource', () => {
     const harness = createEthersHarness();
     const interop = createInteropResource(harness.client, {
       gwChain: harness.l2 as any,
-      dstChain: harness.l2 as any,
     });
 
     harness.registry.set(
@@ -158,7 +153,7 @@ describe('adapters/interop/resource', () => {
 
     let caught: unknown;
     try {
-      await interop.prepare({
+      await interop.prepare(harness.l2 as any, {
         actions: [{ type: 'sendNative', to: RECIPIENT, amount: 1n }],
       });
     } catch (err) {
