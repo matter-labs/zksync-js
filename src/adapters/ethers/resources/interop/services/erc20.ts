@@ -6,8 +6,9 @@
 import { Contract, type TransactionRequest } from 'ethers';
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
+import type { ApprovalNeed } from '../../../../../core/types/flows/base';
 import type { BuildCtx } from '../context';
-import { L2NativeTokenVaultABI } from '../../../../../core/abi';
+import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi';
 
 /** Collect unique ERC-20 token addresses referenced by `sendErc20` actions. */
 export function getErc20Tokens(params: InteropParams): Address[] {
@@ -43,6 +44,40 @@ export function buildEnsureTokenSteps(
       ...ctx.gasOverrides,
     },
   }));
+}
+
+/**
+ * Check allowance for each approval and return approve steps only where needed.
+ */
+export async function buildApproveSteps(
+  approvals: ApprovalNeed[],
+  ctx: BuildCtx,
+): Promise<Array<{ key: string; kind: string; description: string; tx: TransactionRequest }>> {
+  const steps: Array<{ key: string; kind: string; description: string; tx: TransactionRequest }> =
+    [];
+
+  for (const approval of approvals) {
+    const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
+    const currentAllowance = (await erc20.allowance(ctx.sender, approval.spender)) as bigint;
+
+    if (currentAllowance < approval.amount) {
+      steps.push({
+        key: `approve:${approval.token}:${approval.spender}`,
+        kind: 'approve',
+        description: `Approve ${approval.spender} to spend ${approval.amount} of ${approval.token}`,
+        tx: {
+          to: approval.token,
+          data: erc20.interface.encodeFunctionData('approve', [
+            approval.spender,
+            approval.amount,
+          ]) as Hex,
+          ...ctx.gasOverrides,
+        },
+      });
+    }
+  }
+
+  return steps;
 }
 
 /** Resolve asset IDs for each ERC-20 token via a static-call to NTV. */

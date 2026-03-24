@@ -22,6 +22,18 @@ import { withRpcOp } from '../errors/rpc';
 import { isZKsyncError, type Resource } from '../types/errors';
 import { isBigint, isNumber } from '../utils';
 
+// The root that the returned merkle proof anchors to.
+export enum ProofTarget {
+  // Proof anchored to the SL L1 batch aggregated root.
+  // The proof covers the full gateway batch range and includes the local-root extension,
+  // making it suitable for L1 verification.
+  L1BatchRoot = 'l1BatchRoot',
+  // Proof anchored to the SL block-level message root.
+  // The proof targets the specific execution block (no local-root extension),
+  // making it suitable for cross-chain interop message verification.
+  MessageRoot = 'messageRoot',
+}
+
 /** ZKsync-specific RPC methods. */
 export interface ZksRpc {
   // Fetches the Bridgehub contract address.
@@ -31,7 +43,13 @@ export interface ZksRpc {
   getBytecodeSupplierAddress(): Promise<Address>;
 
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
-  getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
+  getL2ToL1LogProof(
+    txHash: Hex,
+    index: number,
+    //`proofTarget` selects which root the proof anchors to (see `ProofTarget`).
+    // If omitted, `ProofTarget.L1BatchRoot` is used.
+    proofTarget?: ProofTarget,
+  ): Promise<ProofNormalized>;
 
   // Fetches storage slot proofs rooted in an L1 batch commitment.
   getProof(address: Address, keys: Hex[], l1BatchNumber: number): Promise<BatchStorageProof>;
@@ -69,6 +87,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
     const raw = (p ?? {}) as Record<string, unknown>;
     const idRaw = raw?.id ?? raw?.index;
     const bnRaw = raw?.batch_number ?? raw?.batchNumber;
+    const gwBlockNumberRaw = raw?.gatewayBlockNumber;
     if (idRaw == null || bnRaw == null) {
       throw createError('RPC', {
         resource: 'zksrpc' as Resource,
@@ -100,6 +119,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
       root: raw.root as Hex,
+      gatewayBlockNumber: gwBlockNumberRaw != null ? toBig(gwBlockNumberRaw) : undefined,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;
@@ -713,13 +733,15 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
     },
 
     // Fetches a proof for an L2→L1 log emitted in the given transaction.
-    async getL2ToL1LogProof(txHash, index) {
+    async getL2ToL1LogProof(txHash, index, proofTarget) {
       return withRpcOp(
         'zksrpc.getL2ToL1LogProof',
         'Failed to fetch L2→L1 log proof.',
-        { txHash, index },
+        { txHash, index, proofTarget },
         async () => {
-          const proof: unknown = await transport(METHODS.getL2ToL1LogProof, [txHash, index]);
+          const params: [Hex, number, ProofTarget?] = [txHash, index];
+          if (proofTarget != undefined) params.push(proofTarget);
+          const proof: unknown = await transport(METHODS.getL2ToL1LogProof, params);
           if (!proof) {
             throw createError('STATE', {
               resource: 'zksrpc' as Resource,

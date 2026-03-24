@@ -30,6 +30,7 @@ export type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
+  gatewayBlockNumber?: bigint;
 };
 
 export type StateCommitmentPreimage = {

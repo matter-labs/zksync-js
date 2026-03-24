@@ -20,7 +20,6 @@ import {
   StateCommitmentPreimage as StateCommitmentPreimageT,
   StorageProofEntry as StorageProofEntryT,
 } from '../../../src/core/rpc/types';
-
 import { l1Chain, l2Chain } from '../viem/chains';
 import type { Exact } from './types';
 
@@ -30,10 +29,10 @@ export interface ZksRpc {
   getBridgehubAddress(): Promise<Address>;
   // Fetches the Bytecode Supplier contract address.
   getBytecodeSupplierAddress(): Promise<Address>;
-  // Fetches a proof for an L2→L1 log emitted in the given transaction.
-  getL2ToL1LogProof(txHash: Hex, index: number): Promise<ProofNormalized>;
   // Fetches storage slot proofs rooted in an L1 batch commitment.
   getProof(address: Address, keys: Hex[], l1BatchNumber: number): Promise<BatchStorageProof>;
+  // Fetches a proof for an L2→L1 log emitted in the given transaction.
+  getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget): Promise<ProofNormalized>;
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
   // Fetches block metadata for the given block number.
@@ -43,12 +42,24 @@ export interface ZksRpc {
 }
 // ANCHOR_END: zks-rpc
 
+// ANCHOR: proof-target
+enum ProofTarget {
+  // Proof anchored to the SL L1 batch aggregated root (default).
+  // Suitable for L1 verification.
+  L1BatchRoot = 'l1BatchRoot',
+  // Proof anchored to the SL block-level message root.
+  // Suitable for cross-chain interop message verification.
+  MessageRoot = 'messageRoot',
+}
+// ANCHOR_END: proof-target
+
 // ANCHOR: proof-receipt-type
 type ProofNormalized = {
   id: bigint;
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
+  gatewayBlockNumber?: bigint;
 };
 
 type ReceiptWithL2ToL1 = {

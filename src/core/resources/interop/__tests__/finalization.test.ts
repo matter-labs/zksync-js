@@ -384,13 +384,6 @@ describe('interop/finalization', () => {
       expect(result.l2SrcTxHash).toBe(TX_HASH);
       expect(result.bundleHash).toBe(BUNDLE_HASH);
       expect(result.dstChainId).toBe(2n);
-
-      expect(result.expectedRoot).toEqual({
-        rootChainId: 1n,
-        batchNumber: 100n,
-        expectedRoot: '0xroot1234',
-      });
-
       expect(result.proof).toEqual({
         chainId: 1n,
         l1BatchNumber: 100n,

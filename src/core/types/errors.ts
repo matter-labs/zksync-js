@@ -349,5 +349,10 @@ export const OP_INTEROP = {
       poll: 'interop.svc.wait:poll',
       timeout: 'interop.svc.wait:timeout',
     },
+    fees: {
+      zkInteropFee: 'interop.svc.fees:zkInteropFee',
+      zkToken: 'interop.svc.fees:zkToken',
+      protocolFee: 'interop.svc.fees:protocolFee',
+    },
   },
 } as const;

@@ -3,6 +3,7 @@ import { createEthersClient, createEthersSdk } from '../../../src/adapters/ether
 import { getGreetingTokenAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
+const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -17,12 +18,14 @@ async function main() {
   const l2Destination = new JsonRpcProvider(DST_L2_RPC);
 
   const signer = new Wallet(PRIVATE_KEY, l2Source);
-  const client = await createEthersClient({
+  const client = createEthersClient({
     l1,
     l2: l2Source,
     signer,
   });
-  const sdk = createEthersSdk(client);
+  const sdk = createEthersSdk(client, {
+    interop: { gwChain: GW_RPC },
+  });
   const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);
 
   // ---- Deploy Greeter on destination ----
@@ -41,7 +44,6 @@ async function main() {
   const data = AbiCoder.defaultAbiCoder().encode(['string'], [newGreeting]) as `0x${string}`;
 
   const params = {
-    dstChain: l2Destination,
     actions: [
       {
         type: 'call' as const,
@@ -55,25 +57,25 @@ async function main() {
   };
 
   // QUOTE: Build and return the summary.
-  const quote = await sdk.interop.quote(params);
+  const quote = await sdk.interop.quote(l2Destination, params);
   console.log('QUOTE:', quote);
 
   // PREPARE: Build plan without executing.
-  const prepared = await sdk.interop.prepare(params);
+  const prepared = await sdk.interop.prepare(l2Destination, params);
   console.log('PREPARE:', prepared);
 
   // CREATE: Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0).
-  const created = await sdk.interop.create(params);
+  const created = await sdk.interop.create(l2Destination, params);
   console.log('CREATE:', created);
 
   // STATUS: Non-blocking lifecycle inspection.
-  const st0 = await sdk.interop.status(created);
+  const st0 = await sdk.interop.status(l2Destination, created);
   console.log('STATUS after create:', st0);
 
   // WAIT: waits until the L2->L1 proof is available on source and the interop root
   // becomes available on the destination chain. It returns the proof payload needed
   // to execute the bundle later.
-  const finalizationInfo = await sdk.interop.wait(created, {
+  const finalizationInfo = await sdk.interop.wait(l2Destination, created, {
     pollMs: 5_000,
     timeoutMs: 30 * 60 * 1_000,
   });
@@ -81,11 +83,11 @@ async function main() {
   // FINALIZE: Execute on destination and block until done.
   // finalize() calls executeBundle(...) on the destination chain,
   // waits for the tx to mine, then returns { bundleHash, dstExecTxHash }.
-  const finalizationResult = await sdk.interop.finalize(finalizationInfo);
+  const finalizationResult = await sdk.interop.finalize(l2Destination, finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
 
   // STATUS: Terminal status (EXECUTED).
-  const st1 = await sdk.interop.status(created);
+  const st1 = await sdk.interop.status(l2Destination, created);
   console.log('STATUS after finalize:', st1);
 
   const greetingAfter = (await greeter.message()) as string;

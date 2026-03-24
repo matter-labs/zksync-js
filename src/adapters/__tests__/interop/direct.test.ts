@@ -2,7 +2,11 @@ import { describe, it, expect } from 'bun:test';
 import { Interface } from 'ethers';
 
 import { routeDirect } from '../../ethers/resources/interop/routes/direct.ts';
-import { createEthersHarness, makeInteropContext } from '../adapter-harness.ts';
+import {
+  createEthersHarness,
+  makeInteropContext,
+  setInteropProtocolFee,
+} from '../adapter-harness.ts';
 import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
 import { interopCodec } from '../../ethers/resources/interop/address.ts';
@@ -21,6 +25,8 @@ function makeTestBuildCtx(
 
   const interopCenterIface = new Interface(IInteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
+
+  setInteropProtocolFee(harness, ctx.interopCenter, 0n);
 
   return {
     client: harness.client,

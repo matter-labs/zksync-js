@@ -60,7 +60,12 @@ async function main() {
   // const created = await sdk.withdrawals.create(params);
   // console.log('CREATE:', created);
 
-  console.log('STATUS (initial):', await sdk.withdrawals.status("0xf98d43b3dfa3240ad871a9f56fbf7859597abf92847b1c1860ff3658aa3f244c"));
+  console.log(
+    'STATUS (initial):',
+    await sdk.withdrawals.status(
+      '0xf98d43b3dfa3240ad871a9f56fbf7859597abf92847b1c1860ff3658aa3f244c',
+    ),
+  );
 
   // // Wait for L2 inclusion
   // const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
