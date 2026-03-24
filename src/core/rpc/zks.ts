@@ -76,6 +76,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
     const raw = (p ?? {}) as Record<string, unknown>;
     const idRaw = raw?.id ?? raw?.index;
     const bnRaw = raw?.batch_number ?? raw?.batchNumber;
+    const gwBlockNumberRaw = raw?.gatewayBlockNumber;
     if (idRaw == null || bnRaw == null) {
       throw createError('RPC', {
         resource: 'zksrpc' as Resource,
@@ -107,6 +108,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
       root: raw.root as Hex,
+      gatewayBlockNumber: gwBlockNumberRaw != null ? toBig(gwBlockNumberRaw) : undefined,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;

@@ -44,6 +44,7 @@ type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
+  gatewayBlockNumber?: bigint;
 };
 
 type ReceiptWithL2ToL1 = {

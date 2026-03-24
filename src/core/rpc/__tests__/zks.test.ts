@@ -220,6 +220,31 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     expect(out).toEqual({ id: 5n, batchNumber: 10n, proof: proof.proof, root: proof.root });
   });
 
+  it('normalizes gatewayBlockNumber when present', async () => {
+    const proof = {
+      index: '1',
+      batchNumber: '2',
+      proof: [],
+      root: ('0x' + '33'.repeat(32)) as `0x${string}`,
+      gatewayBlockNumber: '42',
+    };
+    const rpc = createZksRpc(fakeTransport({ zks_getL2ToL1LogProof: () => proof }));
+    const out = await rpc.getL2ToL1LogProof(('0x' + 'aa'.repeat(32)) as `0x${string}`, 0);
+    expect(out.gatewayBlockNumber).toBe(42n);
+  });
+
+  it('omits gatewayBlockNumber when not in response', async () => {
+    const proof = {
+      index: '1',
+      batchNumber: '2',
+      proof: [],
+      root: ('0x' + '33'.repeat(32)) as `0x${string}`,
+    };
+    const rpc = createZksRpc(fakeTransport({ zks_getL2ToL1LogProof: () => proof }));
+    const out = await rpc.getL2ToL1LogProof(('0x' + 'aa'.repeat(32)) as `0x${string}`, 0);
+    expect(out.gatewayBlockNumber).toBeUndefined();
+  });
+
   it('throws STATE error when proof is unavailable (null/undefined/falsey)', () => {
     const rpc = createZksRpc(fakeTransport({ zks_getL2ToL1LogProof: null }));
     return expect(

@@ -18,7 +18,6 @@ import {
   DEFAULT_POLL_MS,
   DEFAULT_TIMEOUT_MS,
   type BundleReceiptInfo,
-  extractGwBlockNumber,
 } from '../../../../../../core/resources/interop/finalization';
 import { getTopics } from './topics';
 import { decodeInteropBundleSent, decodeL1MessageData } from './decoders';
@@ -217,9 +216,16 @@ export async function waitForFinalization(
     bundleInfo.l1MessageData,
   );
 
-  const gwBlockNumber = extractGwBlockNumber(proof.proof);
+  if (proof.gatewayBlockNumber == null) {
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.svc.wait.timeout,
+      message: 'Proof missing gatewayBlockNumber required for interop finalization.',
+      context: { l2SrcTxHash: ids.l2SrcTxHash },
+    });
+  }
   const { chainId: gwChainId } = await gwProvider.getNetwork();
 
-  await waitForRoot(dstProvider, gwChainId, gwBlockNumber, pollMs, deadline);
+  await waitForRoot(dstProvider, gwChainId, proof.gatewayBlockNumber, pollMs, deadline);
   return finalizationInfo;
 }
