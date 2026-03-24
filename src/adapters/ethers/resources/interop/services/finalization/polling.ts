@@ -23,6 +23,7 @@ import { getTopics } from './topics';
 import { decodeInteropBundleSent, decodeL1MessageData } from './decoders';
 import { getInteropRoot } from './data-fetchers';
 import { type ReceiptWithL2ToL1 } from '../../../../../../core/rpc/types';
+import { ProofTarget } from '../../../../../../core/rpc/zks';
 
 const { wrap } = createErrorHandlers('interop');
 
@@ -77,7 +78,7 @@ async function waitForProof(
     }
 
     try {
-      return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex);
+      return await client.zks.getL2ToL1LogProof(l2SrcTxHash, logIndex, ProofTarget.MessageRoot);
     } catch (error) {
       if (!isProofNotReadyError(error)) throw error;
     }
@@ -88,27 +89,24 @@ async function waitForProof(
 
 async function waitForRoot(
   provider: AbstractProvider,
-  expectedRoot: { rootChainId: bigint; batchNumber: bigint; expectedRoot: Hex },
+  chainId: bigint,
+  batchNumber: bigint,
   pollMs: number,
   deadline: number,
-): Promise<void> {
+): Promise<Hex | null> {
   while (true) {
     if (Date.now() > deadline) {
       throw createError('TIMEOUT', {
         resource: 'interop',
         operation: OP_INTEROP.svc.wait.timeout,
         message: 'Timed out waiting for interop root to become available.',
-        context: { expectedRoot },
+        context: { chainId, batchNumber },
       });
     }
 
     let interopRoot: Hex | null = null;
     try {
-      const root = await getInteropRoot(
-        provider,
-        expectedRoot.rootChainId,
-        expectedRoot.batchNumber,
-      );
+      const root = await getInteropRoot(provider, chainId, batchNumber);
       if (root !== ZERO_HASH) {
         interopRoot = root;
       }
@@ -118,18 +116,7 @@ async function waitForRoot(
     }
 
     if (interopRoot) {
-      if (interopRoot.toLowerCase() === expectedRoot.expectedRoot.toLowerCase()) {
-        return;
-      }
-      throw createError('STATE', {
-        resource: 'interop',
-        operation: OP_INTEROP.wait,
-        message: 'Interop root mismatch.',
-        context: {
-          expected: expectedRoot.expectedRoot,
-          got: interopRoot,
-        },
-      });
+      return interopRoot;
     }
 
     await sleep(pollMs);
@@ -172,6 +159,7 @@ async function waitForTxReceipt(
 export async function waitForFinalization(
   client: EthersClient,
   dstProvider: AbstractProvider,
+  gwProvider: AbstractProvider,
   input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
 ): Promise<InteropFinalizationInfo> {
@@ -228,7 +216,16 @@ export async function waitForFinalization(
     bundleInfo.l1MessageData,
   );
 
-  await waitForRoot(dstProvider, finalizationInfo.expectedRoot, pollMs, deadline);
+  if (proof.gatewayBlockNumber == null) {
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.svc.wait.timeout,
+      message: 'Proof missing gatewayBlockNumber required for interop finalization.',
+      context: { l2SrcTxHash: ids.l2SrcTxHash },
+    });
+  }
+  const { chainId: gwChainId } = await gwProvider.getNetwork();
 
+  await waitForRoot(dstProvider, gwChainId, proof.gatewayBlockNumber, pollMs, deadline);
   return finalizationInfo;
 }

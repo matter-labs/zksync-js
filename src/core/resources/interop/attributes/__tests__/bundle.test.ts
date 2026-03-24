@@ -13,7 +13,6 @@ describe('interop/attributes/bundle', () => {
       encode: (fn: string, args: readonly unknown[]): Hex => {
         return `0x${fn}:${JSON.stringify(args)}` as Hex;
       },
-      decode: () => ({ selector: '0x00000000', name: 'mock', args: [] }),
     };
 
     it('creates executionAddress attribute', () => {
@@ -30,6 +29,12 @@ describe('interop/attributes/bundle', () => {
       expect(result).toBe(`0xunbundlerAddress:["${ADDR_B}"]`);
     });
 
+    it('creates useFixedFee attribute', () => {
+      const bundle = createBundleAttributes(mockCodec);
+      expect(bundle.useFixedFee(true)).toBe('0xuseFixedFee:[true]');
+      expect(bundle.useFixedFee(false)).toBe('0xuseFixedFee:[false]');
+    });
+
     it('passes correct function names to codec', () => {
       const calls: { fn: string; args: readonly unknown[] }[] = [];
       const trackingCodec: AttributesCodec = {
@@ -37,18 +42,20 @@ describe('interop/attributes/bundle', () => {
           calls.push({ fn, args });
           return '0x' as Hex;
         },
-        decode: () => ({ selector: '0x00000000', name: 'mock', args: [] }),
       };
 
       const bundle = createBundleAttributes(trackingCodec);
       bundle.executionAddress(ADDR_A);
       bundle.unbundlerAddress(ADDR_B);
+      bundle.useFixedFee(true);
 
-      expect(calls).toHaveLength(2);
+      expect(calls).toHaveLength(3);
       expect(calls[0].fn).toBe('executionAddress');
       expect(calls[0].args).toEqual([ADDR_A]);
       expect(calls[1].fn).toBe('unbundlerAddress');
       expect(calls[1].args).toEqual([ADDR_B]);
+      expect(calls[2].fn).toBe('useFixedFee');
+      expect(calls[2].args).toEqual([true]);
     });
   });
 });

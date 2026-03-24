@@ -2,7 +2,6 @@
 import type { Address, Hex } from '../../types/primitives';
 import type {
   InteropFinalizationInfo,
-  InteropExpectedRoot,
   InteropMessageProof,
   InteropWaitable,
 } from '../../types/flows/interop';
@@ -198,12 +197,6 @@ export function buildFinalizationInfo(
   proof: ProofNormalized,
   messageData: Hex,
 ): InteropFinalizationInfo {
-  const expectedRoot: InteropExpectedRoot = {
-    rootChainId: bundleInfo.sourceChainId,
-    batchNumber: proof.batchNumber,
-    expectedRoot: proof.root,
-  };
-
   const messageProof: InteropMessageProof = {
     chainId: bundleInfo.sourceChainId,
     l1BatchNumber: proof.batchNumber,
@@ -220,7 +213,6 @@ export function buildFinalizationInfo(
     l2SrcTxHash: ids.l2SrcTxHash,
     bundleHash: bundleInfo.bundleHash,
     dstChainId: bundleInfo.dstChainId,
-    expectedRoot,
     proof: messageProof,
     encodedData: getBundleEncodedData(messageData),
   };

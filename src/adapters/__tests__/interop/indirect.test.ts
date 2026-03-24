@@ -7,6 +7,7 @@ import {
   makeInteropContext,
   setErc20Allowance,
   setL2TokenRegistration,
+  setInteropProtocolFee,
 } from '../adapter-harness.ts';
 import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
@@ -35,6 +36,8 @@ function makeTestBuildCtx(
 
   const interopCenterIface = new Interface(IInteropCenterABI);
   const interopHandlerIface = new Interface(IInteropHandlerABI);
+
+  setInteropProtocolFee(harness, ctx.interopCenter, 0n);
 
   return {
     client: harness.client,

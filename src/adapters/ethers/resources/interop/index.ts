@@ -9,6 +9,10 @@ import type {
   InteropQuote,
   InteropStatus,
   InteropFinalizationResult,
+  InteropParams,
+  InteropHandle,
+  InteropWaitable,
+  InteropFinalizationInfo,
 } from '../../../../core/types/flows/interop';
 import { isInteropFinalizationInfo as isInteropFinalizationInfoBase } from '../../../../core/types/flows/interop';
 import type { ContractsResource } from '../contracts';
@@ -29,13 +33,8 @@ import {
   type InteropFinalizationServices,
 } from './services/finalization';
 import type { LogsQueryOptions } from './services/finalization/data-fetchers';
-import type {
-  InteropParams,
-  InteropHandle,
-  InteropWaitable,
-  InteropFinalizationInfo,
-} from './types';
-import { resolveDstProvider, resolveWaitableInput } from './resolvers';
+import type { ChainRef, InteropConfig } from './types';
+import { resolveChainRef } from './resolvers';
 const { wrap, toResult } = createErrorHandlers('interop');
 
 // Interop Route map
@@ -45,44 +44,51 @@ export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
 };
 
 export interface InteropResource {
-  quote(params: InteropParams): Promise<InteropQuote>;
+  quote(dstChain: ChainRef, params: InteropParams): Promise<InteropQuote>;
 
   tryQuote(
+    dstChain: ChainRef,
     params: InteropParams,
   ): Promise<{ ok: true; value: InteropQuote } | { ok: false; error: unknown }>;
 
-  prepare(params: InteropParams): Promise<InteropPlan<TransactionRequest>>;
+  prepare(dstChain: ChainRef, params: InteropParams): Promise<InteropPlan<TransactionRequest>>;
 
   tryPrepare(
+    dstChain: ChainRef,
     params: InteropParams,
   ): Promise<{ ok: true; value: InteropPlan<TransactionRequest> } | { ok: false; error: unknown }>;
 
-  create(params: InteropParams): Promise<InteropHandle<TransactionRequest>>;
+  create(dstChain: ChainRef, params: InteropParams): Promise<InteropHandle<TransactionRequest>>;
 
   tryCreate(
+    dstChain: ChainRef,
     params: InteropParams,
   ): Promise<
     { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
   >;
 
-  status(h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus>;
+  status(dstChain: ChainRef, h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus>;
 
   wait(
+    dstChain: ChainRef,
     h: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo>;
 
   tryWait(
+    dstChain: ChainRef,
     h: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error: unknown }>;
 
   finalize(
+    dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
   ): Promise<InteropFinalizationResult>;
 
   tryFinalize(
+    dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
@@ -90,10 +96,29 @@ export interface InteropResource {
 
 export function createInteropResource(
   client: EthersClient,
+  config?: InteropConfig,
   tokens?: TokensResource,
   contracts?: ContractsResource,
   attributes?: AttributesResource,
 ): InteropResource {
+  // Lazy provider resolution — validated on first interop method call.
+  let gwProviderCache: AbstractProvider | undefined;
+
+  function requireConfig(): InteropConfig {
+    if (!config)
+      throw createError('STATE', {
+        resource: 'interop',
+        operation: 'interop.init',
+        message: 'Interop is not configured. Pass gwChain in createEthersSdk options.',
+      });
+    return config;
+  }
+
+  function getGwProvider(): AbstractProvider {
+    if (!gwProviderCache) gwProviderCache = resolveChainRef(requireConfig().gwChain);
+    return gwProviderCache;
+  }
+
   const svc: InteropFinalizationServices = createInteropFinalizationServices(client);
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
@@ -132,7 +157,7 @@ export function createInteropResource(
     });
 
     // Build concrete steps, approvals, and quote extras
-    const { steps, approvals, quoteExtras } = await wrap(
+    const { steps, approvals, quoteExtras, interopFee } = await wrap(
       OP_INTEROP.routes[route].build,
       () => ROUTES[route].build(params, ctx),
       {
@@ -147,6 +172,7 @@ export function createInteropResource(
       approvalsNeeded: approvals,
       totalActionValue: quoteExtras.totalActionValue,
       bridgedTokenTotal: quoteExtras.bridgedTokenTotal,
+      interopFee: interopFee,
     };
 
     return { plan: { route, summary, steps }, ctx };
@@ -161,33 +187,41 @@ export function createInteropResource(
   }
 
   // quote → build and return the summary
-  const quote = (params: InteropParams): Promise<InteropQuote> =>
+  const quote = (dstChain: ChainRef, params: InteropParams): Promise<InteropQuote> =>
     wrap(OP_INTEROP.quote, async () => {
-      const plan = await buildPlan(resolveDstProvider(params.dstChain), params);
+      const plan = await buildPlan(resolveChainRef(dstChain), params);
       return plan.summary;
     });
 
-  const tryQuote = (params: InteropParams) =>
-    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(params));
+  const tryQuote = (dstChain: ChainRef, params: InteropParams) =>
+    toResult<InteropQuote>(OP_INTEROP.tryQuote, () => quote(dstChain, params));
 
   // prepare → build plan without executing
-  const prepare = (params: InteropParams): Promise<InteropPlan<TransactionRequest>> =>
-    wrap(OP_INTEROP.prepare, () => buildPlan(resolveDstProvider(params.dstChain), params), {
+  const prepare = (
+    dstChain: ChainRef,
+    params: InteropParams,
+  ): Promise<InteropPlan<TransactionRequest>> =>
+    wrap(OP_INTEROP.prepare, () => buildPlan(resolveChainRef(dstChain), params), {
       message: 'Internal error while preparing an interop plan.',
       ctx: { where: 'interop.prepare' },
     });
 
-  const tryPrepare = (params: InteropParams) =>
-    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () => prepare(params));
+  const tryPrepare = (dstChain: ChainRef, params: InteropParams) =>
+    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () =>
+      prepare(dstChain, params),
+    );
 
   // create → execute the source-chain step(s)
   // waits for each tx receipt to confirm (status != 0)
-  const create = (params: InteropParams): Promise<InteropHandle<TransactionRequest>> =>
+  const create = (
+    dstChain: ChainRef,
+    params: InteropParams,
+  ): Promise<InteropHandle<TransactionRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
         // Build plan and reuse the context
-        const { plan, ctx } = await buildPlanWithCtx(resolveDstProvider(params.dstChain), params);
+        const { plan, ctx } = await buildPlanWithCtx(resolveChainRef(dstChain), params);
         const signer = ctx.client.signerFor(ctx.client.l2);
         const srcProvider = ctx.client.l2;
 
@@ -260,7 +294,6 @@ export function createInteropResource(
         const last = Object.values(stepHashes).pop();
         return {
           kind: 'interop',
-          dstChain: params.dstChain,
           stepHashes,
           plan,
           l2SrcTxHash: last ?? ('0x' as Hex),
@@ -272,65 +305,56 @@ export function createInteropResource(
       },
     );
 
-  const tryCreate = (params: InteropParams) =>
-    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () => create(params));
+  const tryCreate = (dstChain: ChainRef, params: InteropParams) =>
+    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () =>
+      create(dstChain, params),
+    );
 
   // status → non-blocking lifecycle inspection
-  const status = (h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus> => {
-    const { dstProvider, waitable } = resolveWaitableInput(h);
-    return wrap(OP_INTEROP.status, () => svc.status(dstProvider, waitable, opts), {
+  const status = (
+    dstChain: ChainRef,
+    h: InteropWaitable,
+    opts?: LogsQueryOptions,
+  ): Promise<InteropStatus> =>
+    wrap(OP_INTEROP.status, () => svc.status(resolveChainRef(dstChain), h, opts), {
       message: 'Internal error while checking interop status.',
       ctx: { where: 'interop.status' },
     });
-  };
 
   // wait → block until source finalization + destination root availability
   const wait = (
+    dstChain: ChainRef,
     h: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
-  ): Promise<InteropFinalizationInfo> => {
-    const { dstProvider, waitable } = resolveWaitableInput(h);
-    return wrap(
-      OP_INTEROP.wait,
-      async () => {
-        const info = await svc.wait(dstProvider, waitable, opts);
-        return { ...info, dstChain: h.dstChain };
-      },
-      {
-        message: 'Internal error while waiting for interop finalization.',
-        ctx: { where: 'interop.wait' },
-      },
-    );
-  };
+  ): Promise<InteropFinalizationInfo> =>
+    wrap(OP_INTEROP.wait, () => svc.wait(resolveChainRef(dstChain), getGwProvider(), h, opts), {
+      message: 'Internal error while waiting for interop finalization.',
+      ctx: { where: 'interop.wait' },
+    });
 
-  const tryWait = (h: InteropWaitable, opts?: { pollMs?: number; timeoutMs?: number }) =>
-    toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(h, opts));
+  const tryWait = (
+    dstChain: ChainRef,
+    h: InteropWaitable,
+    opts?: { pollMs?: number; timeoutMs?: number },
+  ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(dstChain, h, opts));
 
   // finalize → executeBundle on destination chain,
   // waits until that destination tx is mined,
   // returns finalization metadata for UI / explorers.
   const finalize = (
+    dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
   ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {
+        const dstProvider = resolveChainRef(dstChain);
         if (isInteropFinalizationInfoBase(h)) {
-          if (h.dstChain == null) {
-            throw createError('STATE', {
-              resource: 'interop',
-              operation: OP_INTEROP.finalize,
-              message: 'Missing dstChain in interop finalization info.',
-              context: { input: h },
-            });
-          }
-          const dstProvider = resolveDstProvider(h.dstChain);
           return svc.finalize(dstProvider, h, opts);
         }
 
-        const { dstProvider, waitable } = resolveWaitableInput(h);
-        const info = await svc.wait(dstProvider, waitable);
+        const info = await svc.wait(dstProvider, getGwProvider(), h);
         return svc.finalize(dstProvider, info, opts);
       },
       {
@@ -339,8 +363,12 @@ export function createInteropResource(
       },
     );
 
-  const tryFinalize = (h: InteropWaitable | InteropFinalizationInfo, opts?: LogsQueryOptions) =>
-    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(h, opts));
+  const tryFinalize = (
+    dstChain: ChainRef,
+    h: InteropWaitable | InteropFinalizationInfo,
+    opts?: LogsQueryOptions,
+  ) =>
+    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(dstChain, h, opts));
 
   return {
     quote,

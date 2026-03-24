@@ -1,49 +1,11 @@
 import { describe, it, expect } from 'bun:test';
-import type {
-  InteropExpectedRoot,
-  InteropFinalizationInfo,
-  InteropMessageProof,
-} from '../flows/interop';
-import {
-  isInteropExpectedRoot,
-  isInteropFinalizationInfo,
-  isInteropMessageProof,
-} from '../flows/interop';
+import type { InteropFinalizationInfo, InteropMessageProof } from '../flows/interop';
+import { isInteropFinalizationInfo, isInteropMessageProof } from '../flows/interop';
 import type { Hex } from '../primitives';
 
 const hash66a = ('0x' + 'a'.repeat(64)) as Hex;
 const hash66b = ('0x' + 'b'.repeat(64)) as Hex;
 const address = '0x1111111111111111111111111111111111111111' as const;
-
-describe('types/flows/interop.isInteropExpectedRoot', () => {
-  it('returns true for valid expected root shape', () => {
-    const value: InteropExpectedRoot = {
-      rootChainId: 1n,
-      batchNumber: 2n,
-      expectedRoot: hash66a,
-    };
-
-    expect(isInteropExpectedRoot(value)).toBe(true);
-  });
-
-  it('returns false for invalid or missing fields', () => {
-    expect(isInteropExpectedRoot(null)).toBe(false);
-    expect(
-      isInteropExpectedRoot({
-        rootChainId: 1,
-        batchNumber: 2n,
-        expectedRoot: hash66a,
-      }),
-    ).toBe(false);
-    expect(
-      isInteropExpectedRoot({
-        rootChainId: 1n,
-        batchNumber: 2n,
-        expectedRoot: 'not-hex',
-      }),
-    ).toBe(false);
-  });
-});
 
 describe('types/flows/interop.isInteropMessageProof', () => {
   it('returns true for valid proof shape', () => {

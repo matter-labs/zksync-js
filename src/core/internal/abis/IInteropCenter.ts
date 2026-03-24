@@ -465,6 +465,11 @@ const IInteropCenterABI = [
             internalType: 'uint256',
           },
           {
+            name: 'destinationBaseTokenAssetId',
+            type: 'bytes32',
+            internalType: 'bytes32',
+          },
+          {
             name: 'interopBundleSalt',
             type: 'bytes32',
             internalType: 'bytes32',
