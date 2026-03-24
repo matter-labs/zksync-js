@@ -29,7 +29,7 @@ async function main() {
     signer: new Wallet(PRIVATE_KEY),
   });
   const sdk = createEthersSdk(client, {
-    interop: { gwChain: GW_RPC, dstChain: l2Destination },
+    interop: { gwChain: GW_RPC },
   });
 
   console.log('Sender address:', me);
@@ -83,21 +83,21 @@ async function main() {
   };
 
   // QUOTE: Build and return the summary.
-  const quote = await sdk.interop.quote(params);
+  const quote = await sdk.interop.quote(l2Destination, params);
   console.log('INTEROP QUOTE:', quote);
 
   // PREPARE: Build plan without executing.
-  const prepared = await sdk.interop.prepare(params);
+  const prepared = await sdk.interop.prepare(l2Destination, params);
   console.log('PREPARE:', prepared);
 
   // CREATE: Execute the source-chain step(s), wait for each tx receipt to confirm (status != 0).
-  const created = await sdk.interop.create(params);
+  const created = await sdk.interop.create(l2Destination, params);
   console.log('CREATE:', created);
 
   // WAIT: Waits until the L2->L1 proof is available on source and the interop root
   // becomes available on the destination chain. It returns the proof payload needed
   // to execute the bundle later.
-  const finalizationInfo = await sdk.interop.wait(created, {
+  const finalizationInfo = await sdk.interop.wait(l2Destination, created, {
     pollMs: 5_000,
     timeoutMs: 30 * 60 * 1_000,
   });
@@ -106,7 +106,7 @@ async function main() {
   // FINALIZE: Execute on destination and block until done.
   // finalize() calls executeBundle(...) on the destination chain,
   // waits for the tx to mine, then returns { bundleHash, dstExecTxHash }.
-  const finalizationResult = await sdk.interop.finalize(finalizationInfo);
+  const finalizationResult = await sdk.interop.finalize(l2Destination, finalizationInfo);
   console.log('FINALIZE RESULT:', finalizationResult);
 
   const assetId = (await sdk.tokens.assetIdOfL2(tokenSrcAddress)) as Hex;
