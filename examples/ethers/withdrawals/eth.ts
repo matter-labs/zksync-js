@@ -51,32 +51,32 @@ async function main() {
     // },
   } as const;
 
-  const quote = await sdk.withdrawals.quote(params);
-  console.log('QUOTE:', quote);
+  // const quote = await sdk.withdrawals.quote(params);
+  // console.log('QUOTE:', quote);
 
-  const prepared = await sdk.withdrawals.prepare(params);
-  console.log('PREPARE:', prepared);
+  // const prepared = await sdk.withdrawals.prepare(params);
+  // console.log('PREPARE:', prepared);
 
-  const created = await sdk.withdrawals.create(params);
-  console.log('CREATE:', created);
+  // const created = await sdk.withdrawals.create(params);
+  // console.log('CREATE:', created);
 
-  console.log('STATUS (initial):', await sdk.withdrawals.status(created));
+  console.log('STATUS (initial):', await sdk.withdrawals.status("0xf98d43b3dfa3240ad871a9f56fbf7859597abf92847b1c1860ff3658aa3f244c"));
 
-  // Wait for L2 inclusion
-  const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
-  console.log('L2 included:', l2Receipt?.hash);
+  // // Wait for L2 inclusion
+  // const l2Receipt = await sdk.withdrawals.wait(created, { for: 'l2' });
+  // console.log('L2 included:', l2Receipt?.hash);
 
-  // Wait until ready to finalize
-  await sdk.withdrawals.wait(created, { for: 'ready' });
-  console.log('STATUS (ready):', await sdk.withdrawals.status(created));
+  // // Wait until ready to finalize
+  // await sdk.withdrawals.wait(created, { for: 'ready' });
+  // console.log('STATUS (ready):', await sdk.withdrawals.status(created));
 
-  // Try to finalize (no-op if already finalized by someone else)
-  const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
-  console.log('TRY FINALIZE:', fin);
+  // // Try to finalize (no-op if already finalized by someone else)
+  // const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
+  // console.log('TRY FINALIZE:', fin);
 
-  // Wait for finalization
-  const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
-  console.log('Finalized. L1 receipt:', l1Receipt?.hash);
+  // // Wait for finalization
+  // const l1Receipt = await sdk.withdrawals.wait(created.l2TxHash, { for: 'finalized' });
+  // console.log('Finalized. L1 receipt:', l1Receipt?.hash);
 }
 
 main().catch((e) => {

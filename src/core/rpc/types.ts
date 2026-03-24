@@ -32,6 +32,56 @@ export type ProofNormalized = {
   root: Hex;
 };
 
+export type StateCommitmentPreimage = {
+  nextFreeSlot: bigint;
+  blockNumber: bigint;
+  last256BlockHashesBlake: Hex;
+  lastBlockTimestamp: bigint;
+};
+
+export type L1VerificationData = {
+  batchNumber: bigint;
+  numberOfLayer1Txs: bigint;
+  priorityOperationsHash: Hex;
+  dependencyRootsRollingHash: Hex;
+  l2ToL1LogsRootHash: Hex;
+  commitment: Hex;
+};
+
+export type LeafWithProof = {
+  index: bigint;
+  leafKey: Hex;
+  value: Hex;
+  nextIndex: bigint;
+  siblings: Hex[];
+};
+
+export type ExistingStorageProof = {
+  type: 'existing';
+  index: bigint;
+  value: Hex;
+  nextIndex: bigint;
+  siblings: Hex[];
+};
+
+export type NonExistingStorageProof = {
+  type: 'nonExisting';
+  leftNeighbor: LeafWithProof;
+  rightNeighbor: LeafWithProof;
+};
+
+export type StorageProofEntry = {
+  key: Hex;
+  proof: ExistingStorageProof | NonExistingStorageProof;
+};
+
+export type BatchStorageProof = {
+  address: Address;
+  stateCommitmentPreimage: StateCommitmentPreimage;
+  storageProofs: StorageProofEntry[];
+  l1VerificationData: L1VerificationData;
+};
+
 export type GenesisContractDeployment = {
   address: Address;
   bytecode: Hex;
