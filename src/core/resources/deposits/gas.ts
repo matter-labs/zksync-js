@@ -170,7 +170,6 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
 
     const memoryOverhead = memoryBytes * TX_MEMORY_OVERHEAD_GAS;
     const pubdataOverhead = pubdataBytes * pp;
-
     let total = BigInt(execEstimate) + TX_OVERHEAD_GAS + memoryOverhead + pubdataOverhead;
     total = (total * (100n + BUFFER)) / 100n;
 
