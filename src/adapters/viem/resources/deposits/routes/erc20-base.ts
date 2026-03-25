@@ -16,8 +16,11 @@ import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { derivePriorityTxGasBreakdown } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxEncodedLength } from './priority';
 
 const { wrapAs } = createErrorHandlers('deposits');
+const EMPTY_BYTES = '0x' as const;
 
 // ERC20 deposit where the deposit token IS the target chain's base token (base ≠ ETH).
 export function routeErc20Base(): DepositRouteStrategy {
@@ -49,19 +52,26 @@ export function routeErc20Base(): DepositRouteStrategy {
 
     async build(p, ctx) {
       const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const l2Contract = p.to ?? ctx.sender;
+      const l2Value = p.amount;
+      const l2Calldata = EMPTY_BYTES;
 
-      // TX request created for gas estimation only
-      const l2TxModel: TransactionRequest = {
-        to: p.to ?? ctx.sender,
-        from: ctx.sender,
-        data: '0x',
-        value: 0n,
-      };
+      const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
+        encodedLength: getPriorityTxEncodedLength({
+          sender: ctx.sender,
+          l2Contract,
+          l2Value,
+          l2Calldata,
+          gasPerPubdata: ctx.gasPerPubdata,
+        }),
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
+
+      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
       const l2Gas = await quoteL2Gas({
         ctx,
         route: 'erc20-base',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
+        overrideGasLimit: quotedL2GasLimit,
       });
 
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
@@ -125,8 +135,8 @@ export function routeErc20Base(): DepositRouteStrategy {
         l2GasLimit: l2Gas.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
-        l2Contract: p.to ?? ctx.sender,
-        l2Value: p.amount,
+        l2Contract,
+        l2Value,
       });
 
       let bridgeTx: ViemPlanWriteRequest;

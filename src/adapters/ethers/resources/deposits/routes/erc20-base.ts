@@ -11,9 +11,12 @@ import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { derivePriorityTxGasBreakdown } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxEncodedLength } from './priority';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
+const EMPTY_BYTES = '0x' as const;
 
 //  ERC20 deposit where the deposit token IS the target chain's base token (base ≠ ETH).
 export function routeErc20Base(): DepositRouteStrategy {
@@ -52,19 +55,26 @@ export function routeErc20Base(): DepositRouteStrategy {
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
       const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
+      const l2Contract = p.to ?? ctx.sender;
+      const l2Value = p.amount;
+      const l2Calldata = EMPTY_BYTES as `0x${string}`;
 
-      // TX request created for gas estimation only
-      const l2TxModel: TransactionRequest = {
-        to: p.to ?? ctx.sender,
-        from: ctx.sender,
-        data: '0x',
-        value: 0n,
-      };
+      const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
+        encodedLength: getPriorityTxEncodedLength({
+          sender: ctx.sender,
+          l2Contract,
+          l2Value,
+          l2Calldata,
+          gasPerPubdata: ctx.gasPerPubdata,
+        }),
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
+
+      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
       const l2GasParams = await quoteL2Gas({
         ctx,
         route: 'erc20-base',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
+        overrideGasLimit: quotedL2GasLimit,
       });
 
       // TODO: proper error handling
@@ -113,8 +123,8 @@ export function routeErc20Base(): DepositRouteStrategy {
         l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
-        l2Contract: p.to ?? ctx.sender,
-        l2Value: p.amount,
+        l2Contract,
+        l2Value,
       });
 
       const bridgehub = await ctx.contracts.bridgehub();
