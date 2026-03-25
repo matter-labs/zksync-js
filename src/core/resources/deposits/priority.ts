@@ -73,8 +73,6 @@ export function derivePriorityTxGasBreakdown(input: {
   };
 }
 
-export const deriveDirectPriorityTxGasBreakdown = derivePriorityTxGasBreakdown;
-
 /**
  * Exact L2 estimateGas can overestimate substantially for first-bridge token deployment paths.
  * Keep the protocol floor as the lower bound, but cap pathological estimates to a multiple of the floor.

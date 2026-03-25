@@ -8,8 +8,7 @@ import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import { derivePriorityTxGasBreakdown } from '../../../../../core/resources/deposits/priority.ts';
-import { getPriorityTxEncodedLength } from './priority';
+import { getPriorityTxGasBreakdown } from './priority';
 
 const EMPTY_BYTES = '0x';
 
@@ -23,14 +22,11 @@ export function routeEthDirect(): DepositRouteStrategy {
       const l2Value = p.amount;
       const l2Calldata = EMPTY_BYTES as `0x${string}`;
 
-      const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
-        encodedLength: getPriorityTxEncodedLength({
-          sender: ctx.sender,
-          l2Contract,
-          l2Value,
-          l2Calldata,
-          gasPerPubdata: ctx.gasPerPubdata,
-        }),
+      const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+        sender: ctx.sender,
+        l2Contract,
+        l2Value,
+        l2Calldata,
         gasPerPubdata: ctx.gasPerPubdata,
       });
 

@@ -75,7 +75,7 @@ export const TOPIC_CANONICAL_SUCCESS: Hex =
 
 // -----------------------------------------------------------------------------
 // L1->L2 ZKsync Fee Model
-// Legacy heuristic constants used by non-eth-base deposit routes.
+// Legacy heuristic constants used when a deposit route falls back to estimateGas-based quoting.
 // -----------------------------------------------------------------------------
 
 // Buffer percentage added to gas estimates
@@ -105,7 +105,6 @@ export const L1_TX_DELTA_FACTORY_DEPS_L2_GAS = 2_473n;
 export const L1_TX_DELTA_FACTORY_DEPS_PUBDATA = 64n;
 export const TX_SLOT_OVERHEAD_L2_GAS = 10_000n;
 export const PRIORITY_TX_MAX_GAS_LIMIT = 72_000_000n;
-export const REQUIRED_L2_GAS_PRICE_PER_PUBDATA = 800n;
 
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.

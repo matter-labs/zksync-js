@@ -5,11 +5,13 @@ import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { encodeSecondBridgeErc20Args } from '../../utils';
 import { IERC20ABI, IL2AssetRouterABI, L2NativeTokenVaultABI } from '../../../../../core/abi.ts';
+import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import type { Hex } from '../../../../../core/types/primitives';
 
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
@@ -18,11 +20,8 @@ import {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   SAFE_L1_BRIDGE_GAS,
 } from '../../../../../core/constants.ts';
-import {
-  clampPriorityBodyGasEstimate,
-  derivePriorityTxGasBreakdown,
-} from '../../../../../core/resources/deposits/priority.ts';
-import { getPriorityTxEncodedLength } from './priority';
+import { clampPriorityBodyGasEstimate } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxGasBreakdown } from './priority';
 import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
 
 // error handling
@@ -30,15 +29,10 @@ const { wrapAs } = createErrorHandlers('deposits');
 const ESTIMATE_GAS_BALANCE_OVERRIDE = '0x3635c9adc5dea00000';
 const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
-
-function encodeNativeTokenVaultAssetId(l1ChainId: bigint, token: `0x${string}`): `0x${string}` {
-  return keccak256(
-    AbiCoder.defaultAbiCoder().encode(
-      ['uint256', 'address', 'address'],
-      [l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, token],
-    ),
-  ) as `0x${string}`;
-}
+const ntvCodec = createNTVCodec({
+  encode: (types, values) => AbiCoder.defaultAbiCoder().encode(types, values) as Hex,
+  keccak256: (data) => keccak256(data) as Hex,
+});
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
@@ -84,14 +78,11 @@ async function getPriorityGasModel(input: {
             bridgeMintCalldata,
           );
         })()) as `0x${string}`);
-    const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
-      encodedLength: getPriorityTxEncodedLength({
-        sender: input.ctx.l1AssetRouter,
-        l2Contract: L2_ASSET_ROUTER_ADDRESS,
-        l2Value: 0n,
-        l2Calldata,
-        gasPerPubdata: input.ctx.gasPerPubdata,
-      }),
+    const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+      sender: input.ctx.l1AssetRouter,
+      l2Contract: L2_ASSET_ROUTER_ADDRESS,
+      l2Value: 0n,
+      l2Calldata,
       gasPerPubdata: input.ctx.gasPerPubdata,
     });
 
@@ -102,7 +93,7 @@ async function getPriorityGasModel(input: {
     if (isFirstBridge || input.ctx.resolvedToken.l2.toLowerCase() === ZERO_L2_TOKEN_ADDRESS) {
       try {
         const undeployedAssetId = isFirstBridge
-          ? encodeNativeTokenVaultAssetId(BigInt(l1ChainId), input.token)
+          ? ntvCodec.encodeAssetId(BigInt(l1ChainId), L2_NATIVE_TOKEN_VAULT_ADDRESS, input.token)
           : input.ctx.resolvedToken.assetId;
         const estimator = ethersToGasEstimator(input.ctx.client.l2);
         const rawBodyGas = await estimator.estimateGas(

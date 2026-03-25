@@ -110,12 +110,10 @@ export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | und
     const est = await estimator.estimateGas(tx);
     const buffered = (BigInt(est) * (100n + BUFFER)) / 100n;
     return makeGasQuote({ gasLimit: buffered, maxFeePerGas, maxPriorityFeePerGas });
-  } catch (err) {
+  } catch {
     if (fallbackGasLimit != null) {
       return makeGasQuote({ gasLimit: fallbackGasLimit, maxFeePerGas, maxPriorityFeePerGas });
     }
-    // TODO: use proper logger
-    console.warn('L1 gas estimation failed', err);
     return undefined;
   }
 }
@@ -157,9 +155,8 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     });
   }
 
-  // TODO: This rquires protocol overview because its largely based on
-  // the likely outdated docs from https://github.com/matter-labs/era-contracts/blob/main/docs/l2_system_contracts/zksync_fee_model.md
-  // Revisit when we have up-to-date info.
+  // Legacy heuristic path for routes that still rely on raw L2 estimateGas rather than a
+  // route-specific priority-tx model.
   try {
     const execEstimate = await estimator.estimateGas(tx, stateOverrides);
 
@@ -178,9 +175,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
       maxFeePerGas,
       gasPerPubdata: pp,
     });
-  } catch (err) {
-    // TODO: use proper logger
-    console.warn('L2 gas estimation failed', err);
+  } catch {
     return makeGasQuote({
       gasLimit: l2GasLimit ?? 0n,
       maxFeePerGas,

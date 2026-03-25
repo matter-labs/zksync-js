@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'bun:test';
+import { Interface } from 'ethers';
+import { encodeAbiParameters } from 'viem';
 
 import { createDepositsResource } from '../../ethers/resources/deposits/index.ts';
 import { routeEthNonBase as routeEthers } from '../../ethers/resources/deposits/routes/eth-nonbase.ts';
 import { routeEthNonBase as routeViem } from '../../viem/resources/deposits/routes/eth-nonbase.ts';
+import { getPriorityTxGasBreakdown } from '../../viem/resources/deposits/routes/priority.ts';
 import {
   ADAPTER_TEST_ADDRESSES,
   createEthersHarness,
@@ -16,11 +19,20 @@ import {
   decodeTwoBridgeOuter,
   parseApproveTx,
 } from '../decode-helpers.ts';
-import { ETH_ADDRESS, FORMAL_ETH_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
+import { IL1AssetRouterABI, L1NativeTokenVaultABI } from '../../../core/abi.ts';
+import {
+  ETH_ADDRESS,
+  FORMAL_ETH_ADDRESS,
+  L2_ASSET_ROUTER_ADDRESS,
+  SAFE_L1_BRIDGE_GAS,
+} from '../../../core/constants.ts';
+import { clampPriorityBodyGasEstimate } from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import type { TokensResource, ResolvedToken } from '../../../core/types/flows/token.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
 
+const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
+const L1NativeTokenVault = new Interface(L1NativeTokenVaultABI as any);
 const ROUTES = {
   ethers: routeEthers(),
   viem: routeViem(),
@@ -35,6 +47,9 @@ const ETH_ASSET_ID = `0x${'22'.repeat(32)}` as Hex;
 const WETH_L1 = '0x5555555555555555555555555555555555555555' as Address;
 const WETH_L2 = '0x6666666666666666666666666666666666666666' as Address;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+const ETH_METADATA = '0x123456' as Hex;
+const DEPLOYED_ETH_L2_CALLDATA = '0x12345678' as Hex;
+const RAW_UNDEPLOYED_ETH_BODY_GAS = 1_200_000n;
 
 function makeResolvedEthToken(l2Token: Address = ETH_ADDRESS): ResolvedToken {
   return {
@@ -61,6 +76,48 @@ function makeEthNonBaseTokens(baseToken: Address, l2Token: Address = ETH_ADDRESS
       return baseToken;
     },
   } as TokensResource;
+}
+
+function seedEthNonBasePriorityModel(
+  harness: ReturnType<typeof createEthersHarness>,
+  ctx: ReturnType<typeof makeDepositContext>,
+  amount: bigint,
+  receiver: Address,
+  l2Calldata: Hex = DEPLOYED_ETH_L2_CALLDATA,
+) {
+  const bridgeMintCalldata = encodeAbiParameters(
+    [
+      { type: 'address', name: 'originalCaller' },
+      { type: 'address', name: 'receiver' },
+      { type: 'address', name: 'originToken' },
+      { type: 'uint256', name: 'amount' },
+      { type: 'bytes', name: 'erc20Metadata' },
+    ],
+    [ctx.sender, receiver, ETH_ADDRESS, amount, ETH_METADATA],
+  );
+
+  harness.registry.set(
+    ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
+    L1NativeTokenVault,
+    'getERC20Getters',
+    ETH_METADATA,
+    [ETH_ADDRESS, 1n],
+  );
+  harness.registry.set(
+    ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+    IL1AssetRouter,
+    'getDepositCalldata',
+    l2Calldata,
+    [ctx.sender, ETH_ASSET_ID, bridgeMintCalldata],
+  );
+
+  return getPriorityTxGasBreakdown({
+    sender: ctx.l1AssetRouter,
+    l2Contract: L2_ASSET_ROUTER_ADDRESS,
+    l2Value: 0n,
+    l2Calldata,
+    gasPerPubdata: ctx.gasPerPubdata,
+  });
 }
 
 describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
@@ -133,19 +190,27 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     }
   });
 
-  it('uses a safe L2 gas limit when the bridged ETH token is not yet deployed on L2', async () => {
+  it('uses the derived priority-floor gas limit when the bridged ETH token is already deployed on L2', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness, {
       l2GasLimit: undefined,
       baseTokenL1: BASE_TOKEN,
       baseIsEth: false,
-      resolvedToken: makeResolvedEthToken(ZERO_ADDRESS),
+      resolvedToken: makeResolvedEthToken(),
     });
     const amount = 3_000n;
     const baseCost = 9_000n;
     const mintValue = baseCost + ctx.operatorTip;
+    const priorityFloorBreakdown = seedEthNonBasePriorityModel(
+      harness as any,
+      ctx as any,
+      amount,
+      RECEIVER,
+    );
 
-    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: SAFE_NONBASE_L2_GAS_LIMIT });
+    setBridgehubBaseCost(harness, ctx, baseCost, {
+      l2GasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+    });
     setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue);
 
     const res = await ROUTES[kind].build(
@@ -160,14 +225,65 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     const bridge = res.steps.at(-1)!;
     if (kind === 'ethers') {
       const info = decodeTwoBridgeOuter((bridge.tx as any).data);
-      expect(BigInt(info.l2GasLimit)).toBe(SAFE_NONBASE_L2_GAS_LIMIT);
+      expect(BigInt(info.l2GasLimit)).toBe(priorityFloorBreakdown.derivedL2GasLimit);
     } else {
       const req = ((bridge.tx as any).args?.[0] ?? {}) as any;
-      expect(BigInt(req.l2GasLimit ?? 0n)).toBe(SAFE_NONBASE_L2_GAS_LIMIT);
+      expect(BigInt(req.l2GasLimit ?? 0n)).toBe(priorityFloorBreakdown.derivedL2GasLimit);
     }
   });
 
-  it('uses a safe L2 gas limit when estimation fails without an override', async () => {
+  it('uses the exact undeployed ETH estimate, clamped by the priority floor', async () => {
+    const harness = factory();
+    const ctx = makeDepositContext(harness, {
+      l2GasLimit: undefined,
+      baseTokenL1: BASE_TOKEN,
+      baseIsEth: false,
+      resolvedToken: makeResolvedEthToken(ZERO_ADDRESS),
+    });
+    const amount = 3_500n;
+    const baseCost = 10_000n;
+    const mintValue = baseCost + ctx.operatorTip;
+    const priorityFloorBreakdown = seedEthNonBasePriorityModel(
+      harness as any,
+      ctx as any,
+      amount,
+      RECEIVER,
+    );
+    const expectedL2GasLimit =
+      clampPriorityBodyGasEstimate({
+        rawBodyGas: RAW_UNDEPLOYED_ETH_BODY_GAS,
+        minBodyGas: priorityFloorBreakdown.minBodyGas,
+      }) + priorityFloorBreakdown.overhead;
+
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: expectedL2GasLimit });
+    setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue);
+
+    if (kind === 'ethers') {
+      harness.setL2EstimateGas(RAW_UNDEPLOYED_ETH_BODY_GAS);
+    } else {
+      harness.setEstimateGas(RAW_UNDEPLOYED_ETH_BODY_GAS, 'l2');
+    }
+
+    const res = await ROUTES[kind].build(
+      { token: FORMAL_ETH_ADDRESS, amount, to: RECEIVER } as any,
+      ctx as any,
+    );
+
+    expect(res.approvals.length).toBe(0);
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(res.fees?.mintValue).toBe(mintValue);
+
+    const bridge = res.steps.at(-1)!;
+    if (kind === 'ethers') {
+      const info = decodeTwoBridgeOuter((bridge.tx as any).data);
+      expect(BigInt(info.l2GasLimit)).toBe(expectedL2GasLimit);
+    } else {
+      const req = ((bridge.tx as any).args?.[0] ?? {}) as any;
+      expect(BigInt(req.l2GasLimit ?? 0n)).toBe(expectedL2GasLimit);
+    }
+  });
+
+  it('uses a safe L2 gas limit when exact priority modeling and estimateGas fallback fail', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness, {
       l2GasLimit: undefined,

@@ -1,7 +1,13 @@
 // src/adapters/viem/resources/deposits/routes/erc20-nonbase.ts
 
 import type { Abi, TransactionRequest } from 'viem';
-import { encodeAbiParameters, encodeFunctionData, keccak256, zeroAddress } from 'viem';
+import {
+  type AbiParameter,
+  encodeAbiParameters,
+  encodeFunctionData,
+  keccak256,
+  zeroAddress,
+} from 'viem';
 
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
@@ -24,30 +30,23 @@ import {
 
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
+import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import {
-  clampPriorityBodyGasEstimate,
-  derivePriorityTxGasBreakdown,
-} from '../../../../../core/resources/deposits/priority.ts';
-import { getPriorityTxEncodedLength } from './priority';
+import { clampPriorityBodyGasEstimate } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxGasBreakdown } from './priority';
 import { viemToGasEstimator, toCoreTx } from '../../../../viem/estimator';
 
 const { wrapAs } = createErrorHandlers('deposits');
 const ESTIMATE_GAS_BALANCE_OVERRIDE = '0x3635c9adc5dea00000';
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
-
-function encodeNativeTokenVaultAssetId(l1ChainId: bigint, token: `0x${string}`): `0x${string}` {
-  return keccak256(
+const ntvCodec = createNTVCodec({
+  encode: (types, values) =>
     encodeAbiParameters(
-      [
-        { type: 'uint256', name: 'chainId' },
-        { type: 'address', name: 'assetDeploymentTracker' },
-        { type: 'address', name: 'token' },
-      ],
-      [l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, token],
+      types.map((type, index) => ({ type, name: `arg${index}` })) as AbiParameter[],
+      values,
     ),
-  );
-}
+  keccak256,
+});
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
@@ -100,14 +99,11 @@ async function getPriorityGasModel(input: {
             bridgeMintCalldata,
           ]);
         })();
-    const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
-      encodedLength: getPriorityTxEncodedLength({
-        sender: input.ctx.l1AssetRouter,
-        l2Contract: L2_ASSET_ROUTER_ADDRESS,
-        l2Value: 0n,
-        l2Calldata,
-        gasPerPubdata: input.ctx.gasPerPubdata,
-      }),
+    const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+      sender: input.ctx.l1AssetRouter,
+      l2Contract: L2_ASSET_ROUTER_ADDRESS,
+      l2Value: 0n,
+      l2Calldata,
       gasPerPubdata: input.ctx.gasPerPubdata,
     });
 
@@ -118,7 +114,7 @@ async function getPriorityGasModel(input: {
     if (isFirstBridge || input.ctx.resolvedToken.l2.toLowerCase() === zeroAddress) {
       try {
         const undeployedAssetId = isFirstBridge
-          ? encodeNativeTokenVaultAssetId(l1ChainId, input.token)
+          ? ntvCodec.encodeAssetId(l1ChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, input.token)
           : input.ctx.resolvedToken.assetId;
         const estimator = viemToGasEstimator(input.ctx.client.l2);
         const rawBodyGas = await estimator.estimateGas(

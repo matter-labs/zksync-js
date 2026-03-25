@@ -1,5 +1,9 @@
 import { AbiCoder } from 'ethers';
 
+import {
+  derivePriorityTxGasBreakdown,
+  type PriorityTxGasBreakdown,
+} from '../../../../../core/resources/deposits/priority.ts';
 import type { Address } from '../../../../../core/types/primitives';
 
 const EMPTY_BYTES = '0x';
@@ -11,16 +15,18 @@ function hexByteLength(hex: string): bigint {
   return BigInt(Math.max(hex.length - 2, 0) / 2);
 }
 
-// Mailbox validates priority requests using `abi.encode(L2CanonicalTransaction)`,
-// so route quoting mirrors that exact tuple shape instead of approximating a fixed size.
-export function getPriorityTxEncodedLength(input: {
+export type CanonicalPriorityTxInput = {
   sender: Address;
   l2Contract: Address;
   l2Value: bigint;
   l2Calldata: `0x${string}`;
   gasPerPubdata: bigint;
   factoryDepsHashes?: bigint[];
-}): bigint {
+};
+
+// Mailbox validates priority requests using `abi.encode(L2CanonicalTransaction)`,
+// so route quoting mirrors that exact tuple shape instead of approximating a fixed size.
+export function getPriorityTxEncodedLength(input: CanonicalPriorityTxInput): bigint {
   const encoded = AbiCoder.defaultAbiCoder().encode(
     [L2_CANONICAL_TRANSACTION_TUPLE],
     [
@@ -46,4 +52,12 @@ export function getPriorityTxEncodedLength(input: {
   );
 
   return hexByteLength(encoded);
+}
+
+export function getPriorityTxGasBreakdown(input: CanonicalPriorityTxInput): PriorityTxGasBreakdown {
+  return derivePriorityTxGasBreakdown({
+    encodedLength: getPriorityTxEncodedLength(input),
+    gasPerPubdata: input.gasPerPubdata,
+    factoryDepsCount: BigInt(input.factoryDepsHashes?.length ?? 0),
+  });
 }

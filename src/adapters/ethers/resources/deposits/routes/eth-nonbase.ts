@@ -1,9 +1,10 @@
 // src/adapters/ethers/resources/deposits/routes/eth-nonbase.ts
 
 import type { DepositRouteStrategy } from './types';
-import { Contract } from 'ethers';
+import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { IERC20ABI } from '../../../../../core/abi.ts';
+import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi.ts';
+import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import { encodeSecondBridgeEthArgs } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -11,11 +12,111 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
-import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import {
+  ETH_ADDRESS,
+  L2_ASSET_ROUTER_ADDRESS,
+  L2_NATIVE_TOKEN_VAULT_ADDRESS,
+  SAFE_L1_BRIDGE_GAS,
+} from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { clampPriorityBodyGasEstimate } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxGasBreakdown } from './priority';
+import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
+import type { Hex } from '../../../../../core/types/primitives';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
+const ESTIMATE_GAS_BALANCE_OVERRIDE = '0x3635c9adc5dea00000';
+const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
+const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const ntvCodec = createNTVCodec({
+  encode: (types, values) => AbiCoder.defaultAbiCoder().encode(types, values) as Hex,
+  keccak256: (data) => keccak256(data) as Hex,
+});
+
+type PriorityGasModel = {
+  priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
+};
+
+async function getPriorityGasModel(input: {
+  ctx: Parameters<DepositRouteStrategy['build']>[1];
+  amount: bigint;
+  receiver: `0x${string}`;
+}): Promise<PriorityGasModel> {
+  try {
+    const l1AssetRouter = await input.ctx.contracts.l1AssetRouter();
+    const l1NativeTokenVault = await input.ctx.contracts.l1NativeTokenVault();
+    const originChainId =
+      input.ctx.resolvedToken.originChainId !== 0n
+        ? input.ctx.resolvedToken.originChainId
+        : BigInt((await input.ctx.client.l1.getNetwork()).chainId);
+    const resolvedAssetId =
+      input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID
+        ? ntvCodec.encodeAssetId(originChainId, L2_NATIVE_TOKEN_VAULT_ADDRESS, ETH_ADDRESS)
+        : input.ctx.resolvedToken.assetId;
+    const erc20Metadata = (await l1NativeTokenVault.getERC20Getters(
+      ETH_ADDRESS,
+      originChainId,
+    )) as `0x${string}`;
+    const bridgeMintCalldata = AbiCoder.defaultAbiCoder().encode(
+      ['address', 'address', 'address', 'uint256', 'bytes'],
+      [input.ctx.sender, input.receiver, ETH_ADDRESS, input.amount, erc20Metadata],
+    ) as `0x${string}`;
+    const l2Calldata = (await l1AssetRouter.getDepositCalldata(
+      input.ctx.sender,
+      resolvedAssetId,
+      bridgeMintCalldata,
+    )) as `0x${string}`;
+    const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+      sender: input.ctx.l1AssetRouter,
+      l2Contract: L2_ASSET_ROUTER_ADDRESS,
+      l2Value: 0n,
+      l2Calldata,
+      gasPerPubdata: input.ctx.gasPerPubdata,
+    });
+
+    const model: PriorityGasModel = {
+      priorityFloorGasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+    };
+
+    if (input.ctx.resolvedToken.l2.toLowerCase() === ZERO_L2_TOKEN_ADDRESS) {
+      try {
+        const estimator = ethersToGasEstimator(input.ctx.client.l2);
+        const rawBodyGas = await estimator.estimateGas(
+          toCoreTx({
+            from: L2_ASSET_ROUTER_ADDRESS,
+            to: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+            data: new Interface(L2NativeTokenVaultABI).encodeFunctionData('bridgeMint', [
+              originChainId,
+              resolvedAssetId,
+              bridgeMintCalldata,
+            ]) as `0x${string}`,
+            value: 0n,
+          } as TransactionRequest),
+          {
+            [L2_ASSET_ROUTER_ADDRESS]: {
+              balance: ESTIMATE_GAS_BALANCE_OVERRIDE,
+            },
+          },
+        );
+
+        const bodyGas = clampPriorityBodyGasEstimate({
+          rawBodyGas,
+          minBodyGas: priorityFloorBreakdown.minBodyGas,
+        });
+
+        model.undeployedGasLimit = bodyGas + priorityFloorBreakdown.overhead;
+      } catch {
+        // Fall back to the safe non-base gas limit if the exact deployment probe fails.
+      }
+    }
+
+    return model;
+  } catch {
+    return {};
+  }
+}
 
 // ETH deposit to a chain whose base token is NOT ETH.
 export function routeEthNonBase(): DepositRouteStrategy {
@@ -71,10 +172,16 @@ export function routeEthNonBase(): DepositRouteStrategy {
     async build(p, ctx) {
       const l1Signer = ctx.client.getL1Signer();
       const baseToken = ctx.baseTokenL1;
+      const receiver = p.to ?? ctx.sender;
+      const priorityGasModel = await getPriorityGasModel({
+        ctx,
+        amount: p.amount,
+        receiver,
+      });
 
       // TX request created for gas estimation only
       const l2TxModel: TransactionRequest = {
-        to: p.to ?? ctx.sender,
+        to: receiver,
         from: ctx.sender,
         data: '0x',
         value: 0n,
@@ -82,6 +189,8 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const l2GasParams = await determineEthNonBaseL2Gas({
         ctx,
         modelTx: l2TxModel,
+        priorityFloorGasLimit: priorityGasModel.priorityFloorGasLimit,
+        undeployedGasLimit: priorityGasModel.undeployedGasLimit,
       });
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
@@ -122,12 +231,12 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.ethNonBase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeEthArgs(p.amount, p.to ?? ctx.sender)),
+        () => Promise.resolve(encodeSecondBridgeEthArgs(p.amount, receiver)),
         {
           ctx: {
             where: 'encodeSecondBridgeEthArgs',
             amount: p.amount.toString(),
-            to: p.to ?? ctx.sender,
+            to: receiver,
           },
         },
       );

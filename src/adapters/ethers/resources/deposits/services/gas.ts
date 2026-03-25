@@ -153,10 +153,7 @@ async function determineNonBaseL2Gas(
       return fallbackQuote();
     }
     return gas;
-  } catch (err) {
-    // TODO: add proper logging
-    console.warn('Failed to determine non-base deposit L2 gas; defaulting to safe gas limit.', err);
-
+  } catch {
     return fallbackQuote();
   }
 }
@@ -178,6 +175,8 @@ export async function determineErc20L2Gas(input: {
 export async function determineEthNonBaseL2Gas(input: {
   ctx: BuildCtx;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
     ctx: input.ctx,
@@ -185,5 +184,7 @@ export async function determineEthNonBaseL2Gas(input: {
     l1Token: input.ctx.resolvedToken?.l1 ?? FORMAL_ETH_ADDRESS,
     knownL2Token: input.ctx.resolvedToken?.l2,
     modelTx: input.modelTx,
+    priorityFloorGasLimit: input.priorityFloorGasLimit,
+    undeployedGasLimit: input.undeployedGasLimit,
   });
 }

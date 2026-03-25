@@ -11,8 +11,7 @@ import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import { derivePriorityTxGasBreakdown } from '../../../../../core/resources/deposits/priority.ts';
-import { getPriorityTxEncodedLength } from './priority';
+import { getPriorityTxGasBreakdown } from './priority';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
@@ -59,14 +58,11 @@ export function routeErc20Base(): DepositRouteStrategy {
       const l2Value = p.amount;
       const l2Calldata = EMPTY_BYTES as `0x${string}`;
 
-      const priorityFloorBreakdown = derivePriorityTxGasBreakdown({
-        encodedLength: getPriorityTxEncodedLength({
-          sender: ctx.sender,
-          l2Contract,
-          l2Value,
-          l2Calldata,
-          gasPerPubdata: ctx.gasPerPubdata,
-        }),
+      const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+        sender: ctx.sender,
+        l2Contract,
+        l2Value,
+        l2Calldata,
         gasPerPubdata: ctx.gasPerPubdata,
       });
 
