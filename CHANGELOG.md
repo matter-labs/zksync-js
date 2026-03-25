@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.14](https://github.com/matter-labs/zksync-js/compare/v0.0.13...v0.0.14) (2026-03-25)
+
+
+### Features
+
+* update for latest v31 with GW ([#77](https://github.com/matter-labs/zksync-js/issues/77)) ([3a04df4](https://github.com/matter-labs/zksync-js/commit/3a04df47bd01a4b11c8128af790cd2334b7b270d))
+
+
+### Bug Fixes
+
+* addresses the over estimation of deposits for each route ([#81](https://github.com/matter-labs/zksync-js/issues/81)) ([06de805](https://github.com/matter-labs/zksync-js/commit/06de805847b073cd78f97657f45ac48d6e8cad03))
+
 ## [0.0.13](https://github.com/matter-labs/zksync-js/compare/v0.0.12...v0.0.13) (2026-03-18)
 
 
