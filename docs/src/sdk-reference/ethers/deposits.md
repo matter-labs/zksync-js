@@ -50,6 +50,8 @@ You **don’t** pass a route manually; it’s derived from network metadata and 
 
 Estimate the operation (route, approvals, gas hints). Does **not** send transactions.
 
+Route-specific fee modeling details are documented in [Gas & Fees](../../overview/gas.md).
+
 **Parameters**
 
 | Name              | Type                                          | Required | Description                                                        |

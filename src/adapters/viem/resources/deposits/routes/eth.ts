@@ -4,6 +4,7 @@ import type { TransactionRequest } from 'viem';
 import { encodeFunctionData } from 'viem';
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep } from '../../../../../core/types/flows/base';
+import type { Hex } from '../../../../../core/types/primitives';
 import { buildDirectRequestStruct } from '../../utils';
 import { IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -12,32 +13,37 @@ import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { getPriorityTxGasBreakdown } from './priority';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
+const EMPTY_BYTES = '0x' as Hex;
 
 // ETH deposit route via Bridgehub.requestL2TransactionDirect
 // ETH is base token
 export function routeEthDirect(): DepositRouteStrategy {
   return {
     async build(p, ctx) {
-      const l2TxModel: TransactionRequest = {
-        to: p.to ?? ctx.sender,
-        from: ctx.sender,
-        data: '0x',
-        value: p.amount,
-      };
+      const l2Contract = p.to ?? ctx.sender;
+      const l2Value = p.amount;
+      const l2Calldata = EMPTY_BYTES;
+
+      const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+        sender: ctx.sender,
+        l2Contract,
+        l2Value,
+        l2Calldata,
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
+
+      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
+
       const l2GasParams = await quoteL2Gas({
         ctx,
         route: 'eth-base',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
-        stateOverrides: {
-          [ctx.sender]: {
-            balance: '0xffffffffffffffffffff',
-          },
-        },
+        overrideGasLimit: quotedL2GasLimit,
       });
+
       // TODO: proper error handling
       if (!l2GasParams) {
         throw new Error('Failed to estimate L2 gas for deposit.');
@@ -46,8 +52,6 @@ export function routeEthDirect(): DepositRouteStrategy {
       // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
 
-      const l2Contract = p.to ?? ctx.sender;
-      const l2Value = p.amount;
       const mintValue = baseCost + ctx.operatorTip + l2Value;
 
       const req = buildDirectRequestStruct({

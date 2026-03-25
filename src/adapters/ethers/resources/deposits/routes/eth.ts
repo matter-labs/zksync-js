@@ -1,13 +1,16 @@
 // src/adapters/ethers/resources/deposits/routes/eth.ts
 
-import type { DepositRouteStrategy } from './types';
 import type { TransactionRequest } from 'ethers';
+import type { DepositRouteStrategy } from './types';
 import { buildDirectRequestStruct } from '../../utils';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { getPriorityTxGasBreakdown } from './priority';
+
+const EMPTY_BYTES = '0x';
 
 // ETH deposit route via Bridgehub.requestL2TransactionDirect
 // ETH is base token
@@ -15,27 +18,24 @@ export function routeEthDirect(): DepositRouteStrategy {
   return {
     async build(p, ctx) {
       const bh = await ctx.contracts.bridgehub();
+      const l2Contract = p.to ?? ctx.sender;
+      const l2Value = p.amount;
+      const l2Calldata = EMPTY_BYTES as `0x${string}`;
 
-      // TX request created for gas estimation only
-      const l2TxModel: TransactionRequest = {
-        to: p.to ?? ctx.sender,
-        from: ctx.sender,
-        data: '0x',
-        value: 0n,
-      };
-      // We use state override to ensure sufficient balance for gas estimation
-      // Recall we are doing an L1-L2 deposit, so its likely the L2 balance is zero
-      // and estimation may fail.
+      const priorityFloorBreakdown = getPriorityTxGasBreakdown({
+        sender: ctx.sender,
+        l2Contract,
+        l2Value,
+        l2Calldata,
+        gasPerPubdata: ctx.gasPerPubdata,
+      });
+
+      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
+
       const l2GasParams = await quoteL2Gas({
         ctx,
         route: 'eth-base',
-        l2TxForModeling: l2TxModel,
-        overrideGasLimit: ctx.l2GasLimit,
-        stateOverrides: {
-          [ctx.sender]: {
-            balance: '0xffffffffffffffffffff',
-          },
-        },
+        overrideGasLimit: quotedL2GasLimit,
       });
 
       // TODO: proper error handling
@@ -45,7 +45,7 @@ export function routeEthDirect(): DepositRouteStrategy {
 
       // L2TransactionBase cost
       const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
-      const mintValue = baseCost + ctx.operatorTip + p.amount;
+      const mintValue = baseCost + ctx.operatorTip + l2Value;
 
       const req = buildDirectRequestStruct({
         chainId: ctx.chainIdL2,
@@ -53,8 +53,8 @@ export function routeEthDirect(): DepositRouteStrategy {
         l2GasLimit: l2GasParams.gasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
-        l2Contract: p.to ?? ctx.sender,
-        l2Value: p.amount,
+        l2Contract,
+        l2Value,
       });
 
       const data = bh.interface.encodeFunctionData('requestL2TransactionDirect', [req]);

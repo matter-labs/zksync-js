@@ -3,6 +3,7 @@
 - [Overview](overview/index.md)
   - [Mental model](overview/mental-model.md)
   - [Adapters (viem & ethers)](overview/adapters.md)
+  - [Gas & Fees](overview/gas.md)
   - [Status vs Wait](overview/status-vs-wait.md)
   - [Finalization](overview/finalization.md)
 
