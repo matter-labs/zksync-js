@@ -42,6 +42,7 @@ type DetermineNonBaseL2GasInput = {
   knownL2Token?: Address;
   modelTx?: TransactionRequest;
   priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 };
 
 const DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT = 3_000_000n;
@@ -118,6 +119,13 @@ async function determineNonBaseL2Gas(
     // the l2TokenAddress is the zero address. This essentially means
     // the token has not been registered on L2 yet.
     if (l2TokenAddress === ZERO_L2_TOKEN_ADDRESS) {
+      if (input.undeployedGasLimit != null) {
+        return quoteL2Gas({
+          ctx,
+          route,
+          overrideGasLimit: input.undeployedGasLimit,
+        });
+      }
       return fallbackQuote();
     }
 
@@ -158,6 +166,7 @@ export async function determineErc20L2Gas(input: {
   l1Token: Address;
   modelTx?: TransactionRequest;
   priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
     ...input,

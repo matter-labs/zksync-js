@@ -1,3 +1,4 @@
+import type { Address } from '../../types/primitives';
 import {
   L1_TX_DELTA_FACTORY_DEPS_L2_GAS,
   L1_TX_DELTA_FACTORY_DEPS_PUBDATA,
@@ -21,9 +22,15 @@ export type PriorityTxGasBreakdown = {
 };
 
 const PRIORITY_TX_ENCODING_STEP_BYTES = 544n;
+const L1_TO_L2_ALIAS_OFFSET = 0x1111000000000000000000000000000000001111n;
+const DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER = 6n;
 
 const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
+
+export function applyL1ToL2Alias(address: Address): Address {
+  return `0x${((BigInt(address) + L1_TO_L2_ALIAS_OFFSET) & ((1n << 160n) - 1n)).toString(16).padStart(40, '0')}`;
+}
 
 /**
  * Mirrors the priority-tx floor math used by ZKsync's TransactionValidator.
@@ -67,3 +74,21 @@ export function derivePriorityTxGasBreakdown(input: {
 }
 
 export const deriveDirectPriorityTxGasBreakdown = derivePriorityTxGasBreakdown;
+
+/**
+ * Exact L2 estimateGas can overestimate substantially for first-bridge token deployment paths.
+ * Keep the protocol floor as the lower bound, but cap pathological estimates to a multiple of the floor.
+ */
+export function clampPriorityBodyGasEstimate(input: {
+  rawBodyGas: bigint;
+  minBodyGas: bigint;
+  multiplier?: bigint;
+}): bigint {
+  const multiplier = input.multiplier ?? DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER;
+  const cappedBodyGas =
+    input.rawBodyGas > input.minBodyGas * multiplier
+      ? input.minBodyGas * multiplier
+      : input.rawBodyGas;
+
+  return maxBigInt(cappedBodyGas, input.minBodyGas);
+}
