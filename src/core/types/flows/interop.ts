@@ -57,8 +57,6 @@ export interface InteropQuote {
   bridgedTokenTotal: bigint;
   /** Interop fee details */
   interopFee: InteropFee;
-  /** Optional: Estimated L1 fee */
-  l1Fee?: bigint;
   /** Optional: Estimated L2 fee */
   l2Fee?: bigint;
 }

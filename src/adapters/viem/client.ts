@@ -8,7 +8,7 @@ import type {
   GetContractReturnType,
   Abi,
 } from 'viem';
-import { getContract, createWalletClient } from 'viem';
+import { getContract, createWalletClient, custom } from 'viem';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromViem } from './rpc';
 
@@ -17,6 +17,10 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L2_BASE_TOKEN_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_MESSAGE_VERIFICATION_ADDRESS,
+  FORMAL_ETH_ADDRESS,
 } from '../../core/constants';
 import { OP_CLIENT } from '../../core/types';
 
@@ -31,8 +35,22 @@ import {
   IBaseTokenABI,
 } from '../../core/abi';
 import { createErrorHandlers } from './errors/error-ops';
+import { createError } from '../../core/errors/factory';
 
 const { wrap } = createErrorHandlers('client');
+
+// Single function ABI for protocol version check
+const ChainTypeManagerABI = [
+  {
+    type: 'function',
+    name: 'getSemverProtocolVersion',
+    inputs: [],
+    outputs: [{ type: 'uint32' }, { type: 'uint32' }, { type: 'uint32' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+export type ProtocolVersion = readonly [number, number, number];
 
 export interface ResolvedAddresses {
   bridgehub: Address;
@@ -42,6 +60,9 @@ export interface ResolvedAddresses {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
+  interopHandler: Address;
+  l2MessageVerification: Address;
 }
 
 export interface ViemClient {
@@ -66,6 +87,8 @@ export interface ViemClient {
   }>;
   refresh(): void;
   baseToken(chainId: bigint): Promise<Address>;
+  /** Read semver protocol version for the CTM of a chain. */
+  getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion>;
 }
 
 type InitArgs = {
@@ -139,6 +162,10 @@ export function createViemClient(args: InitArgs): ViemClient {
         const l2NativeTokenVault =
           args.overrides?.l2NativeTokenVault ?? L2_NATIVE_TOKEN_VAULT_ADDRESS;
         const l2BaseTokenSystem = args.overrides?.l2BaseTokenSystem ?? L2_BASE_TOKEN_ADDRESS;
+        const interopCenter = args.overrides?.interopCenter ?? L2_INTEROP_CENTER_ADDRESS;
+        const interopHandler = args.overrides?.interopHandler ?? L2_INTEROP_HANDLER_ADDRESS;
+        const l2MessageVerification =
+          args.overrides?.l2MessageVerification ?? L2_MESSAGE_VERIFICATION_ADDRESS;
 
         addrCache = {
           bridgehub,
@@ -148,6 +175,9 @@ export function createViemClient(args: InitArgs): ViemClient {
           l2AssetRouter,
           l2NativeTokenVault,
           l2BaseTokenSystem,
+          interopCenter,
+          interopHandler,
+          l2MessageVerification,
         };
         return addrCache;
       },
@@ -202,13 +232,62 @@ export function createViemClient(args: InitArgs): ViemClient {
     return token;
   }
 
+  async function getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion> {
+    const targetChainId = chainId ?? BigInt(await l2.getChainId());
+    const { bridgehub } = await ensureAddresses();
+
+    const chainTypeManager = await wrap(
+      OP_CLIENT.getSemverProtocolVersion,
+      () =>
+        l1.readContract({
+          address: bridgehub,
+          abi: IBridgehubABI as Abi,
+          functionName: 'chainTypeManager',
+          args: [targetChainId],
+        }) as Promise<Address>,
+      {
+        ctx: { where: 'bridgehub.chainTypeManager', bridgehub, chainId: targetChainId },
+        message: 'Failed to read chain type manager.',
+      },
+    );
+
+    if (chainTypeManager.toLowerCase() === FORMAL_ETH_ADDRESS.toLowerCase()) {
+      throw createError('STATE', {
+        resource: 'client',
+        operation: OP_CLIENT.getSemverProtocolVersion,
+        message: 'No registered chain type manager for the chain.',
+        context: { chainId },
+      });
+    }
+
+    const semver = await wrap(
+      OP_CLIENT.getSemverProtocolVersion,
+      () =>
+        l1.readContract({
+          address: chainTypeManager,
+          abi: ChainTypeManagerABI as Abi,
+          functionName: 'getSemverProtocolVersion',
+        }) as Promise<[number, number, number]>,
+      {
+        ctx: {
+          where: 'chainTypeManager.getSemverProtocolVersion',
+          chainId: targetChainId,
+          chainTypeManager,
+        },
+        message: 'Failed to read semver protocol version.',
+      },
+    );
+
+    return semver;
+  }
+
   let lazyL2: WalletClient<Transport, Chain, Account> | undefined;
   function getL2Wallet(): WalletClient<Transport, Chain, Account> {
     if (l2Wallet) return l2Wallet;
     if (!lazyL2) {
       lazyL2 = createWalletClient({
         account: l1Wallet.account,
-        transport: l2.transport as unknown as Transport,
+        transport: custom(l2.transport),
       });
     }
     return lazyL2;
@@ -226,6 +305,7 @@ export function createViemClient(args: InitArgs): ViemClient {
     contracts,
     refresh,
     baseToken,
+    getProtocolVersion,
     getL2Wallet,
   };
 }
