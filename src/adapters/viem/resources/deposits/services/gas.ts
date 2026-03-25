@@ -36,6 +36,7 @@ type DetermineNonBaseL2GasInput = {
   l1Token: Address;
   knownL2Token?: Address;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
 };
 
 const DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT = 3_000_000n;
@@ -114,6 +115,14 @@ async function determineNonBaseL2Gas(
       return fallbackQuote();
     }
 
+    if (input.priorityFloorGasLimit != null) {
+      return quoteL2Gas({
+        ctx,
+        route,
+        overrideGasLimit: input.priorityFloorGasLimit,
+      });
+    }
+
     const modelTx: TransactionRequest = {
       to: input.modelTx?.to ?? ctx.sender,
       from: input.modelTx?.from ?? ctx.sender,
@@ -144,6 +153,7 @@ export async function determineErc20L2Gas(input: {
   ctx: BuildCtx;
   l1Token: Address;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
     ...input,

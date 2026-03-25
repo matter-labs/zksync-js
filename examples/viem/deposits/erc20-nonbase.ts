@@ -45,7 +45,7 @@ async function main() {
   // Example: sepolia test token (TEST)
   // https://sepolia.etherscan.io/token/0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873
   const TOKEN = (process.env.DEPOSIT_TOKEN ??
-    '0x42E331a2613Fd3a5bc18b47AE3F01e1537fD8873') as Address;
+    '0xf9F9e79aB20B7f2a54727165647071F82C90b0f0') as Address;
 
   const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
   const l1 = createPublicClient({ transport: http(L1_RPC) });

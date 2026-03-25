@@ -1,4 +1,6 @@
 import {
+  L1_TX_DELTA_FACTORY_DEPS_L2_GAS,
+  L1_TX_DELTA_FACTORY_DEPS_PUBDATA,
   L1_TX_DELTA_544_ENCODING_BYTES,
   L1_TX_INTRINSIC_L2_GAS,
   L1_TX_INTRINSIC_PUBDATA,
@@ -8,7 +10,7 @@ import {
   TX_SLOT_OVERHEAD_L2_GAS,
 } from '../../constants';
 
-export type DirectPriorityTxGasBreakdown = {
+export type PriorityTxGasBreakdown = {
   encodedLength: bigint;
   minBodyGas: bigint;
   overhead: bigint;
@@ -24,26 +26,31 @@ const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 
 /**
- * Mirrors the direct priority-tx floor math used by ZKsync's TransactionValidator.
+ * Mirrors the priority-tx floor math used by ZKsync's TransactionValidator.
  * Source of truth for constants:
  * https://github.com/matter-labs/era-contracts/blob/main/l1-contracts/contracts/common/Config.sol
  * Mailbox encodes the priority transaction with `abi.encode(transaction)` before validation, and
  * TransactionValidator uses that encoded length to derive the minimum body gas and overhead.
  */
-export function deriveDirectPriorityTxGasBreakdown(input: {
+export function derivePriorityTxGasBreakdown(input: {
   encodedLength: bigint;
   gasPerPubdata: bigint;
-}): DirectPriorityTxGasBreakdown {
+  factoryDepsCount?: bigint;
+}): PriorityTxGasBreakdown {
+  const factoryDepsCount = input.factoryDepsCount ?? 0n;
+
   const minBodyGas =
     maxBigInt(
       L1_TX_INTRINSIC_L2_GAS +
         ceilDiv(
           input.encodedLength * L1_TX_DELTA_544_ENCODING_BYTES,
           PRIORITY_TX_ENCODING_STEP_BYTES,
-        ),
+        ) +
+        factoryDepsCount * L1_TX_DELTA_FACTORY_DEPS_L2_GAS,
       L1_TX_MIN_L2_GAS_BASE,
     ) +
-    L1_TX_INTRINSIC_PUBDATA * input.gasPerPubdata;
+    L1_TX_INTRINSIC_PUBDATA * input.gasPerPubdata +
+    factoryDepsCount * L1_TX_DELTA_FACTORY_DEPS_PUBDATA * input.gasPerPubdata;
 
   const overhead = maxBigInt(TX_SLOT_OVERHEAD_L2_GAS, TX_MEMORY_OVERHEAD_GAS * input.encodedLength);
   const derivedBodyGas = minBodyGas;
@@ -58,3 +65,5 @@ export function deriveDirectPriorityTxGasBreakdown(input: {
     priorityTxMaxGasLimitExceeded: derivedBodyGas > PRIORITY_TX_MAX_GAS_LIMIT,
   };
 }
+
+export const deriveDirectPriorityTxGasBreakdown = derivePriorityTxGasBreakdown;

@@ -1,7 +1,7 @@
 // src/adapters/viem/resources/deposits/routes/erc20-nonbase.ts
 
 import type { Abi, TransactionRequest } from 'viem';
-import { encodeFunctionData } from 'viem';
+import { encodeAbiParameters, encodeFunctionData } from 'viem';
 
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
@@ -11,13 +11,62 @@ import { encodeSecondBridgeErc20Args } from '../../utils';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
-import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import { L2_ASSET_ROUTER_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { derivePriorityTxGasBreakdown } from '../../../../../core/resources/deposits/priority.ts';
+import { getPriorityTxEncodedLength } from './priority';
 
 const { wrapAs } = createErrorHandlers('deposits');
+
+async function getPriorityFloorGasLimit(input: {
+  ctx: Parameters<DepositRouteStrategy['build']>[1];
+  token: `0x${string}`;
+  amount: bigint;
+  receiver: `0x${string}`;
+}): Promise<bigint | undefined> {
+  try {
+    const l1NativeTokenVault = await input.ctx.contracts.l1NativeTokenVault();
+    const l1AssetRouter = await input.ctx.contracts.l1AssetRouter();
+    const erc20Metadata = await l1NativeTokenVault.read.getERC20Getters([
+      input.token,
+      input.ctx.resolvedToken.originChainId,
+    ]);
+    // The asset router derives the real L2 call via `getDepositCalldata(...)`. The token address in
+    // bridgeMintData is static-width, so using the L1 token here preserves the exact ABI length while
+    // the dynamic metadata bytes still come from NativeTokenVault.
+    const bridgeMintCalldata = encodeAbiParameters(
+      [
+        { type: 'address', name: 'originalCaller' },
+        { type: 'address', name: 'receiver' },
+        { type: 'address', name: 'originToken' },
+        { type: 'uint256', name: 'amount' },
+        { type: 'bytes', name: 'erc20Metadata' },
+      ],
+      [input.ctx.sender, input.receiver, input.token, input.amount, erc20Metadata],
+    );
+    const l2Calldata = await l1AssetRouter.read.getDepositCalldata([
+      input.ctx.sender,
+      input.ctx.resolvedToken.assetId,
+      bridgeMintCalldata,
+    ]);
+
+    return derivePriorityTxGasBreakdown({
+      encodedLength: getPriorityTxEncodedLength({
+        sender: input.ctx.l1AssetRouter,
+        l2Contract: L2_ASSET_ROUTER_ADDRESS,
+        l2Value: 0n,
+        l2Calldata,
+        gasPerPubdata: input.ctx.gasPerPubdata,
+      }),
+      gasPerPubdata: input.ctx.gasPerPubdata,
+    }).derivedL2GasLimit;
+  } catch {
+    return undefined;
+  }
+}
 
 export function routeErc20NonBase(): DepositRouteStrategy {
   return {
@@ -50,6 +99,26 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const baseToken = ctx.baseTokenL1 ?? (await ctx.client.baseToken(ctx.chainIdL2));
       const baseIsEth = ctx.baseIsEth ?? isETH(baseToken);
       const assetRouter = ctx.l1AssetRouter;
+      const receiver = p.to ?? ctx.sender;
+      const secondBridgeCalldata = await wrapAs(
+        'INTERNAL',
+        OP_DEPOSITS.nonbase.encodeCalldata,
+        () => Promise.resolve(encodeSecondBridgeErc20Args(p.token, p.amount, receiver)),
+        {
+          ctx: {
+            where: 'encodeSecondBridgeErc20Args',
+            token: p.token,
+            amount: p.amount.toString(),
+          },
+          message: 'Failed to encode bridging calldata.',
+        },
+      );
+      const priorityFloorGasLimit = await getPriorityFloorGasLimit({
+        ctx,
+        token: p.token,
+        amount: p.amount,
+        receiver,
+      });
 
       // Estimating L2 gas for deposits
       // Unique for ERC-20 non-base deposits
@@ -59,8 +128,9 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const l2Gas = await determineErc20L2Gas({
         ctx,
         l1Token: p.token,
+        priorityFloorGasLimit,
         modelTx: {
-          to: p.to ?? ctx.sender,
+          to: receiver,
           from: ctx.sender,
           data: '0x',
           value: 0n,
@@ -164,20 +234,6 @@ export function routeErc20NonBase(): DepositRouteStrategy {
           });
         }
       }
-
-      const secondBridgeCalldata = await wrapAs(
-        'INTERNAL',
-        OP_DEPOSITS.nonbase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeErc20Args(p.token, p.amount, p.to ?? ctx.sender)),
-        {
-          ctx: {
-            where: 'encodeSecondBridgeErc20Args',
-            token: p.token,
-            amount: p.amount.toString(),
-          },
-          message: 'Failed to encode bridging calldata.',
-        },
-      );
 
       const requestStruct = {
         chainId: ctx.chainIdL2,
