@@ -1,38 +1,26 @@
 // src/adapters/ethers/resources/deposits/routes/erc20-nonbase.ts
 
 import type { DepositRouteStrategy } from './types';
-import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
+import { AbiCoder, Contract, Interface } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { encodeSecondBridgeErc20Args } from '../../utils';
-import { IERC20ABI, IL2AssetRouterABI, L2NativeTokenVaultABI } from '../../../../../core/abi.ts';
-import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
+import { IERC20ABI, IL2AssetRouterABI } from '../../../../../core/abi.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import type { Hex } from '../../../../../core/types/primitives';
 
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
-import {
-  L2_ASSET_ROUTER_ADDRESS,
-  L2_NATIVE_TOKEN_VAULT_ADDRESS,
-  SAFE_L1_BRIDGE_GAS,
-} from '../../../../../core/constants.ts';
-import { clampPriorityBodyGasEstimate } from '../../../../../core/resources/deposits/priority.ts';
+import { L2_ASSET_ROUTER_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import { derivePriorityBodyGasEstimateCap } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
-import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
-const ESTIMATE_GAS_BALANCE_OVERRIDE = '0x3635c9adc5dea00000';
 const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
-const ntvCodec = createNTVCodec({
-  encode: (types, values) => AbiCoder.defaultAbiCoder().encode(types, values) as Hex,
-  keccak256: (data) => keccak256(data) as Hex,
-});
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
@@ -91,38 +79,13 @@ async function getPriorityGasModel(input: {
     };
 
     if (isFirstBridge || input.ctx.resolvedToken.l2.toLowerCase() === ZERO_L2_TOKEN_ADDRESS) {
-      try {
-        const undeployedAssetId = isFirstBridge
-          ? ntvCodec.encodeAssetId(BigInt(l1ChainId), L2_NATIVE_TOKEN_VAULT_ADDRESS, input.token)
-          : input.ctx.resolvedToken.assetId;
-        const estimator = ethersToGasEstimator(input.ctx.client.l2);
-        const rawBodyGas = await estimator.estimateGas(
-          toCoreTx({
-            from: L2_ASSET_ROUTER_ADDRESS,
-            to: L2_NATIVE_TOKEN_VAULT_ADDRESS,
-            data: new Interface(L2NativeTokenVaultABI).encodeFunctionData('bridgeMint', [
-              BigInt(l1ChainId),
-              undeployedAssetId,
-              bridgeMintCalldata,
-            ]) as `0x${string}`,
-            value: 0n,
-          } as TransactionRequest),
-          {
-            [L2_ASSET_ROUTER_ADDRESS]: {
-              balance: ESTIMATE_GAS_BALANCE_OVERRIDE,
-            },
-          },
-        );
-
-        const bodyGas = clampPriorityBodyGasEstimate({
-          rawBodyGas,
+      // Fresh deployments on some environments can return unstable low estimates for the exact
+      // bridgeMint path. Use the calibrated protocol-floor multiple directly so the quote is
+      // stable while still scaling with calldata size and gasPerPubdata.
+      model.undeployedGasLimit =
+        derivePriorityBodyGasEstimateCap({
           minBodyGas: priorityFloorBreakdown.minBodyGas,
-        });
-
-        model.undeployedGasLimit = bodyGas + priorityFloorBreakdown.overhead;
-      } catch {
-        // The undeployed-token route retains the safe fallback if this exact probe fails.
-      }
+        }) + priorityFloorBreakdown.overhead;
     }
 
     return model;

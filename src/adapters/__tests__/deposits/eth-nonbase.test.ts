@@ -26,7 +26,7 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   SAFE_L1_BRIDGE_GAS,
 } from '../../../core/constants.ts';
-import { clampPriorityBodyGasEstimate } from '../../../core/resources/deposits/priority.ts';
+import { derivePriorityBodyGasEstimateCap } from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import type { TokensResource, ResolvedToken } from '../../../core/types/flows/token.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
@@ -49,7 +49,6 @@ const WETH_L2 = '0x6666666666666666666666666666666666666666' as Address;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const ETH_METADATA = '0x123456' as Hex;
 const DEPLOYED_ETH_L2_CALLDATA = '0x12345678' as Hex;
-const RAW_UNDEPLOYED_ETH_BODY_GAS = 1_200_000n;
 
 function makeResolvedEthToken(l2Token: Address = ETH_ADDRESS): ResolvedToken {
   return {
@@ -232,7 +231,7 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     }
   });
 
-  it('uses the exact undeployed ETH estimate, clamped by the priority floor', async () => {
+  it('uses the calibrated undeployed ETH deployment cap derived from the priority floor', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness, {
       l2GasLimit: undefined,
@@ -250,19 +249,12 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       RECEIVER,
     );
     const expectedL2GasLimit =
-      clampPriorityBodyGasEstimate({
-        rawBodyGas: RAW_UNDEPLOYED_ETH_BODY_GAS,
+      derivePriorityBodyGasEstimateCap({
         minBodyGas: priorityFloorBreakdown.minBodyGas,
       }) + priorityFloorBreakdown.overhead;
 
     setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: expectedL2GasLimit });
     setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue);
-
-    if (kind === 'ethers') {
-      harness.setL2EstimateGas(RAW_UNDEPLOYED_ETH_BODY_GAS);
-    } else {
-      harness.setEstimateGas(RAW_UNDEPLOYED_ETH_BODY_GAS, 'l2');
-    }
 
     const res = await ROUTES[kind].build(
       { token: FORMAL_ETH_ADDRESS, amount, to: RECEIVER } as any,

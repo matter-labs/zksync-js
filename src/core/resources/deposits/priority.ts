@@ -23,7 +23,7 @@ export type PriorityTxGasBreakdown = {
 
 const PRIORITY_TX_ENCODING_STEP_BYTES = 544n;
 const L1_TO_L2_ALIAS_OFFSET = 0x1111000000000000000000000000000000001111n;
-const DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER = 6n;
+export const DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER = 6n;
 
 const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
@@ -89,4 +89,11 @@ export function clampPriorityBodyGasEstimate(input: {
       : input.rawBodyGas;
 
   return maxBigInt(cappedBodyGas, input.minBodyGas);
+}
+
+export function derivePriorityBodyGasEstimateCap(input: {
+  minBodyGas: bigint;
+  multiplier?: bigint;
+}): bigint {
+  return input.minBodyGas * (input.multiplier ?? DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER);
 }

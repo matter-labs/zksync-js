@@ -1,9 +1,9 @@
 // src/adapters/ethers/resources/deposits/routes/eth-nonbase.ts
 
 import type { DepositRouteStrategy } from './types';
-import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
+import { AbiCoder, Contract, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { IERC20ABI, L2NativeTokenVaultABI } from '../../../../../core/abi.ts';
+import { IERC20ABI } from '../../../../../core/abi.ts';
 import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import { encodeSecondBridgeEthArgs } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
@@ -19,14 +19,12 @@ import {
   SAFE_L1_BRIDGE_GAS,
 } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import { clampPriorityBodyGasEstimate } from '../../../../../core/resources/deposits/priority.ts';
+import { derivePriorityBodyGasEstimateCap } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
-import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
 import type { Hex } from '../../../../../core/types/primitives';
 
 // error handling
 const { wrapAs } = createErrorHandlers('deposits');
-const ESTIMATE_GAS_BALANCE_OVERRIDE = '0x3635c9adc5dea00000';
 const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
 const ntvCodec = createNTVCodec({
@@ -81,35 +79,10 @@ async function getPriorityGasModel(input: {
     };
 
     if (input.ctx.resolvedToken.l2.toLowerCase() === ZERO_L2_TOKEN_ADDRESS) {
-      try {
-        const estimator = ethersToGasEstimator(input.ctx.client.l2);
-        const rawBodyGas = await estimator.estimateGas(
-          toCoreTx({
-            from: L2_ASSET_ROUTER_ADDRESS,
-            to: L2_NATIVE_TOKEN_VAULT_ADDRESS,
-            data: new Interface(L2NativeTokenVaultABI).encodeFunctionData('bridgeMint', [
-              originChainId,
-              resolvedAssetId,
-              bridgeMintCalldata,
-            ]) as `0x${string}`,
-            value: 0n,
-          } as TransactionRequest),
-          {
-            [L2_ASSET_ROUTER_ADDRESS]: {
-              balance: ESTIMATE_GAS_BALANCE_OVERRIDE,
-            },
-          },
-        );
-
-        const bodyGas = clampPriorityBodyGasEstimate({
-          rawBodyGas,
+      model.undeployedGasLimit =
+        derivePriorityBodyGasEstimateCap({
           minBodyGas: priorityFloorBreakdown.minBodyGas,
-        });
-
-        model.undeployedGasLimit = bodyGas + priorityFloorBreakdown.overhead;
-      } catch {
-        // Fall back to the safe non-base gas limit if the exact deployment probe fails.
-      }
+        }) + priorityFloorBreakdown.overhead;
     }
 
     return model;

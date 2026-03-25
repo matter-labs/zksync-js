@@ -66,19 +66,14 @@ This keeps the quote asset-specific because calldata length depends on the actua
 
 #### First Deployment Path
 
-When the bridged asset is not yet deployed on L2, the validator floor is still only a lower bound. The SDK therefore:
-
-1. Builds the exact `NativeTokenVault.bridgeMint(...)` deployment-path call.
-2. Estimates that call on L2 from the aliased asset-router sender.
-3. Clamps pathological estimates to `6x` the validator floor body gas.
-4. Uses:
+For undeployed `erc20-nonbase` and `eth-nonbase` deposits, exact deployment-path estimates can fluctuate across environments and underquote the real L2 execution. The SDK therefore uses a calibrated dynamic cap derived from the validator floor instead of trusting the exact estimate:
 
 ```typescript
-bodyGas = max(minBodyGas, min(rawEstimate, minBodyGas * 6))
+bodyGas = minBodyGas * 6
 l2GasLimit = bodyGas + overhead
 ```
 
-If that exact deployment estimate fails, the SDK falls back to a safe `3_000_000` gas limit for the quote.
+This still scales with the exact calldata length and `gasPerPubdata`, but avoids environment-specific low estimates on first deployment.
 
 ## Base Cost Pricing
 
