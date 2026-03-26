@@ -12,6 +12,7 @@ import type { Address } from '../../types/primitives';
 import type { GasEstimator, CoreTransactionRequest } from '../../adapters/interfaces';
 import type { TxOverrides } from '../../types/fees';
 import type { DepositRoute } from '../../types/flows/deposits';
+import { isEraVmChain } from './chains';
 
 export type AbiEncoder = (abi: unknown, functionName: string, args: unknown[]) => string;
 
@@ -22,6 +23,37 @@ export type GasQuote = {
   gasPerPubdata?: bigint;
   maxCost: bigint; // gasLimit * maxFeePerGas
 };
+
+const CREATE_REESTIMATE_BUFFER = 15n;
+const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
+
+export function applyGasBuffer(gasLimit: bigint, bufferPct: bigint = BUFFER): bigint {
+  return (gasLimit * (100n + bufferPct)) / 100n;
+}
+
+export function resolveCreateDepositL1GasLimit(input: {
+  chainIdL2: bigint;
+  stepKey: string;
+  preparedGasLimit?: bigint;
+  estimatedGasLimit?: bigint;
+}): bigint | undefined {
+  const { chainIdL2, stepKey, preparedGasLimit, estimatedGasLimit } = input;
+  if (estimatedGasLimit == null) {
+    return preparedGasLimit;
+  }
+
+  const isEraVmBridgeStep = isEraVmChain(chainIdL2) && stepKey.startsWith('bridgehub:');
+  const reestimatedGasLimit = applyGasBuffer(
+    estimatedGasLimit,
+    isEraVmBridgeStep ? BUFFER : CREATE_REESTIMATE_BUFFER,
+  );
+
+  if (isEraVmBridgeStep && preparedGasLimit != null) {
+    return maxBigInt(preparedGasLimit, reestimatedGasLimit);
+  }
+
+  return reestimatedGasLimit;
+}
 
 // Helper to create a GasQuote object
 function makeGasQuote(p: {
@@ -108,7 +140,7 @@ export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | und
 
   try {
     const est = await estimator.estimateGas(tx);
-    const buffered = (BigInt(est) * (100n + BUFFER)) / 100n;
+    const buffered = applyGasBuffer(BigInt(est));
     return makeGasQuote({ gasLimit: buffered, maxFeePerGas, maxPriorityFeePerGas });
   } catch {
     if (fallbackGasLimit != null) {
@@ -168,7 +200,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     const memoryOverhead = memoryBytes * TX_MEMORY_OVERHEAD_GAS;
     const pubdataOverhead = pubdataBytes * pp;
     let total = BigInt(execEstimate) + TX_OVERHEAD_GAS + memoryOverhead + pubdataOverhead;
-    total = (total * (100n + BUFFER)) / 100n;
+    total = applyGasBuffer(total);
 
     return makeGasQuote({
       gasLimit: total,
