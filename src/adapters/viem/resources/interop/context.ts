@@ -1,6 +1,6 @@
 // src/adapters/viem/resources/interop/context.ts
 import type { PublicClient } from 'viem';
-import type { ViemClient, ProtocolVersion } from '../../client';
+import type { ViemClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams } from '../../../../core/types/flows/interop';
@@ -8,10 +8,7 @@ import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
-import { createError } from '../../../../core/errors/factory';
-import { OP_INTEROP } from '../../../../core/types/errors';
-
-const MIN_INTEROP_PROTOCOL = 31;
+import { assertProtocolVersion } from '../../../../core/resources/interop/protocol';
 
 async function assertInteropProtocolVersion(
   client: ViemClient,
@@ -22,21 +19,6 @@ async function assertInteropProtocolVersion(
     client.getProtocolVersion(srcChainId),
     client.getProtocolVersion(dstChainId),
   ]);
-
-  const assertProtocolVersion = (chainId: bigint, protocolVersion: ProtocolVersion): void => {
-    if (protocolVersion[1] < MIN_INTEROP_PROTOCOL) {
-      throw createError('VALIDATION', {
-        resource: 'interop',
-        operation: OP_INTEROP.context.protocolVersion,
-        message: `Interop requires protocol version 31.0+. Found: ${protocolVersion[1]}.${protocolVersion[2]} for chain: ${chainId}.`,
-        context: {
-          chainId,
-          requiredMinor: MIN_INTEROP_PROTOCOL,
-          semver: protocolVersion,
-        },
-      });
-    }
-  };
 
   assertProtocolVersion(srcChainId, srcProtocolVersion);
   assertProtocolVersion(dstChainId, dstProtocolVersion);

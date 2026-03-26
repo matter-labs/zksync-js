@@ -1,7 +1,7 @@
 // src/adapters/ethers/client.ts
 import type { AbstractProvider, Signer } from 'ethers';
 import { BrowserProvider, Contract, Interface } from 'ethers';
-import type { Address } from '../../core/types/primitives';
+import type { Address, ProtocolVersion } from '../../core/types/primitives';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromEthers } from './rpc';
 import {
@@ -37,7 +37,6 @@ const ChainTypeManagerABI = [
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
 ] as const;
 
-export type ProtocolVersion = readonly [number, number, number];
 
 export interface ResolvedAddresses {
   bridgehub: Address;

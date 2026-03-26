@@ -12,7 +12,7 @@ import { getContract, createWalletClient, custom } from 'viem';
 import type { ZksRpc } from '../../core/rpc/zks';
 import { zksRpcFromViem } from './rpc';
 
-import type { Address } from '../../core/types/primitives'; // ← use your core Address type
+import type { Address, ProtocolVersion } from '../../core/types/primitives';
 import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
@@ -50,7 +50,6 @@ const ChainTypeManagerABI = [
   },
 ] as const;
 
-export type ProtocolVersion = readonly [number, number, number];
 
 export interface ResolvedAddresses {
   bridgehub: Address;
