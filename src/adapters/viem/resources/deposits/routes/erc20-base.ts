@@ -16,6 +16,7 @@ import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { applyPriorityL2GasLimitBuffer } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
 const { wrapAs } = createErrorHandlers('deposits');
@@ -63,7 +64,12 @@ export function routeErc20Base(): DepositRouteStrategy {
         gasPerPubdata: ctx.gasPerPubdata,
       });
 
-      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
+      const quotedL2GasLimit =
+        ctx.l2GasLimit ??
+        applyPriorityL2GasLimitBuffer({
+          chainIdL2: ctx.chainIdL2,
+          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        });
       const l2Gas = await quoteL2Gas({
         ctx,
         route: 'erc20-base',

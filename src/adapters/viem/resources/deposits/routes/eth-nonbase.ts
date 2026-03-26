@@ -28,7 +28,10 @@ import {
 import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import { derivePriorityBodyGasEstimateCap } from '../../../../../core/resources/deposits/priority.ts';
+import {
+  applyPriorityL2GasLimitBuffer,
+  derivePriorityBodyGasEstimateCap,
+} from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
 const { wrapAs } = createErrorHandlers('deposits');
@@ -91,7 +94,10 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
-      priorityFloorGasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      priorityFloorGasLimit: applyPriorityL2GasLimitBuffer({
+        chainIdL2: input.ctx.chainIdL2,
+        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      }),
     };
 
     if (input.ctx.resolvedToken.l2.toLowerCase() === zeroAddress) {

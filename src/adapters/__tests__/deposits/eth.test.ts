@@ -8,6 +8,7 @@ import {
   setBridgehubBaseCost,
   describeForAdapters,
 } from '../adapter-harness.ts';
+import { applyPriorityL2GasLimitBuffer } from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { parseDirectBridgeTx } from '../decode-helpers.ts';
 
@@ -25,10 +26,7 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     const amount = 1_234n;
     const baseCost = 2_000n;
     setBridgehubBaseCost(harness, ctx, baseCost);
-
-    if (harness.kind === 'ethers') {
-      harness.setEstimateGas(200_000n);
-    }
+    harness.setEstimateGas(200_000n);
 
     const res = await ROUTES[kind].build({ amount } as any, ctx as any);
     expect(res.approvals.length).toBe(0);
@@ -52,9 +50,7 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(info.l2GasLimit).toBe(ctx.l2GasLimit);
     expect(info.refundRecipient).toBe(ADAPTER_TEST_ADDRESSES.signer.toLowerCase());
 
-    if (kind === 'ethers') {
-      expect(info.gasLimit).toBe((200_000n * 120n) / 100n);
-    }
+    expect(info.gasLimit).toBe((200_000n * 120n) / 100n);
   });
 
   it('uses payload.to as the target L2 contract when provided', async () => {
@@ -64,10 +60,7 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     const baseCost = 1_000n;
     const target = '0x2222222222222222222222222222222222222222';
     setBridgehubBaseCost(harness, ctx, baseCost);
-
-    if (harness.kind === 'ethers') {
-      harness.setEstimateGas(120_000n);
-    }
+    harness.setEstimateGas(120_000n);
 
     const res = await ROUTES[kind].build({ amount, to: target } as any, ctx as any);
     const info = parseDirectBridgeTx(kind, res.steps[0].tx);
@@ -76,6 +69,49 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(info.l2Value).toBe(amount);
     const expectedMint = baseCost + ctx.operatorTip + amount;
     expect(res.fees?.mintValue).toBe(expectedMint);
+  });
+
+  it('uses a buffered priority-floor gas limit on EraVM when no explicit l2GasLimit is provided', async () => {
+    const harness = factory();
+    const ctx = makeDepositContext(harness, { l2GasLimit: undefined });
+    const amount = 1_234n;
+    const baseCost = 2_000n;
+    const rawPriorityFloorGasLimit = 253_884n;
+    const expectedL2GasLimit = applyPriorityL2GasLimitBuffer({
+      chainIdL2: ctx.chainIdL2,
+      gasLimit: rawPriorityFloorGasLimit,
+    });
+
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: expectedL2GasLimit });
+    harness.setEstimateGas(200_000n);
+
+    const res = await ROUTES[kind].build({ amount } as any, ctx as any);
+    const info = parseDirectBridgeTx(kind, res.steps[0].tx);
+
+    expect(info.l2GasLimit).toBe(expectedL2GasLimit);
+    expect(res.fees?.l2.gasLimit).toBe(expectedL2GasLimit);
+  });
+
+  it('keeps the raw priority floor on non-EraVM chains when no explicit l2GasLimit is provided', async () => {
+    const harness = factory();
+    const ctx = makeDepositContext(harness, { chainIdL2: 325n, l2GasLimit: undefined });
+    const amount = 1_234n;
+    const baseCost = 2_000n;
+    const priorityFloorGasLimit = 253_884n;
+
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: priorityFloorGasLimit });
+    harness.setEstimateGas(200_000n);
+    if (harness.kind === 'ethers') {
+      (harness.l2 as any).getNetwork = async () => ({ chainId: 325n });
+    } else {
+      (harness.l2 as any).getChainId = async () => 325n;
+    }
+
+    const res = await ROUTES[kind].build({ amount } as any, ctx as any);
+    const info = parseDirectBridgeTx(kind, res.steps[0].tx);
+
+    expect(info.l2GasLimit).toBe(priorityFloorGasLimit);
+    expect(res.fees?.l2.gasLimit).toBe(priorityFloorGasLimit);
   });
 
   if (kind === 'ethers') {

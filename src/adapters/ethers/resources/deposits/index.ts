@@ -31,6 +31,7 @@ import type { ContractsResource } from '../contracts';
 
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory.ts';
+import { resolveCreateDepositL1GasLimit } from '../../../../core/resources/deposits/gas.ts';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops.ts';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
@@ -182,6 +183,8 @@ export function createDepositsResource(
       async () => {
         const plan = await prepare(p);
         const stepHashes: Record<string, Hex> = {};
+        const { chainId } = await client.l2.getNetwork();
+        const chainIdL2 = BigInt(chainId);
 
         const managed = new NonceManager(client.signer);
         const from = await managed.getAddress();
@@ -240,8 +243,15 @@ export function createDepositsResource(
           // that might have been set during the 'prepare' phase (e.g. if approval was missing then).
           if (!p.l1TxOverrides?.gasLimit) {
             try {
+              const preparedGasLimit =
+                step.tx.gasLimit != null ? BigInt(step.tx.gasLimit.toString()) : undefined;
               const est = await client.l1.estimateGas(step.tx);
-              step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
+              step.tx.gasLimit = resolveCreateDepositL1GasLimit({
+                chainIdL2,
+                stepKey: step.key,
+                preparedGasLimit,
+                estimatedGasLimit: BigInt(est),
+              });
             } catch {
               // If re-estimation fails, keep the original gasLimit (which is likely the safe fallback)
             }

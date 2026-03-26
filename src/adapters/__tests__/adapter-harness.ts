@@ -120,6 +120,7 @@ type EthersHarness = {
   signer: Signer;
   registry: CallRegistry;
   setEstimateGas(value: bigint | Error | undefined): void;
+  queueEstimateGas(values: Array<bigint | Error>, target?: 'l1' | 'l2'): void;
   onEstimateGas(cb: ((tx: unknown) => void) | undefined): void;
   setL2EstimateGas(value: bigint | Error | undefined): void;
   onL2EstimateGas(cb: ((tx: unknown) => void) | undefined): void;
@@ -138,6 +139,7 @@ type ViemHarness = {
   lastSimulateArgs(target?: 'l1' | 'l2'): unknown;
   queueSimulateResponses(responses: SimulateResponder[], target?: 'l1' | 'l2'): void;
   setEstimateGas(value: bigint | Error | undefined, target?: 'l1' | 'l2'): void;
+  queueEstimateGas(values: Array<bigint | Error>, target?: 'l1' | 'l2'): void;
 };
 
 export type AdapterHarness = EthersHarness | ViemHarness;
@@ -145,6 +147,7 @@ export type AdapterHarness = EthersHarness | ViemHarness;
 type EthersL1State = {
   registry: CallRegistry;
   estimateGasValue?: bigint | Error;
+  estimateGasQueue?: Array<bigint | Error>;
   estimateGasSpy?: (tx: unknown) => void;
 };
 
@@ -159,6 +162,9 @@ function makeEthersL1(state: EthersL1State) {
     },
     async estimateGas(tx: unknown) {
       state.estimateGasSpy?.(tx);
+      const queued = state.estimateGasQueue?.shift();
+      if (queued instanceof Error) throw queued;
+      if (isBigint(queued)) return queued;
       const { estimateGasValue } = state;
       if (estimateGasValue instanceof Error) throw estimateGasValue;
       if (isBigint(estimateGasValue)) return estimateGasValue;
@@ -177,10 +183,21 @@ type EthersL2State = {
   bridgehub: Address;
   registry: CallRegistry;
   estimateGasValue?: bigint | Error;
+  estimateGasQueue?: Array<bigint | Error>;
   estimateGasSpy?: (tx: unknown) => void;
 };
 
 function makeEthersL2(state: EthersL2State) {
+  const nextEstimateGas = () => {
+    const queued = state.estimateGasQueue?.shift();
+    if (queued instanceof Error) throw queued;
+    if (isBigint(queued)) return queued;
+    const { estimateGasValue } = state;
+    if (estimateGasValue instanceof Error) throw estimateGasValue;
+    if (isBigint(estimateGasValue)) return estimateGasValue;
+    return 100_000n;
+  };
+
   return {
     async call(tx: { to?: string; data?: string }) {
       if (!tx.to || !tx.data) throw new Error('ethers mock l2: missing to/data');
@@ -195,10 +212,7 @@ function makeEthersL2(state: EthersL2State) {
     },
     async estimateGas(tx: unknown) {
       state.estimateGasSpy?.(tx);
-      const { estimateGasValue } = state;
-      if (estimateGasValue instanceof Error) throw estimateGasValue;
-      if (isBigint(estimateGasValue)) return estimateGasValue;
-      return 100_000n;
+      return nextEstimateGas();
     },
     async getNetwork() {
       return { chainId: 324n };
@@ -240,6 +254,7 @@ type ViemClientState = {
   simulateError?: Error;
   lastArgs?: unknown;
   estimateGasValue?: bigint | Error;
+  estimateGasQueue?: Array<bigint | Error>;
   gasPrice?: bigint;
   fees?: { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
   code?: string;
@@ -247,6 +262,17 @@ type ViemClientState = {
 };
 
 function makeViemClient(state: ViemClientState): PublicClient {
+  const nextEstimateGas = () => {
+    const queued = state.estimateGasQueue?.shift();
+    if (queued instanceof Error) throw queued;
+    if (isBigint(queued)) return queued;
+
+    const val = state.estimateGasValue;
+    if (val instanceof Error) throw val;
+    if (isBigint(val)) return val;
+    return 100_000n;
+  };
+
   return {
     transport: { type: 'mock', value: {} },
     async readContract(args: { address: Address; functionName: string; args?: unknown[] }) {
@@ -317,10 +343,11 @@ function makeViemClient(state: ViemClientState): PublicClient {
     },
     async estimateGas(args: unknown) {
       state.lastArgs = args;
-      const val = state.estimateGasValue;
-      if (val instanceof Error) throw val;
-      if (isBigint(val)) return val;
-      return 100_000n;
+      return nextEstimateGas();
+    },
+    async estimateContractGas(args: unknown) {
+      state.lastArgs = args;
+      return nextEstimateGas();
     },
     async estimateFeesPerGas() {
       return {
@@ -422,6 +449,10 @@ export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {
     setEstimateGas(value) {
       state.estimateGasValue = value;
     },
+    queueEstimateGas(values, target = 'l1') {
+      const gasState = target === 'l1' ? state : l2State;
+      gasState.estimateGasQueue = [...(gasState.estimateGasQueue ?? []), ...values];
+    },
     onEstimateGas(cb) {
       state.estimateGasSpy = cb;
     },
@@ -485,6 +516,10 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
     setEstimateGas(value, target = 'l1') {
       const state = target === 'l1' ? l1State : l2State;
       state.estimateGasValue = value;
+    },
+    queueEstimateGas(values, target = 'l1') {
+      const state = target === 'l1' ? l1State : l2State;
+      state.estimateGasQueue = [...(state.estimateGasQueue ?? []), ...values];
     },
   };
 }
