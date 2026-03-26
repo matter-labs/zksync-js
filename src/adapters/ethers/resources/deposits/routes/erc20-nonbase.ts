@@ -14,7 +14,10 @@ import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { L2_ASSET_ROUTER_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
-import { derivePriorityBodyGasEstimateCap } from '../../../../../core/resources/deposits/priority.ts';
+import {
+  applyPriorityL2GasLimitBuffer,
+  derivePriorityBodyGasEstimateCap,
+} from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
 // error handling
@@ -75,7 +78,10 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
-      priorityFloorGasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      priorityFloorGasLimit: applyPriorityL2GasLimitBuffer({
+        chainIdL2: input.ctx.chainIdL2,
+        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      }),
     };
 
     if (isFirstBridge || input.ctx.resolvedToken.l2.toLowerCase() === ZERO_L2_TOKEN_ADDRESS) {

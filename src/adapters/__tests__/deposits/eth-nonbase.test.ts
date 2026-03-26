@@ -26,7 +26,10 @@ import {
   L2_ASSET_ROUTER_ADDRESS,
   SAFE_L1_BRIDGE_GAS,
 } from '../../../core/constants.ts';
-import { derivePriorityBodyGasEstimateCap } from '../../../core/resources/deposits/priority.ts';
+import {
+  applyPriorityL2GasLimitBuffer,
+  derivePriorityBodyGasEstimateCap,
+} from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import type { TokensResource, ResolvedToken } from '../../../core/types/flows/token.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
@@ -207,8 +210,13 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       RECEIVER,
     );
 
+    const expectedL2GasLimit = applyPriorityL2GasLimitBuffer({
+      chainIdL2: ctx.chainIdL2,
+      gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+    });
+
     setBridgehubBaseCost(harness, ctx, baseCost, {
-      l2GasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      l2GasLimit: expectedL2GasLimit,
     });
     setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue);
 
@@ -224,10 +232,10 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     const bridge = res.steps.at(-1)!;
     if (kind === 'ethers') {
       const info = decodeTwoBridgeOuter((bridge.tx as any).data);
-      expect(BigInt(info.l2GasLimit)).toBe(priorityFloorBreakdown.derivedL2GasLimit);
+      expect(BigInt(info.l2GasLimit)).toBe(expectedL2GasLimit);
     } else {
       const req = ((bridge.tx as any).args?.[0] ?? {}) as any;
-      expect(BigInt(req.l2GasLimit ?? 0n)).toBe(priorityFloorBreakdown.derivedL2GasLimit);
+      expect(BigInt(req.l2GasLimit ?? 0n)).toBe(expectedL2GasLimit);
     }
   });
 

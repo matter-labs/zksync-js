@@ -78,7 +78,7 @@ export function parseDirectBridgeTx(kind: AdapterKind, tx: any) {
     mintValue: BigInt((req.mintValue as bigint | undefined) ?? 0n),
     l2GasLimit: BigInt((req.l2GasLimit as bigint | undefined) ?? 0n),
     refundRecipient: (req.refundRecipient as string | undefined)?.toLowerCase() ?? '',
-    gasLimit: undefined,
+    gasLimit: viemTx.gas != null ? BigInt(viemTx.gas) : undefined,
   };
 }
 

@@ -29,6 +29,7 @@ import type { DepositRouteStrategy, ViemPlanWriteRequest } from './routes/types'
 import { getL2TransactionHashFromLogs, waitForL2ExecutionFromL1Tx } from './services/verification';
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory';
+import { resolveCreateDepositL1GasLimit } from '../../../../core/resources/deposits/gas';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
 import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
@@ -186,6 +187,7 @@ export function createDepositsResource(
       async () => {
         const plan = await prepare(p);
         const stepHashes: Record<string, Hex> = {};
+        const chainIdL2 = BigInt(await client.l2.getChainId());
 
         const from = client.account.address;
         let next: number;
@@ -251,6 +253,7 @@ export function createDepositsResource(
           // that might have been set during the 'prepare' phase.
           if (!p.l1TxOverrides?.gasLimit) {
             try {
+              const preparedGasLimit = step.tx.gas;
               const feePart =
                 step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
                   ? {
@@ -272,7 +275,12 @@ export function createDepositsResource(
               const gas = await client.l1.estimateContractGas({
                 ...params,
               });
-              step.tx.gas = (gas * 115n) / 100n;
+              step.tx.gas = resolveCreateDepositL1GasLimit({
+                chainIdL2,
+                stepKey: step.key,
+                preparedGasLimit,
+                estimatedGasLimit: gas,
+              });
             } catch {
               // If re-estimation fails, keep the original gasLimit
             }
