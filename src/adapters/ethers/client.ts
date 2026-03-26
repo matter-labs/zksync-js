@@ -37,7 +37,6 @@ const ChainTypeManagerABI = [
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
 ] as const;
 
-
 export interface ResolvedAddresses {
   bridgehub: Address;
   l1AssetRouter: Address;

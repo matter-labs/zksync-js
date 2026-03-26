@@ -50,7 +50,6 @@ const ChainTypeManagerABI = [
   },
 ] as const;
 
-
 export interface ResolvedAddresses {
   bridgehub: Address;
   l1AssetRouter: Address;
