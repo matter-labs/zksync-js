@@ -36,6 +36,8 @@ type DetermineNonBaseL2GasInput = {
   l1Token: Address;
   knownL2Token?: Address;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 };
 
 const DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT = 3_000_000n;
@@ -111,7 +113,22 @@ async function determineNonBaseL2Gas(
     // the l2TokenAddress is the zero address. This essentially means
     // the token has not been registered on L2 yet.
     if (l2TokenAddress === zeroAddress) {
+      if (input.undeployedGasLimit != null) {
+        return quoteL2Gas({
+          ctx,
+          route,
+          overrideGasLimit: input.undeployedGasLimit,
+        });
+      }
       return fallbackQuote();
+    }
+
+    if (input.priorityFloorGasLimit != null) {
+      return quoteL2Gas({
+        ctx,
+        route,
+        overrideGasLimit: input.priorityFloorGasLimit,
+      });
     }
 
     const modelTx: TransactionRequest = {
@@ -132,10 +149,7 @@ async function determineNonBaseL2Gas(
     }
 
     return gas;
-  } catch (err) {
-    // TODO: add proper logging
-    console.warn('Failed to determine non-base deposit L2 gas; defaulting to safe gas limit.', err);
-
+  } catch {
     return fallbackQuote();
   }
 }
@@ -144,6 +158,8 @@ export async function determineErc20L2Gas(input: {
   ctx: BuildCtx;
   l1Token: Address;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
     ...input,
@@ -155,6 +171,8 @@ export async function determineErc20L2Gas(input: {
 export async function determineEthNonBaseL2Gas(input: {
   ctx: BuildCtx;
   modelTx?: TransactionRequest;
+  priorityFloorGasLimit?: bigint;
+  undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
     ctx: input.ctx,
@@ -162,5 +180,7 @@ export async function determineEthNonBaseL2Gas(input: {
     l1Token: input.ctx.resolvedToken?.l1 ?? FORMAL_ETH_ADDRESS,
     knownL2Token: input.ctx.resolvedToken?.l2,
     modelTx: input.modelTx,
+    priorityFloorGasLimit: input.priorityFloorGasLimit,
+    undeployedGasLimit: input.undeployedGasLimit,
   });
 }

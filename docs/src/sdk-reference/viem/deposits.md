@@ -52,6 +52,8 @@ You **do not** pass a route; it’s derived automatically from chain metadata + 
 
 Estimate the deposit operation (route, approvals, gas hints). Does **not** send transactions.
 
+Route-specific fee modeling details are documented in [Gas & Fees](../../overview/gas.md).
+
 **Parameters**
 
 | Name              | Type                                          | Required | Description                                                        |

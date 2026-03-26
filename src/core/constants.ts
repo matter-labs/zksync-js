@@ -75,8 +75,7 @@ export const TOPIC_CANONICAL_SUCCESS: Hex =
 
 // -----------------------------------------------------------------------------
 // L1->L2 ZKsync Fee Model
-// Derived from: https://github.com/matter-labs/era-contracts/blob/main/docs/l2_system_contracts/zksync_fee_model.md
-// TODO: Consider adding zksyn-contracts dep and importing these values directly.
+// Legacy heuristic constants used when a deposit route falls back to estimateGas-based quoting.
 // -----------------------------------------------------------------------------
 
 // Buffer percentage added to gas estimates
@@ -90,7 +89,22 @@ export const DEFAULT_PUBDATA_BYTES = 155n;
 // Approximate ABI-encoded size (bytes) of a deposit tx
 export const DEFAULT_ABI_BYTES = 400n;
 // Approximate safe L1 gas limit for bridge deposits
-export const SAFE_L1_BRIDGE_GAS = 1_000_000n;
+export const SAFE_L1_BRIDGE_GAS = 3_000_000n;
+
+// -----------------------------------------------------------------------------
+// L1->L2 priority transaction protocol constants
+// Source of truth:
+// https://github.com/matter-labs/era-contracts/blob/main/l1-contracts/contracts/common/Config.sol
+// -----------------------------------------------------------------------------
+
+export const L1_TX_INTRINSIC_L2_GAS = 167_157n;
+export const L1_TX_INTRINSIC_PUBDATA = 88n;
+export const L1_TX_MIN_L2_GAS_BASE = 173_484n;
+export const L1_TX_DELTA_544_ENCODING_BYTES = 1_656n;
+export const L1_TX_DELTA_FACTORY_DEPS_L2_GAS = 2_473n;
+export const L1_TX_DELTA_FACTORY_DEPS_PUBDATA = 64n;
+export const TX_SLOT_OVERHEAD_L2_GAS = 10_000n;
+export const PRIORITY_TX_MAX_GAS_LIMIT = 72_000_000n;
 
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.
