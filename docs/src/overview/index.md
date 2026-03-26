@@ -48,10 +48,11 @@ Supports ETH, Custom Base Token, and ERC-20.
 
 ## What You’ll Find Here
 
-* [**Mental Model**](./overview/mental-model.md) — understand the core flow:
+* [**Mental Model**](./mental-model.md) — understand the core flow:
   `quote → prepare → create → status → wait → finalize`.
-* [**Adapters (viem & ethers)**](./overview/adapters.md) — how the SDK integrates with your existing stack.
-* [**Withdrawal Finalization**](./overview/finalization.md) — learn the finalization process and how to ensure withdrawals are completed.
+* [**Adapters (viem & ethers)**](./adapters.md) — how the SDK integrates with your existing stack.
+* [**Gas & Fees**](./gas.md) — how deposit fee caps are quoted and how route-specific gas limits are derived.
+* [**Withdrawal Finalization**](./finalization.md) — learn the finalization process and how to ensure withdrawals are completed.
 
 ---
 
