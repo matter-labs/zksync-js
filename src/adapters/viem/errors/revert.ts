@@ -8,6 +8,8 @@ import {
   L1NativeTokenVaultABI,
   MailboxABI,
   IERC20ABI,
+  IL1ContractErrorsABI,
+  IInteropErrorsABI,
 } from '../../../core/abi';
 
 import { REVERT_TO_READINESS } from '../../../core/errors/withdrawal-revert-map';
@@ -63,6 +65,16 @@ const ABI_PANIC: Abi = [
   }
   try {
     ERROR_ABIS.push({ name: 'Mailbox', abi: MailboxABI as unknown as Abi });
+  } catch {
+    // ignore
+  }
+  try {
+    ERROR_ABIS.push({ name: 'IL1ContractErrors', abi: IL1ContractErrorsABI as unknown as Abi });
+  } catch {
+    // ignore
+  }
+  try {
+    ERROR_ABIS.push({ name: 'IInteropErrors', abi: IInteropErrorsABI as unknown as Abi });
   } catch {
     // ignore
   }

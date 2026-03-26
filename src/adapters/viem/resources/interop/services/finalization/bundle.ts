@@ -1,4 +1,4 @@
-import { createWalletClient, custom, type PublicClient } from 'viem';
+import { createWalletClient, custom, type PublicClient, type TransactionReceipt } from 'viem';
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropFinalizationInfo } from '../../../../../../core/types/flows/interop';
 import type { ViemClient } from '../../../../client';
@@ -53,7 +53,7 @@ export async function executeBundle(
   dstProvider: PublicClient,
   info: InteropFinalizationInfo,
   opts?: LogsQueryOptions,
-): Promise<{ hash: Hex; wait: () => Promise<void> }> {
+): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
   const { topics } = getTopics();
   const { bundleHash, encodedData, proof } = info;
 
@@ -104,6 +104,7 @@ export async function executeBundle(
               context: { txHash: hash },
             });
           }
+          return receipt;
         } catch (e) {
           if (isZKsyncError(e)) throw e;
           throw toZKsyncError(
@@ -120,7 +121,6 @@ export async function executeBundle(
       },
     };
   } catch (e) {
-    if (isZKsyncError(e)) throw e;
     throw toZKsyncError(
       'EXECUTION',
       {

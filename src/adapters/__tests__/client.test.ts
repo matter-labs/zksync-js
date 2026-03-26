@@ -72,21 +72,12 @@ describeForAdapters('adapters client', (kind, factory) => {
 
   it('getProtocolVersion resolves the registered CTM semver', async () => {
     const harness = factory();
-    if (harness.kind !== 'ethers') {
-      expect('getProtocolVersion' in harness.client).toBe(false);
-      return;
-    }
-
     const semver = await harness.client.getProtocolVersion();
     expect(semver).toEqual([0n, 31n, 0n]);
   });
 
   it('getProtocolVersion throws when chain CTM is not registered', async () => {
     const harness = factory();
-    if (harness.kind !== 'ethers') {
-      expect('getProtocolVersion' in harness.client).toBe(false);
-      return;
-    }
 
     harness.registry.set(
       ADAPTER_TEST_ADDRESSES.bridgehub,

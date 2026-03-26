@@ -10,6 +10,7 @@ export interface ViemTransactionRequest {
   data?: `0x${string}`;
   value?: bigint;
   gas?: bigint;
+  gasLimit?: bigint;
   maxFeePerGas?: bigint;
   maxPriorityFeePerGas?: bigint;
 }

@@ -234,14 +234,15 @@ export function createInteropResource(
         if (typeof params.txOverrides?.nonce === 'number') {
           next = params.txOverrides.nonce;
         } else {
-          next = await client.l2.getTransactionCount({ address: from, blockTag: 'pending' });
+          const blockTag = params.txOverrides?.nonce ?? 'pending';
+          next = await client.l2.getTransactionCount({ address: from, blockTag });
         }
 
         const stepHashes: Record<string, Hex> = {};
 
         for (const step of plan.steps) {
           // Best-effort gasLimit with buffer
-          let gasLimit = step.tx.gas;
+          let gasLimit = step.tx.gas ?? step.tx.gasLimit;
           if (!gasLimit) {
             try {
               const est = await client.l2.estimateGas({
@@ -263,6 +264,8 @@ export function createInteropResource(
               data: step.tx.data,
               value: step.tx.value,
               gas: gasLimit,
+              maxFeePerGas: step.tx.maxFeePerGas,
+              maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
               nonce: next++,
               account: client.account,
               chain: null,

@@ -1,32 +1,69 @@
 import { describe, it, expect } from 'bun:test';
 import { Interface } from 'ethers';
 
-import { routeDirect } from '../../ethers/resources/interop/routes/direct.ts';
+import { routeDirect as routeEthers } from '../../ethers/resources/interop/routes/direct.ts';
+import { routeDirect as routeViem } from '../../viem/resources/interop/routes/direct.ts';
 import {
-  createEthersHarness,
+  describeForAdapters,
   makeInteropContext,
   setInteropProtocolFee,
 } from '../adapter-harness.ts';
 import { parseSendBundleTx } from '../decode-helpers.ts';
 import { createEthersAttributesResource } from '../../ethers/resources/interop/attributes/resource.ts';
-import { interopCodec } from '../../ethers/resources/interop/address.ts';
+import { createViemAttributesResource } from '../../viem/resources/interop/attributes/resource.ts';
+import { interopCodec as interopCodecEthers } from '../../ethers/resources/interop/address.ts';
+import { interopCodec as interopCodecViem } from '../../viem/resources/interop/address.ts';
 import { IInteropCenterABI, IInteropHandlerABI } from '../../../core/abi.ts';
-import type { BuildCtx } from '../../ethers/resources/interop/context.ts';
 import type { Hex, Address } from '../../../core/types/primitives.ts';
 
-const route = routeDirect();
+type AdapterKind = 'ethers' | 'viem';
+
+const ROUTES = {
+  ethers: routeEthers(),
+  viem: routeViem(),
+} as const;
+
+const CODECS = {
+  ethers: interopCodecEthers,
+  viem: interopCodecViem,
+} as const;
 
 function makeTestBuildCtx(
-  harness: ReturnType<typeof createEthersHarness>,
-  overrides: Partial<BuildCtx> = {},
-): BuildCtx {
+  kind: AdapterKind,
+  harness: any,
+  overrides: Record<string, unknown> = {},
+) {
   const ctx = makeInteropContext(harness);
-  const attributes = createEthersAttributesResource();
-
-  const interopCenterIface = new Interface(IInteropCenterABI);
-  const interopHandlerIface = new Interface(IInteropHandlerABI);
+  const attributes =
+    kind === 'ethers' ? createEthersAttributesResource() : createViemAttributesResource();
 
   setInteropProtocolFee(harness, ctx.interopCenter, 0n);
+
+  if (kind === 'ethers') {
+    const interopCenterIface = new Interface(IInteropCenterABI);
+    const interopHandlerIface = new Interface(IInteropHandlerABI);
+
+    return {
+      client: harness.client,
+      tokens: {} as any,
+      contracts: ctx.contracts as any,
+      sender: ctx.sender,
+      chainIdL2: ctx.chainId,
+      chainId: ctx.chainId,
+      bridgehub: ctx.bridgehub,
+      dstChainId: ctx.dstChainId,
+      dstProvider: harness.l2 as any,
+      interopCenter: ctx.interopCenter,
+      interopHandler: ctx.interopHandler,
+      l2MessageVerification: ctx.l2MessageVerification,
+      l2AssetRouter: ctx.l2AssetRouter,
+      l2NativeTokenVault: ctx.l2NativeTokenVault,
+      baseTokens: ctx.baseTokens,
+      ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
+      attributes,
+      ...overrides,
+    };
+  }
 
   return {
     client: harness.client,
@@ -37,23 +74,22 @@ function makeTestBuildCtx(
     chainId: ctx.chainId,
     bridgehub: ctx.bridgehub,
     dstChainId: ctx.dstChainId,
-    dstProvider: harness.l2 as any,
+    dstPublicClient: harness.l2 as any,
     interopCenter: ctx.interopCenter,
     interopHandler: ctx.interopHandler,
     l2MessageVerification: ctx.l2MessageVerification,
     l2AssetRouter: ctx.l2AssetRouter,
     l2NativeTokenVault: ctx.l2NativeTokenVault,
     baseTokens: ctx.baseTokens,
-    ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
     attributes,
     ...overrides,
   };
 }
 
-describe('adapters/interop/routeDirect', () => {
+describeForAdapters('adapters/interop/routeDirect', (kind, factory) => {
   it('builds a sendBundle step for a single sendNative action', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const recipient = '0x2222222222222222222222222222222222222222' as Address;
     const amount = 1_000_000n;
@@ -62,7 +98,7 @@ describe('adapters/interop/routeDirect', () => {
       actions: [{ type: 'sendNative' as const, to: recipient, amount }],
     };
 
-    const result = await route.build(params, buildCtx);
+    const result = await ROUTES[kind].build(params, buildCtx as any);
 
     expect(result.steps.length).toBe(1);
     expect(result.approvals.length).toBe(0);
@@ -79,13 +115,13 @@ describe('adapters/interop/routeDirect', () => {
     expect(decoded.callStarters.length).toBe(1);
 
     const starter = decoded.callStarters[0];
-    expect(starter.to).toBe(interopCodec.formatAddress(recipient));
+    expect(starter.to).toBe(CODECS[kind].formatAddress(recipient));
     expect(starter.data).toBe('0x');
   });
 
   it('builds a sendBundle step for multiple sendNative actions', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const recipient1 = '0x1111111111111111111111111111111111111111' as Address;
     const recipient2 = '0x2222222222222222222222222222222222222222' as Address;
@@ -99,7 +135,7 @@ describe('adapters/interop/routeDirect', () => {
       ],
     };
 
-    const result = await route.build(params, buildCtx);
+    const result = await ROUTES[kind].build(params, buildCtx as any);
 
     expect(result.steps.length).toBe(1);
     expect(result.quoteExtras.totalActionValue).toBe(amount1 + amount2);
@@ -108,13 +144,13 @@ describe('adapters/interop/routeDirect', () => {
     expect(decoded.value).toBe(amount1 + amount2);
     expect(decoded.callStarters.length).toBe(2);
 
-    expect(decoded.callStarters[0].to).toBe(interopCodec.formatAddress(recipient1));
-    expect(decoded.callStarters[1].to).toBe(interopCodec.formatAddress(recipient2));
+    expect(decoded.callStarters[0].to).toBe(CODECS[kind].formatAddress(recipient1));
+    expect(decoded.callStarters[1].to).toBe(CODECS[kind].formatAddress(recipient2));
   });
 
   it('builds a sendBundle step for a call action with value', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const target = '0x3333333333333333333333333333333333333333' as Address;
     const callData = '0xabcdef12' as Hex;
@@ -124,7 +160,7 @@ describe('adapters/interop/routeDirect', () => {
       actions: [{ type: 'call' as const, to: target, data: callData, value }],
     };
 
-    const result = await route.build(params, buildCtx);
+    const result = await ROUTES[kind].build(params, buildCtx as any);
 
     expect(result.steps.length).toBe(1);
     expect(result.quoteExtras.totalActionValue).toBe(value);
@@ -134,13 +170,13 @@ describe('adapters/interop/routeDirect', () => {
     expect(decoded.callStarters.length).toBe(1);
 
     const starter = decoded.callStarters[0];
-    expect(starter.to).toBe(interopCodec.formatAddress(target));
+    expect(starter.to).toBe(CODECS[kind].formatAddress(target));
     expect(starter.data).toBe(callData);
   });
 
   it('builds a sendBundle step for a call action without value', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const target = '0x4444444444444444444444444444444444444444' as Address;
     const callData = '0x12345678' as Hex;
@@ -149,7 +185,7 @@ describe('adapters/interop/routeDirect', () => {
       actions: [{ type: 'call' as const, to: target, data: callData }],
     };
 
-    const result = await route.build(params, buildCtx);
+    const result = await ROUTES[kind].build(params, buildCtx as any);
 
     expect(result.steps.length).toBe(1);
     expect(result.quoteExtras.totalActionValue).toBe(0n);
@@ -158,13 +194,13 @@ describe('adapters/interop/routeDirect', () => {
     expect(decoded.value).toBe(0n);
 
     const starter = decoded.callStarters[0];
-    expect(starter.to).toBe(interopCodec.formatAddress(target));
+    expect(starter.to).toBe(CODECS[kind].formatAddress(target));
     expect(starter.data).toBe(callData);
   });
 
   it('throws on sendErc20 action (unsupported in direct route)', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const params = {
       actions: [
@@ -179,7 +215,7 @@ describe('adapters/interop/routeDirect', () => {
 
     let caught: unknown;
     try {
-      await route.build(params, buildCtx);
+      await ROUTES[kind].build(params, buildCtx as any);
     } catch (err) {
       caught = err;
     }
@@ -188,8 +224,8 @@ describe('adapters/interop/routeDirect', () => {
   });
 
   it('preflight throws when no actions are provided', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness);
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness);
 
     const params = {
       actions: [],
@@ -197,7 +233,7 @@ describe('adapters/interop/routeDirect', () => {
 
     let caught: unknown;
     try {
-      await route.preflight?.(params, buildCtx);
+      await ROUTES[kind].preflight?.(params, buildCtx as any);
     } catch (err) {
       caught = err;
     }
@@ -207,8 +243,8 @@ describe('adapters/interop/routeDirect', () => {
   });
 
   it('preflight throws when base tokens do not match', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness, {
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness, {
       baseTokens: {
         src: '0xaaaa000000000000000000000000000000000000' as Address,
         dst: '0xbbbb000000000000000000000000000000000000' as Address,
@@ -228,7 +264,7 @@ describe('adapters/interop/routeDirect', () => {
 
     let caught: unknown;
     try {
-      await route.preflight?.(params, buildCtx);
+      await ROUTES[kind].preflight?.(params, buildCtx as any);
     } catch (err) {
       caught = err;
     }
@@ -238,8 +274,8 @@ describe('adapters/interop/routeDirect', () => {
   });
 
   it('encodes destination chain ID correctly in the bundle', async () => {
-    const harness = createEthersHarness();
-    const buildCtx = makeTestBuildCtx(harness, { dstChainId: 999n });
+    const harness = factory();
+    const buildCtx = makeTestBuildCtx(kind, harness, { dstChainId: 999n });
 
     const params = {
       actions: [
@@ -251,10 +287,10 @@ describe('adapters/interop/routeDirect', () => {
       ],
     };
 
-    const result = await route.build(params, buildCtx);
+    const result = await ROUTES[kind].build(params, buildCtx as any);
     const decoded = parseSendBundleTx(result.steps[0].tx);
 
-    const expectedDstChain = interopCodec.formatChain(999n);
+    const expectedDstChain = CODECS[kind].formatChain(999n);
     expect(decoded.destinationChainId).toBe(expectedDstChain);
   });
 });

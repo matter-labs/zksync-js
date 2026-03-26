@@ -1,5 +1,5 @@
 // src/adapters/viem/resources/interop/context.ts
-import type { PublicClient, Abi } from 'viem';
+import type { PublicClient } from 'viem';
 import type { ViemClient, ProtocolVersion } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
@@ -8,12 +8,6 @@ import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
-import { IBridgehubABI } from '../../../../core/abi';
-import {
-  L2_INTEROP_CENTER_ADDRESS,
-  L2_INTEROP_HANDLER_ADDRESS,
-  L2_MESSAGE_VERIFICATION_ADDRESS,
-} from '../../../../core/constants';
 import { createError } from '../../../../core/errors/factory';
 import { OP_INTEROP } from '../../../../core/types/errors';
 
@@ -81,25 +75,20 @@ export async function commonCtx(
   const chainId = BigInt(await client.l2.getChainId());
   const dstChainId = BigInt(await dstPublicClient.getChainId());
 
-  const { bridgehub, l2AssetRouter, l2NativeTokenVault } = await contracts.addresses();
-
-  const interopCenter = L2_INTEROP_CENTER_ADDRESS;
-  const interopHandler = L2_INTEROP_HANDLER_ADDRESS;
-  const l2MessageVerification = L2_MESSAGE_VERIFICATION_ADDRESS;
+  const {
+    bridgehub,
+    l2AssetRouter,
+    l2NativeTokenVault,
+    interopCenter,
+    interopHandler,
+    l2MessageVerification,
+  } = await contracts.addresses();
 
   await assertInteropProtocolVersion(client, chainId, dstChainId);
 
   const [srcBaseToken, dstBaseToken] = await Promise.all([
     client.baseToken(chainId),
-    (async () => {
-      const bh = (await contracts.addresses()).bridgehub;
-      return (await client.l1.readContract({
-        address: bh,
-        abi: IBridgehubABI as Abi,
-        functionName: 'baseToken',
-        args: [dstChainId],
-      })) as Address;
-    })(),
+    client.baseToken(dstChainId),
   ]);
 
   const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();

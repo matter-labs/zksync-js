@@ -3,6 +3,7 @@ import { numberToHex } from 'viem';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import { createErrorHandlers } from '../../../../errors/error-ops';
+import { isReceiptNotFound } from '../../../../../../core/types/errors';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { IInteropRootStorageABI } from '../../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
@@ -34,7 +35,14 @@ function parseMaxBlockRangeLimit(error: unknown): number | null {
 export async function getTxReceipt(provider: PublicClient, txHash: Hex) {
   const receipt = await wrap(
     OP_INTEROP.svc.status.sourceReceipt,
-    () => provider.getTransactionReceipt({ hash: txHash }),
+    async () => {
+      try {
+        return await provider.getTransactionReceipt({ hash: txHash });
+      } catch (error) {
+        if (isReceiptNotFound(error)) return null;
+        throw error;
+      }
+    },
     {
       ctx: { where: 'l2.getTransactionReceipt', l2SrcTxHash: txHash },
       message: 'Failed to fetch source L2 receipt for interop tx.',

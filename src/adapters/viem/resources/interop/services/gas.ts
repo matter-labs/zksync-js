@@ -33,14 +33,13 @@ export async function quoteStepsL2Fee(
 
   let total = 0n;
   for (const step of steps) {
-    if (!step.tx.to) continue;
     try {
       const coreTx: CoreTransactionRequest = {
-        to: step.tx.to,
+        to: step.tx.to as CoreTransactionRequest['to'],
         from: ctx.sender,
         data: step.tx.data,
         value: step.tx.value,
-        gasLimit: step.tx.gas,
+        gasLimit: step.tx.gas ?? step.tx.gasLimit,
         maxFeePerGas: step.tx.maxFeePerGas,
         maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
       };
