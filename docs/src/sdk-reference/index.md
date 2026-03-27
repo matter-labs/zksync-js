@@ -61,7 +61,7 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 | [**Viem · Contracts**](./viem/contracts.md)         | Resolved addresses and connected core contracts.                                               |
 | [**Viem · Deposits**](./viem/deposits.md)           | L1 → L2 flow with quote, prepare, create, status, and wait.                                   |
 | [**Viem · Withdrawals**](./viem/withdrawals.md)     | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
-| [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getBlockMetadataByNumber`, `getL2ToL1LogProof`. |
+| [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getProof`, `getBlockMetadataByNumber`, `getL2ToL1LogProof`. |
 | [**Core · Error model**](./core/errors.md)          | Typed `ZKsyncError` envelope and `try*` result helpers.                                       |
 
 ---
@@ -70,7 +70,7 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 
 > [!NOTE]
 > **Standard `eth_*` RPC** should always be performed through your chosen base library (**ethers** or **viem**).
-> The SDK only adds **ZKsync-specific** RPC methods via `client.zks.*` (e.g. `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getBlockMetadataByNumber`, `getGenesis`).
+> The SDK only adds **ZKsync-specific** RPC methods via `client.zks.*` (e.g. `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getProof`, `getBlockMetadataByNumber`, `getGenesis`).
 
 * Every resource method has a **`try*` variant** (e.g. `tryCreate`) that returns a result object instead of throwing.
   When errors occur, the SDK throws **`ZKsyncError`** with a stable, structured envelope (see [Error model](./core/errors.md)).
