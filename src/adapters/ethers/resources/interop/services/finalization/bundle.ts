@@ -135,7 +135,10 @@ export async function verifyBundle(
   const { interopHandler } = await client.ensureAddresses();
   const handler = new Contract(interopHandler, IInteropHandlerAbi, signer);
   try {
-    const txResponse = (await handler.verifyBundle(info.encodedData, info.proof)) as TransactionResponse;
+    const txResponse = (await handler.verifyBundle(
+      info.encodedData,
+      info.proof,
+    )) as TransactionResponse;
     const hash = txResponse.hash as Hex;
     return {
       hash,

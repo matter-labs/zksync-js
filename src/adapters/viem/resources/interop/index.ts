@@ -385,11 +385,19 @@ export function createInteropResource(
   ) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(dstChain, h, opts));
 
-  const interopGetRoot = (dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex> =>
-    wrap(OP_INTEROP.svc.status.getRoot, () => getInteropRoot(resolveChainRef(dstChain), rootChainId, batchNumber), {
-      message: 'Failed to get interop root from the destination chain.',
-      ctx: { where: 'interop.getInteropRoot' },
-    });
+  const interopGetRoot = (
+    dstChain: ChainRef,
+    rootChainId: bigint,
+    batchNumber: bigint,
+  ): Promise<Hex> =>
+    wrap(
+      OP_INTEROP.svc.status.getRoot,
+      () => getInteropRoot(resolveChainRef(dstChain), rootChainId, batchNumber),
+      {
+        message: 'Failed to get interop root from the destination chain.',
+        ctx: { where: 'interop.getInteropRoot' },
+      },
+    );
 
   const verifyBundle = (
     dstChain: ChainRef,
@@ -402,7 +410,7 @@ export function createInteropResource(
         const info = isInteropFinalizationInfoBase(h)
           ? h
           : await svc.wait(dstProvider, getGwProvider(), h);
-          const result = await verifyBundleOnChain(client, dstProvider, info);
+        const result = await verifyBundleOnChain(client, dstProvider, info);
         await result.wait();
         return { bundleHash: info.bundleHash, dstExecTxHash: result.hash };
       },

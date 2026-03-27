@@ -57,17 +57,26 @@ function createResource(kind: AdapterKind, harness: any) {
 }
 
 /** Patches the viem dstProvider's transport so writeContract can send a transaction. */
-function mockViemTransport(dstProvider: any, txHash: Hex, status: 'success' | 'reverted' = 'success') {
+function mockViemTransport(
+  dstProvider: any,
+  txHash: Hex,
+  status: 'success' | 'reverted' = 'success',
+) {
   dstProvider.transport = {
     type: 'mock',
     value: {},
     request: async ({ method }: { method: string }) => {
       switch (method) {
-        case 'eth_chainId': return '0x144';
-        case 'eth_getTransactionCount': return '0x0';
-        case 'eth_estimateGas': return '0x186A0';
-        case 'eth_gasPrice': return '0x1';
-        case 'eth_maxPriorityFeePerGas': return '0x1';
+        case 'eth_chainId':
+          return '0x144';
+        case 'eth_getTransactionCount':
+          return '0x0';
+        case 'eth_estimateGas':
+          return '0x186A0';
+        case 'eth_gasPrice':
+          return '0x1';
+        case 'eth_maxPriorityFeePerGas':
+          return '0x1';
         case 'eth_feeHistory':
           return { baseFeePerGas: ['0x1', '0x1'], gasUsedRatio: [0.5], reward: [['0x1']] };
         case 'eth_sendTransaction':
@@ -115,7 +124,11 @@ describeForAdapters('adapters/interop/verifyBundle', (kind, factory) => {
     if (kind === 'ethers') {
       (harness.signer as any).sendTransaction = async () => ({ hash: VERIFY_TX_HASH });
       // ethers Contract.wait() polls provider.getTransactionReceipt internally
-      (harness.l2 as any).getTransactionReceipt = async () => ({ hash: VERIFY_TX_HASH, status: 1, logs: [] });
+      (harness.l2 as any).getTransactionReceipt = async () => ({
+        hash: VERIFY_TX_HASH,
+        status: 1,
+        logs: [],
+      });
     } else {
       mockViemTransport(harness.l2, VERIFY_TX_HASH, 'success');
     }
