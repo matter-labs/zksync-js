@@ -1,7 +1,6 @@
-// src/adapters/ethers/resources/interop/context.ts
-import type { AbstractProvider } from 'ethers';
-import { Interface } from 'ethers';
-import type { EthersClient } from '../../client';
+// src/adapters/viem/resources/interop/context.ts
+import type { PublicClient } from 'viem';
+import type { ViemClient } from '../../client';
 import type { Address } from '../../../../core/types/primitives';
 import type { CommonCtx } from '../../../../core/types/flows/base';
 import type { InteropParams } from '../../../../core/types/flows/interop';
@@ -9,11 +8,10 @@ import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
-import { IInteropHandlerABI, IInteropCenterABI } from '../../../../core/abi';
 import { assertProtocolVersion } from '../../../../core/resources/interop/protocol';
 
 async function assertInteropProtocolVersion(
-  client: EthersClient,
+  client: ViemClient,
   srcChainId: bigint,
   dstChainId: bigint,
 ): Promise<void> {
@@ -28,13 +26,13 @@ async function assertInteropProtocolVersion(
 
 // Common context for building interop (L2 -> L2) transactions
 export interface BuildCtx extends CommonCtx {
-  client: EthersClient;
+  client: ViemClient;
   tokens: TokensResource;
   contracts: ContractsResource;
 
   bridgehub: Address;
   dstChainId: bigint;
-  dstProvider: AbstractProvider;
+  dstPublicClient: PublicClient;
   chainId: bigint;
   interopCenter: Address;
   interopHandler: Address;
@@ -43,22 +41,21 @@ export interface BuildCtx extends CommonCtx {
   l2NativeTokenVault: Address;
 
   baseTokens: { src: Address; dst: Address; matches: boolean };
-  ifaces: { interopCenter: Interface; interopHandler: Interface };
   attributes: AttributesResource;
   gasOverrides?: TxGasOverrides;
 }
 
 export async function commonCtx(
-  dstProvider: AbstractProvider,
+  dstPublicClient: PublicClient,
   params: InteropParams,
-  client: EthersClient,
+  client: ViemClient,
   tokens: TokensResource,
   contracts: ContractsResource,
   attributes: AttributesResource,
 ): Promise<BuildCtx> {
-  const sender = (await client.signer.getAddress()) as Address;
-  const chainId = (await client.l2.getNetwork()).chainId;
-  const dstChainId = (await dstProvider.getNetwork()).chainId;
+  const sender = client.account.address;
+  const chainId = BigInt(await client.l2.getChainId());
+  const dstChainId = BigInt(await dstPublicClient.getChainId());
 
   const {
     bridgehub,
@@ -76,8 +73,6 @@ export async function commonCtx(
     client.baseToken(dstChainId),
   ]);
 
-  const interopCenterIface = new Interface(IInteropCenterABI);
-  const interopHandlerIface = new Interface(IInteropHandlerABI);
   const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
   return {
@@ -89,14 +84,13 @@ export async function commonCtx(
     chainId,
     bridgehub,
     dstChainId,
-    dstProvider,
+    dstPublicClient,
     interopCenter,
     interopHandler,
     l2MessageVerification,
     l2AssetRouter,
     l2NativeTokenVault,
     baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
-    ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
     attributes,
     gasOverrides: params.txOverrides ? toGasOverrides(params.txOverrides) : undefined,
   } satisfies BuildCtx;

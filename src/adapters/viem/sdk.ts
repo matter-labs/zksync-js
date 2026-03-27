@@ -14,6 +14,13 @@ import { createTokensResource } from './resources/tokens/index';
 import type { TokensResource as TokensResourceType } from '../../core/types/flows/token';
 import { createContractsResource } from './resources/contracts';
 import type { ContractsResource as ContractsResourceType } from './resources/contracts';
+import { createInteropResource, type InteropResource } from './resources/interop/index';
+import type { InteropConfig } from './resources/interop/types';
+
+export interface ViemSdkOptions {
+  /** Configuration required for interop operations. */
+  interop?: InteropConfig;
+}
 
 // Main SDK interface (Viem)
 export interface ViemSdk {
@@ -21,16 +28,19 @@ export interface ViemSdk {
   withdrawals: WithdrawalsResourceType;
   tokens: TokensResourceType;
   contracts: ContractsResourceType;
+  interop: InteropResource;
 }
 
-export function createViemSdk(client: ViemClient): ViemSdk {
+export function createViemSdk(client: ViemClient, options?: ViemSdkOptions): ViemSdk {
   const tokens = createTokensResource(client);
   const contracts = createContractsResource(client);
+  const interop = createInteropResource(client, options?.interop, tokens, contracts);
 
   return {
     deposits: createDepositsResource(client, tokens, contracts),
     withdrawals: createWithdrawalsResource(client, tokens, contracts),
     tokens,
     contracts,
+    interop,
   };
 }

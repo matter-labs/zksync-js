@@ -1,4 +1,5 @@
-import { Contract, isError, type AbstractProvider } from 'ethers';
+import type { PublicClient, Abi } from 'viem';
+import { numberToHex } from 'viem';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import { createErrorHandlers } from '../../../../errors/error-ops';
@@ -17,25 +18,26 @@ export interface LogsQueryOptions {
   logChunkSize?: number;
 }
 
-// Server returns an error if the there is a block range limit and the requested range exceeds it.
-// The error returned in such case is UNKNOWN_ERROR with a message containing "query exceeds max block range {limit}".
+/** Parse max block range limit from a viem getLogs error message. */
 function parseMaxBlockRangeLimit(error: unknown): number | null {
-  if (!isError(error, 'UNKNOWN_ERROR')) return null;
-  if (!error.error || typeof error.error !== 'object') return null;
+  const msg =
+    typeof error === 'object' && error !== null && 'message' in error
+      ? String((error as { message?: unknown }).message)
+      : String(error);
 
-  const match = /query exceeds max block range\s+(\d+)/i.exec(error.error?.message);
+  const match = /query exceeds max block range\s+(\d+)/i.exec(msg);
   if (!match) return null;
 
   const limit = Number.parseInt(match[1], 10);
   return Number.isInteger(limit) && limit > 0 ? limit : null;
 }
 
-export async function getTxReceipt(provider: AbstractProvider, txHash: Hex) {
+export async function getTxReceipt(provider: PublicClient, txHash: Hex) {
   const receipt = await wrap(
     OP_INTEROP.svc.status.sourceReceipt,
     async () => {
       try {
-        return await provider.getTransactionReceipt(txHash);
+        return await provider.getTransactionReceipt({ hash: txHash });
       } catch (error) {
         if (isReceiptNotFound(error)) return null;
         throw error;
@@ -49,16 +51,16 @@ export async function getTxReceipt(provider: AbstractProvider, txHash: Hex) {
   if (!receipt) return null;
   return {
     logs: receipt.logs.map((log) => ({
-      address: log.address as Address,
+      address: log.address,
       topics: log.topics as Hex[],
-      data: log.data as Hex,
-      transactionHash: log.transactionHash as Hex,
+      data: log.data,
+      transactionHash: log.transactionHash,
     })),
   };
 }
 
 export async function getLogs(
-  provider: AbstractProvider,
+  provider: PublicClient,
   address: Address,
   topics: Array<Hex | null>,
   opts?: LogsQueryOptions,
@@ -70,42 +72,47 @@ export async function getLogs(
     OP_INTEROP.svc.status.dstLogs,
     async () => {
       const currentBlock = await provider.getBlockNumber();
-      const minBlock = Math.max(0, currentBlock - maxBlocksBack);
+      const minBlock = BigInt(Math.max(0, Number(currentBlock) - maxBlocksBack));
 
       let toBlock = currentBlock;
       let chunkSize = initialChunkSize;
 
       while (toBlock >= minBlock) {
-        const fromBlock = Math.max(minBlock, toBlock - chunkSize + 1);
+        const fromBlock =
+          toBlock - BigInt(chunkSize) + 1n > minBlock ? toBlock - BigInt(chunkSize) + 1n : minBlock;
 
         try {
-          const rawLogs = await provider.getLogs({
-            address,
-            topics,
-            fromBlock,
-            toBlock,
+          // viem's getLogs() ignores user-provided raw topics — it only generates
+          // topics from typed `event`/`events` ABI. Use eth_getLogs directly so
+          // the topics filter ([null, bundleHash]) is forwarded to the RPC call.
+          const rawLogs = await provider.request({
+            method: 'eth_getLogs',
+            params: [
+              {
+                address,
+                topics,
+                fromBlock: numberToHex(fromBlock),
+                toBlock: numberToHex(toBlock),
+              },
+            ],
           });
 
           if (rawLogs.length > 0) {
             return rawLogs.map((log) => ({
-              address: log.address as Address,
+              address: log.address,
               topics: log.topics as Hex[],
-              data: log.data as Hex,
+              data: log.data,
               transactionHash: log.transactionHash as Hex,
             }));
           }
 
-          toBlock = fromBlock - 1;
+          toBlock = fromBlock - 1n;
         } catch (error) {
-          // If the error is due to exceeding the server's max block range, reduce the chunk size and retry.
           const serverLimit = parseMaxBlockRangeLimit(error);
           if (serverLimit == null) {
-            // In case the error message cannot be parsed or a different error message format is returned by
-            // a provider, try once again with a small chunk size.
             if (chunkSize > SAFE_BLOCKS_RANGE_SIZE) {
               chunkSize = SAFE_BLOCKS_RANGE_SIZE;
             } else {
-              // If we can't determine the server limit and the safe limit doesn't work, rethrow the error.
               throw error;
             }
           } else {
@@ -124,20 +131,19 @@ export async function getLogs(
 }
 
 export async function getInteropRoot(
-  provider: AbstractProvider,
+  provider: PublicClient,
   rootChainId: bigint,
   batchNumber: bigint,
 ): Promise<Hex> {
   return await wrap(
     OP_INTEROP.svc.status.getRoot,
     async () => {
-      const rootStorage = new Contract(
-        L2_INTEROP_ROOT_STORAGE_ADDRESS,
-        IInteropRootStorageABI,
-        provider,
-      );
-
-      return (await rootStorage.interopRoots(rootChainId, batchNumber)) as Hex;
+      return (await provider.readContract({
+        address: L2_INTEROP_ROOT_STORAGE_ADDRESS,
+        abi: IInteropRootStorageABI as Abi,
+        functionName: 'interopRoots',
+        args: [rootChainId, batchNumber],
+      })) as Hex;
     },
     {
       ctx: { rootChainId, batchNumber },

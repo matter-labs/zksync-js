@@ -1,7 +1,8 @@
-// src/adapters/ethers/resources/interop/index.ts
-import type { EthersClient } from '../../client';
+// src/adapters/viem/resources/interop/index.ts
+import type { PublicClient } from 'viem';
+import type { ViemClient } from '../../client';
 import type { Hex } from '../../../../core/types/primitives';
-import { createEthersAttributesResource } from './attributes/resource';
+import { createViemAttributesResource } from './attributes/resource';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type {
   InteropRoute,
@@ -21,8 +22,7 @@ import { createContractsResource } from '../contracts';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { routeIndirect } from './routes/indirect';
 import { routeDirect } from './routes/direct';
-import type { InteropRouteStrategy } from './routes/types';
-import type { AbstractProvider, TransactionRequest } from 'ethers';
+import type { InteropRouteStrategy, ViemTransactionRequest } from './routes/types';
 import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
 import { createErrorHandlers, toZKsyncError } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
@@ -36,6 +36,7 @@ import type { LogsQueryOptions } from './services/finalization/data-fetchers';
 import type { ChainRef, InteropConfig } from './types';
 import { resolveChainRef } from './resolvers';
 import { quoteStepsL2Fee } from './services/gas';
+
 const { wrap, toResult } = createErrorHandlers('interop');
 
 // Interop Route map
@@ -52,20 +53,22 @@ export interface InteropResource {
     params: InteropParams,
   ): Promise<{ ok: true; value: InteropQuote } | { ok: false; error: unknown }>;
 
-  prepare(dstChain: ChainRef, params: InteropParams): Promise<InteropPlan<TransactionRequest>>;
+  prepare(dstChain: ChainRef, params: InteropParams): Promise<InteropPlan<ViemTransactionRequest>>;
 
   tryPrepare(
     dstChain: ChainRef,
     params: InteropParams,
-  ): Promise<{ ok: true; value: InteropPlan<TransactionRequest> } | { ok: false; error: unknown }>;
+  ): Promise<
+    { ok: true; value: InteropPlan<ViemTransactionRequest> } | { ok: false; error: unknown }
+  >;
 
-  create(dstChain: ChainRef, params: InteropParams): Promise<InteropHandle<TransactionRequest>>;
+  create(dstChain: ChainRef, params: InteropParams): Promise<InteropHandle<ViemTransactionRequest>>;
 
   tryCreate(
     dstChain: ChainRef,
     params: InteropParams,
   ): Promise<
-    { ok: true; value: InteropHandle<TransactionRequest> } | { ok: false; error: unknown }
+    { ok: true; value: InteropHandle<ViemTransactionRequest> } | { ok: false; error: unknown }
   >;
 
   status(dstChain: ChainRef, h: InteropWaitable, opts?: LogsQueryOptions): Promise<InteropStatus>;
@@ -96,26 +99,26 @@ export interface InteropResource {
 }
 
 export function createInteropResource(
-  client: EthersClient,
+  client: ViemClient,
   config?: InteropConfig,
   tokens?: TokensResource,
   contracts?: ContractsResource,
   attributes?: AttributesResource,
 ): InteropResource {
   // Lazy provider resolution — validated on first interop method call.
-  let gwProviderCache: AbstractProvider | undefined;
+  let gwProviderCache: PublicClient | undefined;
 
   function requireConfig(): InteropConfig {
     if (!config)
       throw createError('STATE', {
         resource: 'interop',
         operation: 'interop.init',
-        message: 'Interop is not configured. Pass gwChain in createEthersSdk options.',
+        message: 'Interop is not configured. Pass gwChain in createViemSdk options.',
       });
     return config;
   }
 
-  function getGwProvider(): AbstractProvider {
+  function getGwProvider(): PublicClient {
     if (!gwProviderCache) gwProviderCache = resolveChainRef(requireConfig().gwChain);
     return gwProviderCache;
   }
@@ -123,16 +126,15 @@ export function createInteropResource(
   const svc: InteropFinalizationServices = createInteropFinalizationServices(client);
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
-  const attributesResource = attributes ?? createEthersAttributesResource();
+  const attributesResource = attributes ?? createViemAttributesResource();
 
   // Internal helper: builds an InteropPlan along with the context used.
-  // Returns both so create() can reuse the context without rebuilding.
   async function buildPlanWithCtx(
-    dstProvider: AbstractProvider,
+    dstPublicClient: PublicClient,
     params: InteropParams,
-  ): Promise<{ plan: InteropPlan<TransactionRequest>; ctx: BuildCtx }> {
+  ): Promise<{ plan: InteropPlan<ViemTransactionRequest>; ctx: BuildCtx }> {
     const ctx = await commonCtx(
-      dstProvider,
+      dstPublicClient,
       params,
       client,
       tokensResource,
@@ -183,10 +185,10 @@ export function createInteropResource(
   }
 
   async function buildPlan(
-    dstProvider: AbstractProvider,
+    dstPublicClient: PublicClient,
     params: InteropParams,
-  ): Promise<InteropPlan<TransactionRequest>> {
-    const { plan } = await buildPlanWithCtx(dstProvider, params);
+  ): Promise<InteropPlan<ViemTransactionRequest>> {
+    const { plan } = await buildPlanWithCtx(dstPublicClient, params);
     return plan;
   }
 
@@ -204,58 +206,52 @@ export function createInteropResource(
   const prepare = (
     dstChain: ChainRef,
     params: InteropParams,
-  ): Promise<InteropPlan<TransactionRequest>> =>
+  ): Promise<InteropPlan<ViemTransactionRequest>> =>
     wrap(OP_INTEROP.prepare, () => buildPlan(resolveChainRef(dstChain), params), {
       message: 'Internal error while preparing an interop plan.',
       ctx: { where: 'interop.prepare' },
     });
 
   const tryPrepare = (dstChain: ChainRef, params: InteropParams) =>
-    toResult<InteropPlan<TransactionRequest>>(OP_INTEROP.tryPrepare, () =>
+    toResult<InteropPlan<ViemTransactionRequest>>(OP_INTEROP.tryPrepare, () =>
       prepare(dstChain, params),
     );
 
   // create → execute the source-chain step(s)
-  // waits for each tx receipt to confirm (status != 0)
+  // waits for each tx receipt to confirm (status !== reverted)
   const create = (
     dstChain: ChainRef,
     params: InteropParams,
-  ): Promise<InteropHandle<TransactionRequest>> =>
+  ): Promise<InteropHandle<ViemTransactionRequest>> =>
     wrap(
       OP_INTEROP.create,
       async () => {
-        // Build plan and reuse the context
-        const { plan, ctx } = await buildPlanWithCtx(resolveChainRef(dstChain), params);
-        const signer = ctx.client.signerFor(ctx.client.l2);
-        const srcProvider = ctx.client.l2;
+        const { plan } = await buildPlanWithCtx(resolveChainRef(dstChain), params);
+        const l2Wallet = client.getL2Wallet();
+        const from = client.account.address;
 
-        const from = await signer.getAddress();
         let next: number;
         if (typeof params.txOverrides?.nonce === 'number') {
           next = params.txOverrides.nonce;
         } else {
           const blockTag = params.txOverrides?.nonce ?? 'pending';
-          next = await srcProvider.getTransactionCount(from, blockTag);
+          next = await client.l2.getTransactionCount({ address: from, blockTag });
         }
 
         const stepHashes: Record<string, Hex> = {};
 
         for (const step of plan.steps) {
-          step.tx.nonce = next++;
-
-          // lock in chainId so ethers doesn't guess
-          if (!step.tx.chainId) {
-            step.tx.chainId = Number(ctx.chainId);
-          }
-
-          // best-effort gasLimit with buffer
-          if (!step.tx.gasLimit) {
+          // Best-effort gasLimit with buffer
+          let gasLimit = step.tx.gas ?? step.tx.gasLimit;
+          if (!gasLimit) {
             try {
-              const est = await srcProvider.estimateGas({
-                ...step.tx,
-                from,
+              const est = await client.l2.estimateGas({
+                account: from,
+                to: step.tx.to,
+                data: step.tx.data,
+                value: step.tx.value,
               });
-              step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
+              gasLimit = (est * 115n) / 100n;
             } catch {
               // Intentionally empty: gas estimation is best-effort
             }
@@ -263,12 +259,21 @@ export function createInteropResource(
 
           let hash: Hex | undefined;
           try {
-            const sent = await signer.sendTransaction(step.tx);
-            hash = sent.hash as Hex;
+            hash = await l2Wallet.sendTransaction({
+              to: step.tx.to,
+              data: step.tx.data,
+              value: step.tx.value,
+              gas: gasLimit,
+              maxFeePerGas: step.tx.maxFeePerGas,
+              maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+              nonce: next++,
+              account: client.account,
+              chain: null,
+            });
             stepHashes[step.key] = hash;
 
-            const rcpt = await sent.wait();
-            if (rcpt?.status === 0) {
+            const rcpt = await client.l2.waitForTransactionReceipt({ hash });
+            if (rcpt.status === 'reverted') {
               throw createError('EXECUTION', {
                 resource: 'interop',
                 operation: 'interop.create.sendTransaction',
@@ -287,7 +292,7 @@ export function createInteropResource(
                 context: {
                   step: step.key,
                   txHash: hash,
-                  nonce: Number(step.tx.nonce ?? -1),
+                  nonce: next - 1,
                 },
               },
               e,
@@ -310,7 +315,7 @@ export function createInteropResource(
     );
 
   const tryCreate = (dstChain: ChainRef, params: InteropParams) =>
-    toResult<InteropHandle<TransactionRequest>>(OP_INTEROP.tryCreate, () =>
+    toResult<InteropHandle<ViemTransactionRequest>>(OP_INTEROP.tryCreate, () =>
       create(dstChain, params),
     );
 
@@ -342,9 +347,7 @@ export function createInteropResource(
     opts?: { pollMs?: number; timeoutMs?: number },
   ) => toResult<InteropFinalizationInfo>(OP_INTEROP.tryWait, () => wait(dstChain, h, opts));
 
-  // finalize → executeBundle on destination chain,
-  // waits until that destination tx is mined,
-  // returns finalization metadata for UI / explorers.
+  // finalize → executeBundle on destination chain
   const finalize = (
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
