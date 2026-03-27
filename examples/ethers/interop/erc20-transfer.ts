@@ -1,7 +1,7 @@
 import { Contract, JsonRpcProvider, Wallet, formatUnits } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../src/adapters/ethers';
 import { type Address, type Hex } from '../../../src/core';
-import { FORMAL_ETH_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
+import { L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
 import { IERC20ABI, L2NativeTokenVaultABI } from '../../../src/core/abi';
 import { getErc20TokenAddress } from './utils';
 
@@ -115,14 +115,10 @@ async function main() {
   const ntvDst = new Contract(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NativeTokenVaultABI, l2Destination);
   const tokenDstAddress = (await ntvDst.tokenAddress(assetId)) as Address;
 
-  if (tokenDstAddress === FORMAL_ETH_ADDRESS) {
-    console.log('Token is not registered on destination yet.');
-  } else {
-    const tokenOnDst = new Contract(tokenDstAddress, IERC20ABI, l2Destination);
-    const balanceOnDst = await tokenOnDst.balanceOf(recipientOnDst);
-    console.log('Destination token address:', tokenDstAddress);
-    console.log('Destination balance:', formatUnits(balanceOnDst, 18), 'TEST');
-  }
+  const tokenOnDst = new Contract(tokenDstAddress, IERC20ABI, l2Destination);
+  const balanceOnDst = await tokenOnDst.balanceOf(recipientOnDst);
+  console.log('Destination token address:', tokenDstAddress);
+  console.log('Destination balance:', formatUnits(balanceOnDst, 18), 'TEST');
 }
 
 main().catch((err) => {

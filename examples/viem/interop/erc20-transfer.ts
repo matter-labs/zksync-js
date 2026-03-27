@@ -10,7 +10,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, createViemSdk } from '../../../src/adapters/viem';
 import type { Address, Hex } from '../../../src/core';
-import { FORMAL_ETH_ADDRESS, L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
+import { L2_NATIVE_TOKEN_VAULT_ADDRESS } from '../../../src/core/constants';
 import { IERC20ABI, L2NativeTokenVaultABI } from '../../../src/core/abi';
 import { getErc20TokenAddress } from './utils';
 
@@ -128,18 +128,14 @@ async function main() {
     args: [assetId],
   })) as Address;
 
-  if (tokenDstAddress === FORMAL_ETH_ADDRESS) {
-    console.log('Token is not registered on destination yet.');
-  } else {
-    const balanceOnDst = (await l2Destination.readContract({
-      address: tokenDstAddress,
-      abi: IERC20ABI,
-      functionName: 'balanceOf',
-      args: [me],
-    })) as bigint;
-    console.log('Destination token address:', tokenDstAddress);
-    console.log('Destination balance:', formatUnits(balanceOnDst, 18), 'TEST');
-  }
+  const balanceOnDst = (await l2Destination.readContract({
+    address: tokenDstAddress,
+    abi: IERC20ABI,
+    functionName: 'balanceOf',
+    args: [me],
+  })) as bigint;
+  console.log('Destination token address:', tokenDstAddress);
+  console.log('Destination balance:', formatUnits(balanceOnDst, 18), 'TEST');
 }
 
 main().catch((err) => {

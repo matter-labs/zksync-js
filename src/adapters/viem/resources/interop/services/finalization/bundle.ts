@@ -90,7 +90,6 @@ export async function executeBundle(
       account: client.account,
       chain: dstProvider.chain ?? null,
     });
-
     return {
       hash: hash,
       wait: async () => {
@@ -127,6 +126,75 @@ export async function executeBundle(
         resource: 'interop',
         operation: OP_INTEROP.exec.sendStep,
         message: 'Failed to send executeBundle transaction on destination chain.',
+      },
+      e,
+    );
+  }
+}
+
+export async function verifyBundle(
+  client: ViemClient,
+  dstProvider: PublicClient,
+  info: InteropFinalizationInfo,
+): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
+  const { interopHandler } = await client.ensureAddresses();
+  const dstWallet = await wrap(
+    OP_INTEROP.verify,
+    () =>
+      createWalletClient({
+        account: client.account,
+        transport: custom(dstProvider.transport),
+        chain: dstProvider.chain,
+      }),
+    { message: 'Failed to create destination wallet client for verifyBundle.' },
+  );
+  try {
+    const hash = await dstWallet.writeContract({
+      address: interopHandler,
+      abi: IInteropHandlerAbi,
+      functionName: 'verifyBundle',
+      args: [info.encodedData, info.proof] as never,
+      account: client.account,
+      chain: dstProvider.chain ?? null,
+    });
+
+    return {
+      hash,
+      wait: async () => {
+        try {
+          const receipt = await dstProvider.waitForTransactionReceipt({ hash });
+          if (receipt.status === 'reverted') {
+            throw createError('EXECUTION', {
+              resource: 'interop',
+              operation: OP_INTEROP.verify,
+              message: 'Interop bundle verification reverted on destination.',
+              context: { txHash: hash },
+            });
+          }
+          return receipt;
+        } catch (e) {
+          if (isZKsyncError(e)) throw e;
+          throw toZKsyncError(
+            'EXECUTION',
+            {
+              resource: 'interop',
+              operation: OP_INTEROP.verify,
+              message: 'Failed while waiting for verifyBundle transaction on destination.',
+              context: { txHash: hash },
+            },
+            e,
+          );
+        }
+      },
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw toZKsyncError(
+      'EXECUTION',
+      {
+        resource: 'interop',
+        operation: OP_INTEROP.verify,
+        message: 'Failed to send verifyBundle transaction on destination chain.',
       },
       e,
     );

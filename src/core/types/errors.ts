@@ -315,6 +315,7 @@ export const OP_INTEROP = {
   tryWait: 'interop.tryWait',
   finalize: 'interop.finalize',
   tryFinalize: 'interop.tryFinalize',
+  verify: 'interop.verify',
   context: {
     chainTypeManager: 'interop.chainTypeManager',
     protocolVersion: 'interop.protocolVersion',

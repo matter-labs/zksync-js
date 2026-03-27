@@ -32,7 +32,8 @@ import {
   createInteropFinalizationServices,
   type InteropFinalizationServices,
 } from './services/finalization';
-import type { LogsQueryOptions } from './services/finalization/data-fetchers';
+import { getInteropRoot, type LogsQueryOptions } from './services/finalization/data-fetchers';
+import { verifyBundle as verifyBundleOnChain } from './services/finalization/bundle';
 import type { ChainRef, InteropConfig } from './types';
 import { resolveChainRef } from './resolvers';
 import { quoteStepsL2Fee } from './services/gas';
@@ -96,6 +97,13 @@ export interface InteropResource {
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
+
+  getInteropRoot(dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex>;
+
+  verifyBundle(
+    dstChain: ChainRef,
+    h: InteropWaitable | InteropFinalizationInfo,
+  ): Promise<InteropFinalizationResult>;
 }
 
 export function createInteropResource(
@@ -377,6 +385,33 @@ export function createInteropResource(
   ) =>
     toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(dstChain, h, opts));
 
+  const interopGetRoot = (dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex> =>
+    wrap(OP_INTEROP.svc.status.getRoot, () => getInteropRoot(resolveChainRef(dstChain), rootChainId, batchNumber), {
+      message: 'Failed to get interop root from the destination chain.',
+      ctx: { where: 'interop.getInteropRoot' },
+    });
+
+  const verifyBundle = (
+    dstChain: ChainRef,
+    h: InteropWaitable | InteropFinalizationInfo,
+  ): Promise<InteropFinalizationResult> =>
+    wrap(
+      OP_INTEROP.verify,
+      async () => {
+        const dstProvider = resolveChainRef(dstChain);
+        const info = isInteropFinalizationInfoBase(h)
+          ? h
+          : await svc.wait(dstProvider, getGwProvider(), h);
+          const result = await verifyBundleOnChain(client, dstProvider, info);
+        await result.wait();
+        return { bundleHash: info.bundleHash, dstExecTxHash: result.hash };
+      },
+      {
+        message: 'Failed to verify interop bundle on destination.',
+        ctx: { where: 'interop.verifyBundle' },
+      },
+    );
+
   return {
     quote,
     tryQuote,
@@ -389,6 +424,8 @@ export function createInteropResource(
     tryWait,
     finalize,
     tryFinalize,
+    getInteropRoot: interopGetRoot,
+    verifyBundle,
   };
 }
 
