@@ -10,6 +10,7 @@ import {
   TX_MEMORY_OVERHEAD_GAS,
   TX_SLOT_OVERHEAD_L2_GAS,
 } from '../../constants';
+import { isEraVmChain } from './chains';
 
 export type PriorityTxGasBreakdown = {
   encodedLength: bigint;
@@ -24,6 +25,7 @@ export type PriorityTxGasBreakdown = {
 const PRIORITY_TX_ENCODING_STEP_BYTES = 544n;
 const L1_TO_L2_ALIAS_OFFSET = 0x1111000000000000000000000000000000001111n;
 export const DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER = 6n;
+const ERAVM_PRIORITY_L2_GAS_BUFFER = 30n;
 
 const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
@@ -96,4 +98,15 @@ export function derivePriorityBodyGasEstimateCap(input: {
   multiplier?: bigint;
 }): bigint {
   return input.minBodyGas * (input.multiplier ?? DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER);
+}
+
+export function applyPriorityL2GasLimitBuffer(input: {
+  chainIdL2: bigint;
+  gasLimit: bigint;
+}): bigint {
+  if (!isEraVmChain(input.chainIdL2)) {
+    return input.gasLimit;
+  }
+
+  return (input.gasLimit * (100n + ERAVM_PRIORITY_L2_GAS_BUFFER)) / 100n;
 }

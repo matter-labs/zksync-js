@@ -13,6 +13,7 @@ import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
+import { applyPriorityL2GasLimitBuffer } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
 // error handling
@@ -36,7 +37,12 @@ export function routeEthDirect(): DepositRouteStrategy {
         gasPerPubdata: ctx.gasPerPubdata,
       });
 
-      const quotedL2GasLimit = ctx.l2GasLimit ?? priorityFloorBreakdown.derivedL2GasLimit;
+      const quotedL2GasLimit =
+        ctx.l2GasLimit ??
+        applyPriorityL2GasLimitBuffer({
+          chainIdL2: ctx.chainIdL2,
+          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        });
 
       const l2GasParams = await quoteL2Gas({
         ctx,
@@ -103,12 +109,22 @@ export function routeEthDirect(): DepositRouteStrategy {
         overrides: ctx.gasOverrides,
       });
 
+      let bridgeTx: ViemPlanWriteRequest = { ...sim.request };
+      if (l1Gas) {
+        bridgeTx = {
+          ...bridgeTx,
+          gas: l1Gas.gasLimit,
+          maxFeePerGas: l1Gas.maxFeePerGas,
+          maxPriorityFeePerGas: l1Gas.maxPriorityFeePerGas,
+        };
+      }
+
       const steps: PlanStep<ViemPlanWriteRequest>[] = [
         {
           key: 'bridgehub:direct',
           kind: 'bridgehub:direct',
           description: 'Bridge ETH via Bridgehub.requestL2TransactionDirect',
-          tx: { ...sim.request, ...l1Gas },
+          tx: bridgeTx,
         },
       ];
 
