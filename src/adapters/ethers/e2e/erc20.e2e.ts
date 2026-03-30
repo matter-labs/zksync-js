@@ -65,7 +65,7 @@ describe('e2e (ethers): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
       // L2 token not deployed yet — treat as 0 until after deposit
       Promise.resolve(0n),
     ]);
-  });
+  }, 20_000);
 
   // -------------------
   // Deposit L1 -> L2
