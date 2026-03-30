@@ -10,6 +10,7 @@ Instead of re-implementing accounts or low-level RPC logic, this SDK focuses onl
 
 * Deposits (**L1 → L2**)
 * Withdrawals (**L2 → L1**, including finalization)
+* Interop (**L2 → L2**, cross-chain execution between ZKsync chains)
 * *Try* variants for functional error handling (e.g. `tryCreate`)
 * Status and wait helpers
 * ZKsync-specific JSON-RPC methods
@@ -35,6 +36,14 @@ Supports ETH, Custom Base Token, and ERC-20.
 * **Initiate on L2:** Create the withdrawal transaction on ZKsync.
 * **Track progress:** Monitor execution and finalization availability.
 * **Finalize on L1:** Finalize withdrawal to release funds back to Ethereum.
+
+### Interop (L2 → L2)
+
+Supports native token, ERC-20, and arbitrary contract calls.
+
+* **Create on source L2:** Bundle and send cross-chain actions in a single transaction.
+* **Wait for proof:** Poll until the bundle proof is available on the destination chain.
+* **Finalize on destination L2:** Execute the bundled actions on the destination chain.
 
 ### ZKsync RPC Extensions
 
