@@ -4,10 +4,10 @@ Public, typed API surface for **ZKsyncOS** — *Incorruptible Financial Infrastr
 
 ## What Is This?
 
-The **zksync-js** provides lightweight adapters for **ethers** and **viem** to build L1 ↔ L2 and L2 ↔ L2 flows — **deposits**, **withdrawals**, and **interop** — with a small, focused API. You’ll work with:
+The **zksync-js** provides lightweight adapters for **ethers** and **viem** to build L1 ↔ L2 flows — **deposits** and **withdrawals** — with a small, focused API. You’ll work with:
 
 * Adapter-level **Clients** (providers/wallets, resolved addresses, convenience contracts)
-* High-level **SDKs** (resources for deposits, withdrawals, interop, tokens, and contracts)
+* High-level **SDKs** (resources for deposits/withdrawals plus tokens and contracts)
 * ZKsync-specific **RPC** helpers (`client.zks.*`)
 * A consistent, typed **Error model** (`ZKsyncError`, `try*` results)
 
@@ -52,17 +52,15 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 | Area                                                | Description                                                                                   |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [**Ethers · Client**](./ethers/client.md)           | Low-level handle: providers/signer, resolved addresses, convenience contracts, ZK RPC access. |
-| [**Ethers · SDK**](./ethers/sdk.md)                 | High-level deposits, withdrawals, interop, token, and contract resources.                     |
+| [**Ethers · SDK**](./ethers/sdk.md)                 | High-level deposits/withdrawals plus token and contract resources.                            |
 | [**Ethers · Contracts**](./ethers/contracts.md)     | Resolved addresses and connected core contracts.                                               |
 | [**Ethers · Deposits**](./ethers/deposits.md)       | L1 → L2 flow with quote, prepare, create, status, and wait.                                   |
 | [**Ethers · Withdrawals**](./ethers/withdrawals.md) | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
-| [**Ethers · Interop**](./ethers/interop.md)         | L2 → L2 cross-chain execution with quote, prepare, create, status, wait, and finalize.        |
 | [**Viem · Client**](./viem/client.md)               | `PublicClient` / `WalletClient` integration, resolved addresses, contracts, ZK RPC access.    |
-| [**Viem · SDK**](./viem/sdk.md)                     | High-level deposits, withdrawals, interop, token, and contract resources (viem-typed).        |
+| [**Viem · SDK**](./viem/sdk.md)                     | Same high-level surface as ethers, typed to viem contracts.                                   |
 | [**Viem · Contracts**](./viem/contracts.md)         | Resolved addresses and connected core contracts.                                               |
 | [**Viem · Deposits**](./viem/deposits.md)           | L1 → L2 flow with quote, prepare, create, status, and wait.                                   |
 | [**Viem · Withdrawals**](./viem/withdrawals.md)     | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
-| [**Viem · Interop**](./viem/interop.md)             | L2 → L2 cross-chain execution with quote, prepare, create, status, wait, and finalize.        |
 | [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getBlockMetadataByNumber`, `getL2ToL1LogProof`. |
 | [**Core · Error model**](./core/errors.md)          | Typed `ZKsyncError` envelope and `try*` result helpers.                                       |
 
