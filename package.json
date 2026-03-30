@@ -146,7 +146,7 @@
     "test:watch": "bun test --watch",
     "test:cov": "bun test --coverage",
     "test:core": "bun test src/core",
-    "test:docs": "bun test docs/snippets --timeout 100000"
+    "test:docs": "bun test docs/snippets --timeout 100000 --preload ./docs/snippets/setup.ts"
   },
   "sideEffects": false,
   "type": "module",
