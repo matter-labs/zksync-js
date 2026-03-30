@@ -67,12 +67,7 @@ jobs:
         uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
         with:
           version: v0.18.1
-          protocol_version: v31.0
-          setup: multi_chain
-          l2_ports: |
-            506: 3052
-            6565: 3050
-            6566: 3051
+          protocol_version: v30.2
 
       - name: Compile test contracts
         working-directory: tests/contracts
@@ -201,12 +196,7 @@ jobs:
         uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
         with:
           version: v0.18.1
-          protocol_version: v31.0
-          setup: multi_chain
-          l2_ports: |
-            506: 3052
-            6565: 3050
-            6566: 3051
+          protocol_version: v30.2
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
