@@ -41,7 +41,7 @@ describe('withdrawals.e2e (viem): ETH withdrawal', () => {
 
     const [l1, l2] = await Promise.all([client.l1.getBalance({ address: me }), l2Bal]);
     balancesBefore = { l1, l2 };
-  }, 20_000);
+  });
 
   it('should quote a withdrawal', async () => {
     const q = await sdk.withdrawals.quote({

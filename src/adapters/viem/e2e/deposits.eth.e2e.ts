@@ -29,7 +29,7 @@ describe('deposits.e2e (viem): ETH deposit', () => {
       client.l2.getBalance({ address: me }),
     ]);
     balancesBefore = { l1, l2 };
-  }, 20_000);
+  });
 
   it('should get a valid quote for the deposit', async () => {
     quoteResult = await sdk.deposits.quote({

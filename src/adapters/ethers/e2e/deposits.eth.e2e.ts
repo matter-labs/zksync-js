@@ -25,7 +25,7 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
     me = (await client.signer.getAddress()) as Address;
     const [l1, l2] = await Promise.all([client.l1.getBalance(me), client.l2.getBalance(me)]);
     balancesBefore = { l1, l2 };
-  }, 20_000);
+  });
 
   it('should get a valid quote for the deposit', async () => {
     quoteResult = await sdk.deposits.quote({
