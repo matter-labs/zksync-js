@@ -64,9 +64,9 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
+        uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
         with:
-          version: v0.15.1
+          version: v0.18.1
           protocol_version: v30.2
 
       - name: Compile test contracts
@@ -193,9 +193,9 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@54ebddef27a0bd7ef30246f94add1c9091ae23be # v0.2.0
+        uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
         with:
-          version: v0.15.1
+          version: v0.18.1
           protocol_version: v30.2
 
       - name: Setup Bun

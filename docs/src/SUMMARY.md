@@ -19,6 +19,9 @@
   - [Withdrawals]()
     - [viem](guides/withdrawals/viem.md)
     - [ethers](guides/withdrawals/ethers.md)
+  - [Interop]()
+    - [viem](guides/interop/viem.md)
+    - [ethers](guides/interop/ethers.md)
 
 - [SDK Reference](sdk-reference/index.md)
   - [Core]()
@@ -30,6 +33,7 @@
     - [contracts](sdk-reference/ethers/contracts.md)
     - [deposits](sdk-reference/ethers/deposits.md)
     - [withdrawals](sdk-reference/ethers/withdrawals.md)
+    - [interop](sdk-reference/ethers/interop.md)
     - [finalization services](sdk-reference/ethers/finalization-services.md)
     - [tokens](sdk-reference/ethers/tokens.md)
   - [Viem]()
@@ -38,6 +42,7 @@
     - [contracts](sdk-reference/viem/contracts.md)
     - [deposits](sdk-reference/viem/deposits.md)
     - [withdrawals](sdk-reference/viem/withdrawals.md)
+    - [interop](sdk-reference/viem/interop.md)
     - [finalization services](sdk-reference/viem/finalization-services.md)
     - [tokens](sdk-reference/viem/tokens.md)
 
