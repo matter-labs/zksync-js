@@ -123,3 +123,62 @@ export async function executeBundle(
     );
   }
 }
+
+export async function verifyBundle(
+  client: EthersClient,
+  dstProvider: AbstractProvider,
+  info: InteropFinalizationInfo,
+): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
+  const signer = await wrap(OP_INTEROP.verify, () => client.signerFor(dstProvider), {
+    message: 'Failed to resolve destination signer for verifyBundle.',
+  });
+  const { interopHandler } = await client.ensureAddresses();
+  const handler = new Contract(interopHandler, IInteropHandlerAbi, signer);
+  try {
+    const txResponse = (await handler.verifyBundle(
+      info.encodedData,
+      info.proof,
+    )) as TransactionResponse;
+    const hash = txResponse.hash as Hex;
+    return {
+      hash,
+      wait: async () => {
+        try {
+          const receipt = await txResponse.wait();
+          if (!receipt || receipt.status !== 1) {
+            throw createError('EXECUTION', {
+              resource: 'interop',
+              operation: OP_INTEROP.verify,
+              message: 'Interop bundle verification reverted on destination.',
+              context: { txHash: hash },
+            });
+          }
+          return receipt;
+        } catch (e) {
+          if (isZKsyncError(e)) throw e;
+          throw toZKsyncError(
+            'EXECUTION',
+            {
+              resource: 'interop',
+              operation: OP_INTEROP.verify,
+              message: 'Failed while waiting for verifyBundle transaction on destination.',
+              context: { txHash: hash },
+            },
+            e,
+          );
+        }
+      },
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw toZKsyncError(
+      'EXECUTION',
+      {
+        resource: 'interop',
+        operation: OP_INTEROP.verify,
+        message: 'Failed to send verifyBundle transaction on destination chain.',
+      },
+      e,
+    );
+  }
+}

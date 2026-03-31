@@ -2,8 +2,7 @@ import { Contract, isError, type AbstractProvider } from 'ethers';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import { createErrorHandlers } from '../../../../errors/error-ops';
-import { isReceiptNotFound } from '../../../../../../core/types/errors';
-import { OP_INTEROP } from '../../../../../../core/types';
+import { isReceiptNotFound, OP_INTEROP } from '../../../../../../core/types/errors';
 import { IInteropRootStorageABI } from '../../../../../../core/abi';
 import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
 
