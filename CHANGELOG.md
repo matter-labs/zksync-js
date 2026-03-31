@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.15](https://github.com/matter-labs/zksync-js/compare/v0.0.14...v0.0.15) (2026-03-27)
+
+
+### Features
+
+* implement viem interop resource ([#82](https://github.com/matter-labs/zksync-js/issues/82)) ([aafe3ef](https://github.com/matter-labs/zksync-js/commit/aafe3eff45b0f352938ca5b487804c974d804d14))
+
+
+### Bug Fixes
+
+* address underestimation issue for eravm chains ([#83](https://github.com/matter-labs/zksync-js/issues/83)) ([ca0f458](https://github.com/matter-labs/zksync-js/commit/ca0f458fa5c86307e866e91c225732f3370200eb))
+
 ## [0.0.14](https://github.com/matter-labs/zksync-js/compare/v0.0.13...v0.0.14) (2026-03-25)
 
 
