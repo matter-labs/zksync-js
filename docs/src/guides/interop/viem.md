@@ -42,7 +42,6 @@ Interop requires the SDK to know the **gateway chain** RPC, used to poll for int
 
 | Type          | Fields                             | Effect on destination                   |
 | ------------- | ---------------------------------- | --------------------------------------- |
-| `sendNative`  | `to`, `amount`                     | Transfer native token (ETH) to `to`     |
 | `sendErc20`   | `token`, `to`, `amount`            | Transfer ERC-20 tokens to `to`          |
 | `call`        | `to`, `data`, `value?`             | Execute arbitrary contract call         |
 
