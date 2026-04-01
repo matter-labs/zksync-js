@@ -258,7 +258,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const requestStruct = {
         chainId: ctx.chainIdL2,
         mintValue,
-        l2Value: p.amount,
+        l2Value: 0n,
         l2GasLimit: l2Gas.gasLimit,
         l2GasPerPubdataByteLimit: ctx.gasPerPubdata,
         refundRecipient: ctx.refundRecipient,
@@ -266,6 +266,10 @@ export function routeEthNonBase(): DepositRouteStrategy {
         secondBridgeValue: p.amount,
         secondBridgeCalldata,
       } as const;
+      // For ETH deposits on custom-base-token chains:
+      // - outer Bridgehub msg.value must equal secondBridgeValue
+      // - inner asset-router / NTV path requires l2Value to stay zero
+      const bridgehubValue = p.amount;
 
       let bridgeTx: ViemPlanWriteRequest;
       let calldata: `0x${string}`;
@@ -276,7 +280,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
           abi: IBridgehubABI,
           functionName: 'requestL2TransactionTwoBridges',
           args: [requestStruct],
-          value: p.amount, // base ≠ ETH ⇒ msg.value == secondBridgeValue
+          value: bridgehubValue,
           account: ctx.client.account,
         } as const;
 
@@ -295,7 +299,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
               abi: IBridgehubABI,
               functionName: 'requestL2TransactionTwoBridges',
               args: [requestStruct],
-              value: p.amount,
+              value: bridgehubValue,
               account: ctx.client.account,
             }),
           {
@@ -317,7 +321,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const l1TxCandidate: TransactionRequest = {
         to: ctx.bridgehub,
         data: calldata,
-        value: p.amount,
+        value: bridgehubValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
       };

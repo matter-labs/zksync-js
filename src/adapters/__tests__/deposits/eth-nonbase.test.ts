@@ -174,6 +174,7 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       expect((tx.from as string).toLowerCase()).toBe(ctx.sender.toLowerCase());
       expect(BigInt(tx.value ?? 0n)).toBe(amount);
       expect(BigInt(info.mintValue)).toBe(mintValue);
+      expect(BigInt(info.l2Value)).toBe(0n);
       expect(BigInt(info.secondBridgeValue)).toBe(amount);
       expect(bridgeArgs.token).toBe(ETH_ADDRESS.toLowerCase());
       expect(bridgeArgs.amount).toBe(amount);
@@ -188,6 +189,7 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       expect((tx.account as string).toLowerCase()).toBe(ctx.sender.toLowerCase());
       expect(BigInt(tx.value ?? 0n)).toBe(amount);
       expect(BigInt(req.mintValue ?? 0n)).toBe(mintValue);
+      expect(BigInt(req.l2Value ?? 0n)).toBe(0n);
       expect(BigInt(req.secondBridgeValue ?? 0n)).toBe(amount);
     }
   });
@@ -231,11 +233,19 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
 
     const bridge = res.steps.at(-1)!;
     if (kind === 'ethers') {
+      const tx = bridge.tx as any;
+      expect(BigInt(tx.value ?? 0n)).toBe(amount);
       const info = decodeTwoBridgeOuter((bridge.tx as any).data);
       expect(BigInt(info.l2GasLimit)).toBe(expectedL2GasLimit);
+      expect(BigInt(info.l2Value)).toBe(0n);
+      expect(BigInt(info.secondBridgeValue)).toBe(amount);
     } else {
+      const tx = bridge.tx as any;
+      expect(BigInt(tx.value ?? 0n)).toBe(amount);
       const req = ((bridge.tx as any).args?.[0] ?? {}) as any;
       expect(BigInt(req.l2GasLimit ?? 0n)).toBe(expectedL2GasLimit);
+      expect(BigInt(req.l2Value ?? 0n)).toBe(0n);
+      expect(BigInt(req.secondBridgeValue ?? 0n)).toBe(amount);
     }
   });
 
