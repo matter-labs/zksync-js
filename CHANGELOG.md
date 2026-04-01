@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.16](https://github.com/matter-labs/zksync-js/compare/v0.0.15...v0.0.16) (2026-04-01)
+
+
+### Features
+
+* add verifyBundle and getInteropRoot interop functions ([#85](https://github.com/matter-labs/zksync-js/issues/85)) ([f6d1628](https://github.com/matter-labs/zksync-js/commit/f6d1628f448f98b003dbb70eda93f5a2a93de876))
+
+
+### Bug Fixes
+
+* address issue with ETH deposits on CBT chain ([#87](https://github.com/matter-labs/zksync-js/issues/87)) ([51a8ccb](https://github.com/matter-labs/zksync-js/commit/51a8ccb1c4ea50919eb6fba8bc60f2fd848c4a6e))
+
 ## [0.0.15](https://github.com/matter-labs/zksync-js/compare/v0.0.14...v0.0.15) (2026-03-27)
 
 
