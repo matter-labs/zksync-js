@@ -58,7 +58,7 @@ jobs:
         run: cargo install mdbook --version 0.4.40 --locked
 
       - name: Install mdbook-yapp
-        run: cargo install mdbook-yapp --version "1.0.4" --locked
+        run: cargo install mdbook-yapp --version "1.2.4" --locked
 
       - name: Install mdbook-admonish
         run: cargo install mdbook-admonish --version "1.20.0" --locked
