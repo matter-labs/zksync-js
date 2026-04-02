@@ -63,14 +63,6 @@ jobs:
       - name: Install mdbook-admonish
         run: cargo install mdbook-admonish --version "1.20.0" --locked
 
-      - name: Debug tool versions
-        working-directory: ${{ env.DOCS_ROOT }}
-        run: |
-          mdbook --version
-          mdbook-yapp --version
-          mdbook-admonish --version
-          cat book.toml
-
       - name: Deploy mdBook to gh-pages
         uses: matter-labs/deploy-mdbooks@c72ae3825faeb7d20cbf3e67714f7253dd0ee7cb
         with: 
