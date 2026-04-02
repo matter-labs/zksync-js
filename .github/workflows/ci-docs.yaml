@@ -57,6 +57,9 @@ jobs:
       - name: Install mdbook-yapp
         run: cargo install mdbook-yapp
 
+      - name: Install mdbook-admonish
+        run: cargo install mdbook-admonish
+
       - name: Deploy mdBook to gh-pages
         uses: matter-labs/deploy-mdbooks@c72ae3825faeb7d20cbf3e67714f7253dd0ee7cb
         with: 
