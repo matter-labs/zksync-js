@@ -64,11 +64,11 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
+        uses: matter-labs/zksync-server-action@be59d2c05707af4f0f20164471b26b6f4c1b9876 # v0.1.1
         with:
           version: v0.18.1
           protocol_version: v30.2
-
+ 
       - name: Compile test contracts
         working-directory: tests/contracts
         run: |
@@ -193,7 +193,7 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
+        uses: matter-labs/zksync-server-action@be59d2c05707af4f0f20164471b26b6f4c1b9876 # v0.1.1
         with:
           version: v0.18.1
           protocol_version: v30.2
