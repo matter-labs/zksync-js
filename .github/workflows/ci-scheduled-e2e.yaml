@@ -36,7 +36,7 @@ jobs:
           version: v1.5.1
 
       - name: Run ZKsync OS (L1-L2)
-        uses: dutterbutter/zksync-server-action@1e0262a81dbbadbb535c6acc13cb23e9f2495812
+        uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
         with:
           version: v0.18.1
           protocol_version: v30.2
