@@ -58,7 +58,7 @@ jobs:
         run: cargo install mdbook-yapp --locked
 
       - name: Deploy mdBook to gh-pages
-        uses: matter-labs/deploy-mdbooks@c72ae3825faeb7d20cbf3e67714f7253dd0ee7cb
+        uses: matter-labs/deploy-mdbooks@025101a848f5e9c0563e881e748252a9d60143a8
         with: 
           version:      ${{ inputs.version || steps.version.outputs.value || github.ref_name }}
           docs-dir:     ${{ env.DOCS_ROOT }}
