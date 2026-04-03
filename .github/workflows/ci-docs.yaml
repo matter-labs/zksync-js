@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - 'docs/**'
-      - '.github/workflows/docs.yaml'
+      - '.github/workflows/ci-docs.yaml'
   workflow_dispatch:
     inputs:
       ref:
