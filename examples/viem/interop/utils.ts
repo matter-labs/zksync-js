@@ -1,7 +1,11 @@
 import { createPublicClient, createWalletClient, encodeAbiParameters, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { Address } from '../../../src/core';
-import { GREETING_BYTECODE, ERC20_BYTECODE, FUNDS_RECEIVER_BYTECODE } from '../../interop/constants';
+import {
+  GREETING_BYTECODE,
+  ERC20_BYTECODE,
+  FUNDS_RECEIVER_BYTECODE,
+} from '../../interop/constants';
 
 export async function getFundsReceiverAddress(args: {
   privateKey: `0x${string}`;

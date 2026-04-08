@@ -82,7 +82,11 @@ export async function executeBundle(
 
   const handler = new Contract(interopHandler, IInteropHandlerAbi, signer);
   try {
-    const txResponse = (await handler.executeBundle(encodedData, proof, txOverrides ?? {})) as TransactionResponse;
+    const txResponse = (await handler.executeBundle(
+      encodedData,
+      proof,
+      txOverrides ?? {},
+    )) as TransactionResponse;
     const hash = txResponse.hash as Hex;
     return {
       hash,
