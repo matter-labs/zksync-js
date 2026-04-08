@@ -22,7 +22,7 @@ export function routeDirect(): InteropRouteStrategy {
       });
 
       // InteropHandler calls the `receiveMessage` function of the target address on the destination chain.
-      // Verify each destination address is a contract that implements IERC7786Recipient.
+      // Verify each destination address is a contract.
       for (const action of params.actions) {
         const code = await ctx.dstProvider.getCode(action.to);
         if (!code || code === '0x') {

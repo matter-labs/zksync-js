@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 contract FundsReceiver {
-    // ERC-7930 receiveMessage function
     // Receive messages coming from other chains.
     function receiveMessage(
         bytes32, // Unique identifier

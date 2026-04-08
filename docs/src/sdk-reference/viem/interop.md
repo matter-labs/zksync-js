@@ -151,14 +151,6 @@ Execute the bundle on the **destination chain**. Accepts either:
 | `opts`        | `LogsQueryOptions` | ❌        | Options for log queries used to check bundle status.               |
 | `txOverrides` | `TxGasOverrides`   | ❌        | Gas overrides for the `executeBundle` transaction on destination.  |
 
-`TxGasOverrides` fields:
-
-| Field                  | Type     | Description                              |
-| ---------------------- | -------- | ---------------------------------------- |
-| `gasLimit`             | `bigint` | Gas limit for the destination tx.        |
-| `maxFeePerGas`         | `bigint` | Max fee per gas (EIP-1559).              |
-| `maxPriorityFeePerGas` | `bigint` | Max priority fee per gas (EIP-1559). Optional. |
-
 ```ts
 {{#include ../../../snippets/viem/reference/interop.test.ts:finalize}}
 ```
