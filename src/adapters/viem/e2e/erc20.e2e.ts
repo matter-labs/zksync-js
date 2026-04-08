@@ -43,7 +43,7 @@ describe('e2e (viem): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
     me = addrs[0] as Address;
 
     const { deployerL1 } = makeDeployers();
-
+    console.log("Deployer address on L1:", deployerL1);
     // Deploy token on L1 & mint
     l1TokenAddr = await deployMintableErc20(
       client.l1,
@@ -52,12 +52,13 @@ describe('e2e (viem): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
       'USDT',
       Number(DECIMALS),
     );
+    console.log("successfully deployed L1 token, minting to self...");
     await mintTo(deployerL1, client.l1, l1TokenAddr, me, DEPOSIT_AMOUNT * 10n);
-
+    console.log("L1 token deployed at", l1TokenAddr);
     // Snapshots
     l1BalBeforeDeposit = await erc20BalanceOf(client.l1, l1TokenAddr, me);
     l2BalBeforeDeposit = 0n;
-  });
+  }, 160_000);
 
   // ------------- Deposit -------------
   it('deposits: quote', async () => {

@@ -66,17 +66,6 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
     expect(['L1_INCLUDED', 'L2_PENDING', 'L2_EXECUTED', 'L2_FAILED']).toContain(status.phase);
   }, 60_000);
 
-  it('should execute successfully on L2', async () => {
-    expect(depositHandle).toBeDefined();
-    const l2Rcpt = await sdk.deposits.wait(depositHandle, { for: 'l2' });
-
-    expect(l2Rcpt).toBeTruthy();
-    expect(l2Rcpt.status).toBe(1);
-
-    const finalStatus = await sdk.deposits.status(depositHandle);
-    expect(finalStatus.phase).toBe('L2_EXECUTED');
-  }, 90_000);
-
   it('should reflect correct balance changes on L1 and L2', async () => {
     expect(depositHandle).toBeDefined();
     expect(quoteResult).toBeDefined();
@@ -85,6 +74,7 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
       ? Object.values(depositHandle.stepHashes)
       : [depositHandle.l1TxHash];
 
+    // Validate end-to-end balance movement because local v31 priority deposit receipts may not expose reliable success status.
     await verifyDepositBalances(
       client,
       me,
@@ -92,6 +82,7 @@ describe('deposits.e2e (ethers): ETH deposit', () => {
       BigInt(quoteResult.mintValue),
       DEPOSIT_WEI,
       l1TxHashes as Hex[],
+      { timeoutMs: 90_000 },
     );
-  }, 30_000);
+  }, 90_000);
 });

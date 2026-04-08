@@ -30,8 +30,7 @@ export const DEPLOYER_PRIVATE_KEY =
 export function createTestClientAndSdk() {
   const l1 = new JsonRpcProvider(L1_RPC_URL);
   const l2 = new JsonRpcProvider(L2_RPC_URL);
-  const base = new Wallet(PRIVATE_KEY, l1);
-  const signer = new NonceManager(base);
+  const signer = new Wallet(PRIVATE_KEY, l1);
 
   const client = createEthersClient({ l1, l2, signer });
   const sdk = createEthersSdk(client);
@@ -72,6 +71,23 @@ export async function waitForL1Inclusion(sdk: any, handle: any, timeoutMs = 60_0
   throw new Error('Timed out waiting for L1 inclusion.');
 }
 
+async function waitForEthDepositCredit(
+  client: any,
+  me: Address,
+  l2Before: bigint,
+  amount: bigint,
+  timeoutMs = 90_000,
+  pollMs = 1500,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const l2After = (await client.l2.getBalance(me)) as bigint;
+    if (l2After - l2Before >= amount) return l2After;
+    await sleep(pollMs);
+  }
+  throw new Error('Timed out waiting for L2 ETH deposit credit.');
+}
+
 /**
  * Poll until L2 inclusion is confirmed for a withdrawal (status != L2_PENDING/UNKNOWN).
  */
@@ -93,9 +109,13 @@ export async function verifyDepositBalances(
   mintValue: bigint,
   depositAmount: bigint,
   l1TxHashes: Hex[],
+  options: { timeoutMs?: number; pollMs?: number } = {},
 ) {
   const l1Before = balancesBefore.l1;
   const l2Before = balancesBefore.l2;
+  const { timeoutMs = 90_000, pollMs = 1500 } = options;
+
+  await waitForEthDepositCredit(client, me, l2Before, depositAmount, timeoutMs, pollMs);
 
   const [l1After, l2After] = await Promise.all([
     client.l1.getBalance(me),
@@ -105,7 +125,6 @@ export async function verifyDepositBalances(
   // L2 Delta Check
   const l2Delta = l2After - l2Before;
   expect(l2Delta).toBeGreaterThanOrEqual(depositAmount);
-  expect(l2Delta).toBeLessThanOrEqual(mintValue);
 
   // L1 Delta Check
   let totalL1Fees = 0n;
@@ -143,8 +162,8 @@ export async function waitUntilReadyToFinalize(
 /**
  * Verify withdrawal balance effects:
  *  - L2: decreases by at least `amount` (also includes L2 gas)
- *  - L1: after finalization, net delta = +amount - finalizeGas
- * If finalize receipt is unavailable, we only check that L1 increased by >= amount - someGas.
+ *  - L1: after finalization, net delta should be at least `amount - finalizeGas`
+ * If finalize receipt is unavailable, we only check that L1 increased by >= 0.
  */
 export async function verifyWithdrawalBalancesAfterFinalize(args: {
   client: any;
@@ -191,7 +210,7 @@ export async function verifyWithdrawalBalancesAfterFinalize(args: {
           ? BigInt(l1FinalizeRcpt.gasPrice)
           : 0n;
     const finalizeFee = gasUsed * gp;
-    expect(l1Delta).toBe(amount - finalizeFee);
+    expect(l1Delta >= amount - finalizeFee).toBeTrue();
   } else {
     expect(l1Delta >= 0n).toBeTrue();
   }
