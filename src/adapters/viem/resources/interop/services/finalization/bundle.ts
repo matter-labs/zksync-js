@@ -1,6 +1,7 @@
 import { createWalletClient, custom, type PublicClient, type TransactionReceipt } from 'viem';
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropFinalizationInfo } from '../../../../../../core/types/flows/interop';
+import type { TxGasOverrides } from '../../../../../../core/types/fees';
 import type { ViemClient } from '../../../../client';
 import { createErrorHandlers, toZKsyncError } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
@@ -53,6 +54,7 @@ export async function executeBundle(
   dstProvider: PublicClient,
   info: InteropFinalizationInfo,
   opts?: LogsQueryOptions,
+  txOverrides?: TxGasOverrides,
 ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
   const { topics } = getTopics();
   const { bundleHash, encodedData, proof } = info;
@@ -89,6 +91,9 @@ export async function executeBundle(
       args: [encodedData, proof] as never,
       account: client.account,
       chain: dstProvider.chain ?? null,
+      gas: txOverrides?.gasLimit,
+      maxFeePerGas: txOverrides?.maxFeePerGas,
+      maxPriorityFeePerGas: txOverrides?.maxPriorityFeePerGas,
     });
     return {
       hash: hash,

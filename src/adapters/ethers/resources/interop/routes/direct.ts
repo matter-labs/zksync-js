@@ -7,10 +7,11 @@ import { interopCodec } from '../address';
 import { getInteropAttributes } from '../attributes/resource';
 import { buildFeeInfo } from '../services/fee';
 import { buildApproveSteps } from '../services/erc20';
+import { createError } from '../../../../../core/errors/factory';
+import { OP_INTEROP } from '../../../../../core/types/errors';
 
 export function routeDirect(): InteropRouteStrategy {
   return {
-    // eslint-disable-next-line @typescript-eslint/require-await
     async preflight(params: InteropParams, ctx: BuildCtx) {
       preflightDirect(params, {
         dstChainId: ctx.dstChainId,
@@ -19,6 +20,20 @@ export function routeDirect(): InteropRouteStrategy {
         l2NativeTokenVault: ctx.l2NativeTokenVault,
         codec: interopCodec,
       });
+
+      // InteropHandler calls the `receiveMessage` function of the target address on the destination chain.
+      // Verify each destination address is a contract.
+      for (const action of params.actions) {
+        const code = await ctx.dstProvider.getCode(action.to);
+        if (!code || code === '0x') {
+          throw createError('VALIDATION', {
+            resource: 'interop',
+            operation: OP_INTEROP.routes.direct.preflight,
+            message: `Destination address ${action.to} is not a contract on the destination chain. The receiver must be a contract that implements the IERC7786Recipient interface (receiveMessage).`,
+            context: { to: action.to, action: action.type },
+          });
+        }
+      }
     },
     async build(params: InteropParams, ctx: BuildCtx) {
       const steps: Array<{

@@ -6,6 +6,7 @@ import {
 } from 'ethers';
 import type { Hex } from '../../../../../../core/types/primitives';
 import type { InteropFinalizationInfo } from '../../../../../../core/types/flows/interop';
+import type { TxGasOverrides } from '../../../../../../core/types/fees';
 import type { EthersClient } from '../../../../client';
 import { createErrorHandlers, toZKsyncError } from '../../../../errors/error-ops';
 import { OP_INTEROP } from '../../../../../../core/types';
@@ -57,6 +58,7 @@ export async function executeBundle(
   dstProvider: AbstractProvider,
   info: InteropFinalizationInfo,
   opts?: LogsQueryOptions,
+  txOverrides?: TxGasOverrides,
 ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }> {
   const { topics } = getTopics();
   const { bundleHash, encodedData, proof } = info;
@@ -80,7 +82,11 @@ export async function executeBundle(
 
   const handler = new Contract(interopHandler, IInteropHandlerAbi, signer);
   try {
-    const txResponse = (await handler.executeBundle(encodedData, proof)) as TransactionResponse;
+    const txResponse = (await handler.executeBundle(
+      encodedData,
+      proof,
+      txOverrides ?? {},
+    )) as TransactionResponse;
     const hash = txResponse.hash as Hex;
     return {
       hash,
