@@ -1,6 +1,7 @@
 import { JsonRpcProvider, Wallet, formatEther, parseEther } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../src/adapters/ethers';
 import type { Address } from '../../../src/core';
+import { getFundsReceiverAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
 const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
@@ -23,6 +24,12 @@ async function main() {
 
   console.log('Sender address:', me);
 
+  // Deploy FundsReceiver to the destination chain — it must implement receiveMessage (ERC-7786).
+  const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);
+  console.log('Deploying FundsReceiver on destination chain...');
+  const fundsReceiver = await getFundsReceiverAddress({ signer: dstSigner });
+  console.log('FundsReceiver deployed at:', fundsReceiver);
+
   const client = createEthersClient({
     l1,
     l2: l2Source,
@@ -34,15 +41,15 @@ async function main() {
 
   // Check balances before.
   const srcBalanceBefore = await l2Source.getBalance(me);
-  const dstBalanceBefore = await l2Destination.getBalance(me);
-  console.log('Source balance before:     ', formatEther(srcBalanceBefore), 'ETH');
-  console.log('Destination balance before:', formatEther(dstBalanceBefore), 'ETH');
+  const receiverBalanceBefore = await l2Destination.getBalance(fundsReceiver);
+  console.log('Source balance before:          ', formatEther(srcBalanceBefore), 'ETH');
+  console.log('FundsReceiver balance before:   ', formatEther(receiverBalanceBefore), 'ETH');
 
   const params = {
     actions: [
       {
         type: 'sendNative' as const,
-        to: me,
+        to: fundsReceiver,
         amount: AMOUNT,
       },
     ],
@@ -80,9 +87,9 @@ async function main() {
   const st1 = await sdk.interop.status(l2Destination, created);
   console.log('STATUS after finalize:', st1);
 
-  // Check balances after.
-  const dstBalanceAfter = await l2Destination.getBalance(me);
-  console.log('Destination balance after:', formatEther(dstBalanceAfter), 'ETH');
+  // Check FundsReceiver balance after — should equal AMOUNT.
+  const receiverBalanceAfter = await l2Destination.getBalance(fundsReceiver);
+  console.log('FundsReceiver balance after:    ', formatEther(receiverBalanceAfter), 'ETH');
 }
 
 main().catch((err) => {

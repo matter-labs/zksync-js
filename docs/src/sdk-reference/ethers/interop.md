@@ -136,23 +136,49 @@ Returns the `InteropFinalizationInfo` needed to call `finalize()`.
 
 Result-style `wait`.
 
-### `finalize(dstChain, h, opts?) → Promise<InteropFinalizationResult>`
+### `finalize(dstChain, h, opts?, txOverrides?) → Promise<InteropFinalizationResult>`
 
 Execute the bundle on the **destination chain**. Accepts either:
 - `InteropFinalizationInfo` (returned by `wait()`) — executes immediately
 - `InteropHandle` or raw tx hash — calls `wait()` internally first
 
+**Parameters**
+
+| Name          | Type               | Required | Description                                                        |
+| ------------- | ------------------ | -------- | ------------------------------------------------------------------ |
+| `dstChain`    | `ChainRef`         | ✅        | Destination chain — URL string or `AbstractProvider`.              |
+| `h`           | `InteropFinalizationInfo \| InteropWaitable` | ✅ | Finalization info or a waitable handle/hash.    |
+| `opts`        | `LogsQueryOptions` | ❌        | Options for log queries used to check bundle status.               |
+| `txOverrides` | `TxGasOverrides`   | ❌        | Gas overrides for the `executeBundle` transaction on destination.  |
+
+`TxGasOverrides` fields:
+
+| Field                  | Type     | Description                              |
+| ---------------------- | -------- | ---------------------------------------- |
+| `gasLimit`             | `bigint` | Gas limit for the destination tx.        |
+| `maxFeePerGas`         | `bigint` | Max fee per gas (EIP-1559).              |
+| `maxPriorityFeePerGas` | `bigint` | Max priority fee per gas (EIP-1559). Optional. |
+
 ```ts
 {{#include ../../../snippets/ethers/reference/interop.test.ts:finalize}}
 ```
 
+To override gas on the destination `executeBundle` transaction:
+
+```ts
+await sdk.interop.finalize(l2Destination, finalizationInfo, undefined, {
+  gasLimit: 5_000_000n,
+  maxFeePerGas: 200_000_000n,
+});
+```
+
 > [!INFO]
 > `finalize()` sends a transaction on the **destination L2**, not on L1.
-> Ensure the destination signer has sufficient gas.
+> Use `txOverrides` if the destination chain requires a manual gas limit (e.g. when the interop handler calls a receiver contract that may consume significant gas).
 
-### `tryFinalize(dstChain, h, opts?) → Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error }>`
+### `tryFinalize(dstChain, h, opts?, txOverrides?) → Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error }>`
 
-Result-style `finalize`.
+Result-style `finalize`. Accepts the same `txOverrides` parameter.
 
 ### `getInteropRoot(dstChain, rootChainId, batchNumber) → Promise<Hex>`
 
@@ -255,7 +281,7 @@ Accepts either:
 
 * **`gwChain` is required:** Forgetting it causes a `STATE` error on the first interop call.
 * **`dstChain` first:** All interop methods take the destination chain as the **first** argument — unlike deposits/withdrawals.
-* **Finalization is on destination:** `finalize()` sends a transaction on the **destination L2**, not on L1.
+* **Finalization is on destination:** `finalize()` sends a transaction on the **destination L2**, not on L1. Use `txOverrides` to set a custom gas limit when the receiver contract consumes significant gas.
 * **`wait()` can take minutes:** It polls until the L2→L1 proof is generated and the interop root is available on destination. Use `timeoutMs` to bound long waits.
 * **ERC-20 approvals:** If `approvalsNeeded` is non-empty, `create()` automatically sends approval transactions first.
 * **ERC-20 tokens must be migrated to Gateway:** The SDK does **not** migrate tokens automatically. If the ERC-20 token has not been migrated to the Gateway chain, `create()` will throw an error. Migrate the token first before using it in an interop transfer.
