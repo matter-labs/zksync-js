@@ -27,6 +27,7 @@ import { isZKsyncError, OP_INTEROP } from '../../../../core/types/errors';
 import { createErrorHandlers, toZKsyncError } from '../../errors/error-ops';
 import { commonCtx, type BuildCtx } from './context';
 import { createError } from '../../../../core/errors/factory';
+import type { TxGasOverrides } from '../../../../core/types/fees';
 import { pickInteropRoute } from '../../../../core/resources/interop/route';
 import {
   createInteropFinalizationServices,
@@ -87,12 +88,14 @@ export interface InteropResource {
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
+    txOverrides?: TxGasOverrides,
   ): Promise<InteropFinalizationResult>;
 
   tryFinalize(
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
+    txOverrides?: TxGasOverrides,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 
   getInteropRoot(dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex>;
@@ -357,17 +360,18 @@ export function createInteropResource(
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
+    txOverrides?: TxGasOverrides,
   ): Promise<InteropFinalizationResult> =>
     wrap(
       OP_INTEROP.finalize,
       async () => {
         const dstProvider = resolveChainRef(dstChain);
         if (isInteropFinalizationInfoBase(h)) {
-          return svc.finalize(dstProvider, h, opts);
+          return svc.finalize(dstProvider, h, opts, txOverrides);
         }
 
         const info = await svc.wait(dstProvider, getGwProvider(), h);
-        return svc.finalize(dstProvider, info, opts);
+        return svc.finalize(dstProvider, info, opts, txOverrides);
       },
       {
         message: 'Failed to finalize/execute interop bundle on destination.',
@@ -379,8 +383,11 @@ export function createInteropResource(
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,
     opts?: LogsQueryOptions,
+    txOverrides?: TxGasOverrides,
   ) =>
-    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () => finalize(dstChain, h, opts));
+    toResult<InteropFinalizationResult>(OP_INTEROP.tryFinalize, () =>
+      finalize(dstChain, h, opts, txOverrides),
+    );
 
   const interopGetRoot = (
     dstChain: ChainRef,

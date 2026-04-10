@@ -10,6 +10,7 @@ import { executeBundle } from './bundle';
 import { waitForFinalization } from './polling';
 import { getStatus } from './status';
 import type { LogsQueryOptions } from './data-fetchers';
+import type { TxGasOverrides } from '../../../../../../core/types/fees';
 
 export interface InteropFinalizationServices {
   status(
@@ -27,6 +28,7 @@ export interface InteropFinalizationServices {
     dstProvider: AbstractProvider,
     info: InteropFinalizationInfo,
     opts?: LogsQueryOptions,
+    txOverrides?: TxGasOverrides,
   ): Promise<InteropFinalizationResult>;
 }
 
@@ -42,8 +44,8 @@ export function createInteropFinalizationServices(
       return waitForFinalization(client, dstProvider, gwProvider, input, opts);
     },
 
-    async finalize(dstProvider, info, opts) {
-      const execResult = await executeBundle(client, dstProvider, info, opts);
+    async finalize(dstProvider, info, opts, txOverrides) {
+      const execResult = await executeBundle(client, dstProvider, info, opts, txOverrides);
       await execResult.wait();
 
       return {

@@ -1,6 +1,19 @@
 import { AbiCoder, Wallet, parseUnits } from 'ethers';
 import type { Address } from '../../../src/core';
-import { ERC20_BYTECODE, GREETING_BYTECODE } from '../../interop/constants';
+import {
+  ERC20_BYTECODE,
+  FUNDS_RECEIVER_BYTECODE,
+  GREETING_BYTECODE,
+} from '../../interop/constants';
+
+export async function getFundsReceiverAddress(args: { signer: Wallet }): Promise<Address> {
+  const deployTx = await args.signer.sendTransaction({ data: FUNDS_RECEIVER_BYTECODE });
+  const deployReceipt = await deployTx.wait();
+  if (!deployReceipt?.contractAddress) {
+    throw new Error('FundsReceiver deployment failed: missing contract address.');
+  }
+  return deployReceipt.contractAddress as Address;
+}
 
 export async function getGreetingTokenAddress(args: {
   signer: Wallet;
