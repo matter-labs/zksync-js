@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.17](https://github.com/matter-labs/zksync-js/compare/v0.0.16...v0.0.17) (2026-04-13)
+
+
+### Features
+
+* **interop:** txOverrides for finalize, ERC7786 destination validation, send-native example ([#92](https://github.com/matter-labs/zksync-js/issues/92)) ([2ee9b9e](https://github.com/matter-labs/zksync-js/commit/2ee9b9ef9760a8f98b341c0272c3912fc78fa0ee))
+
+
+### Bug Fixes
+
+* tx estimation for zkos chains ([#94](https://github.com/matter-labs/zksync-js/issues/94)) ([1a8da9c](https://github.com/matter-labs/zksync-js/commit/1a8da9c50ae8f42c4c8b1ab7e9f54ee790b842de))
+
 ## [0.0.16](https://github.com/matter-labs/zksync-js/compare/v0.0.15...v0.0.16) (2026-04-01)
 
 
