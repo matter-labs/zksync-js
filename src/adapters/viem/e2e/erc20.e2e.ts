@@ -57,7 +57,7 @@ describe('e2e (viem): ERC-20 deposit L1->L2 and withdraw L2->L1', () => {
     // Snapshots
     l1BalBeforeDeposit = await erc20BalanceOf(client.l1, l1TokenAddr, me);
     l2BalBeforeDeposit = 0n;
-  });
+  }, 20_000);
 
   // ------------- Deposit -------------
   it('deposits: quote', async () => {
