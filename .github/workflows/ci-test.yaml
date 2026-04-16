@@ -66,7 +66,7 @@ jobs:
       - name: Run ZKsync OS (L1-L2)
         uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
         with:
-          version: v0.18.1
+          version: v0.19.0
           protocol_version: v30.2
  
       - name: Compile test contracts
@@ -195,7 +195,7 @@ jobs:
       - name: Run ZKsync OS (L1-L2)
         uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
         with:
-          version: v0.18.1
+          version: v0.19.0
           protocol_version: v30.2
 
       - name: Setup Bun

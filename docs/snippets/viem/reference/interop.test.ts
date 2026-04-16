@@ -25,7 +25,7 @@ const l1Wallet = createWalletClient<Transport, Chain, Account>({
 });
 
 const client = createViemClient({ l1, l2: l2Src, l1Wallet });
-const sdk = createViemSdk(client, {
+sdk = createViemSdk(client, {
   interop: { gwChain: process.env.GW_RPC! }, // required for interop
 });
 // sdk.interop → InteropResource
@@ -165,7 +165,7 @@ const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
   it('e2e-erc20: ERC-20 transfer via interop', async () => {
     const l2Dst = createPublicClient({ transport: http(process.env.DST_L2_RPC!) });
     const me = '0x0000000000000000000000000000000000000001' as Address;
-    const tokenSrcAddress = '0xTokenOnSourceChain' as Address;
+    const tokenSrcAddress = process.env.TOKEN_SRC_ADDRESS! as Address;
 
 // ANCHOR: e2e-erc20
 const handle = await sdk.interop.create(l2Dst, {
@@ -192,7 +192,7 @@ console.log('ERC-20 transferred to destination:', result.dstExecTxHash);
 
   it('e2e-call: remote contract call via interop', async () => {
     const l2Dst = createPublicClient({ transport: http(process.env.DST_L2_RPC!) });
-    const greeterAddress = '0xGreeterOnDst' as Address;
+    const greeterAddress = process.env.GREETER_DST_ADDRESS! as Address;
     const calldata = '0xabcdef' as Hex;
 
 // ANCHOR: e2e-call
