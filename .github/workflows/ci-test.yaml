@@ -285,6 +285,8 @@ jobs:
 
   e2e-interop:
     name: e2e-interop (${{ matrix.adapter }})
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 3
     strategy:
