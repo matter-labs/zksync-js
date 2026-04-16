@@ -1,7 +1,7 @@
 import { beforeAll, describe, it } from 'bun:test';
 
 // ANCHOR: imports
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { AbiCoder, JsonRpcProvider, Wallet } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../../src/adapters/ethers';
 // ANCHOR_END: imports
 
@@ -308,7 +308,7 @@ console.log('ERC-20 transferred to destination:', result.dstExecTxHash);
   it('e2e-call: remote contract call via interop', async () => {
     const l2Dst = new JsonRpcProvider(process.env.DST_L2_RPC!);
     const greeterAddress = process.env.GREETER_DST_ADDRESS! as Address;
-    const calldata = '0xabcdef' as Hex;
+    const calldata = AbiCoder.defaultAbiCoder().encode(['string'], ['hello from test']) as Hex;
 
 // ANCHOR: e2e-call
 // Execute an arbitrary call on destination L2

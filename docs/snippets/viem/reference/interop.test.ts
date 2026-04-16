@@ -6,6 +6,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, createViemSdk } from '../../../../src/adapters/viem';
 // ANCHOR_END: imports
 
+import { encodeAbiParameters } from 'viem';
 import type { ViemSdk } from '../../../../src/adapters/viem';
 import type { Address, Hex } from '../../../../src/core';
 
@@ -193,7 +194,7 @@ console.log('ERC-20 transferred to destination:', result.dstExecTxHash);
   it('e2e-call: remote contract call via interop', async () => {
     const l2Dst = createPublicClient({ transport: http(process.env.DST_L2_RPC!) });
     const greeterAddress = process.env.GREETER_DST_ADDRESS! as Address;
-    const calldata = '0xabcdef' as Hex;
+    const calldata = encodeAbiParameters([{ type: 'string' }], ['hello from test']) as Hex;
 
 // ANCHOR: e2e-call
 const handle = await sdk.interop.create(l2Dst, {
