@@ -1,7 +1,7 @@
 import { beforeAll, describe, it } from 'bun:test';
 
 // ANCHOR: imports
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { AbiCoder, JsonRpcProvider, Wallet } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../../src/adapters/ethers';
 // ANCHOR_END: imports
 
@@ -138,7 +138,7 @@ const client = createEthersClient({
   signer: new Wallet(process.env.PRIVATE_KEY!, l1),
 });
 
-const sdk = createEthersSdk(client, {
+sdk = createEthersSdk(client, {
   interop: { gwChain: process.env.GW_RPC! }, // required for interop
 });
 // sdk.interop → InteropResource
@@ -279,7 +279,7 @@ const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
   it('e2e-erc20: ERC-20 transfer via interop', async () => {
     const l2Dst = new JsonRpcProvider(process.env.DST_L2_RPC!);
     const me = '0x0000000000000000000000000000000000000001' as Address;
-    const tokenSrcAddress = '0xTokenOnSourceChain' as Address;
+    const tokenSrcAddress = process.env.TOKEN_SRC_ADDRESS! as Address;
 
 // ANCHOR: e2e-erc20
 // Transfer an ERC-20 token from source L2 to destination L2
@@ -307,8 +307,8 @@ console.log('ERC-20 transferred to destination:', result.dstExecTxHash);
 
   it('e2e-call: remote contract call via interop', async () => {
     const l2Dst = new JsonRpcProvider(process.env.DST_L2_RPC!);
-    const greeterAddress = '0xGreeterOnDst' as Address;
-    const calldata = '0xabcdef' as Hex;
+    const greeterAddress = process.env.GREETER_DST_ADDRESS! as Address;
+    const calldata = AbiCoder.defaultAbiCoder().encode(['string'], ['hello from test']) as Hex;
 
 // ANCHOR: e2e-call
 // Execute an arbitrary call on destination L2

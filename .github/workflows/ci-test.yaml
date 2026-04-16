@@ -41,6 +41,8 @@ jobs:
 
   e2e-tests:
     name: e2e-tests 🔚2️⃣🔚
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     needs: unit-tests
     steps:
@@ -66,7 +68,7 @@ jobs:
       - name: Run ZKsync OS (L1-L2)
         uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
         with:
-          version: v0.18.1
+          version: v0.19.0
           protocol_version: v30.2
  
       - name: Compile test contracts
@@ -195,7 +197,7 @@ jobs:
       - name: Run ZKsync OS (L1-L2)
         uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
         with:
-          version: v0.18.1
+          version: v0.19.0
           protocol_version: v30.2
 
       - name: Setup Bun
@@ -216,3 +218,131 @@ jobs:
           PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
         run: |
           bun test ${{ matrix.suite }} --path-ignore-patterns='**/interop*' --timeout 100000
+
+  docs-interop-examples:
+    name: docs-interop-examples (${{ matrix.suite }})
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - "docs/snippets/ethers/**/*interop*"
+          - "docs/snippets/viem/**/*interop*"
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lcov
+
+      - name: Install Foundry (anvil)
+        uses: foundry-rs/foundry-toolchain@8b0419c685ef46cb79ec93fbdc131174afceb730 # v1.6.0
+        with:
+          version: v1.5.1
+
+      - name: Run ZKsync OS (multi-chain)
+        uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
+        with:
+          version: v0.19.0
+          protocol_version: v31.0
+          setup: multi_chain
+          l2_ports: |
+            506: 3052
+            6565: 3050
+            6566: 3051
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.0.2
+        with:
+          bun-version: '1.3.11'
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Set up interop environment
+        env:
+          L1_RPC: http://localhost:8545
+          GW_RPC: http://localhost:3052
+          SRC_L2_RPC: http://localhost:3050
+          DST_L2_RPC: http://localhost:3051
+          PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
+        run: |
+          set -eo pipefail
+          bun run scripts/interop-setup.ts >> "$GITHUB_ENV"
+
+      - name: Run interop snippet tests
+        env:
+          L1_RPC: http://localhost:8545
+          GW_RPC: http://localhost:3052
+          SRC_L2_RPC: http://localhost:3050
+          DST_L2_RPC: http://localhost:3051
+          PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
+        run: |
+          bun test ${{ matrix.suite }} --timeout 300000
+
+  e2e-interop:
+    name: e2e-interop (${{ matrix.adapter }})
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter:
+          - ethers
+          - viem
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lcov
+
+      - name: Install Foundry (anvil)
+        uses: foundry-rs/foundry-toolchain@8b0419c685ef46cb79ec93fbdc131174afceb730 # v1.6.0
+        with:
+          version: v1.5.1
+
+      - name: Run ZKsync OS (multi-chain)
+        uses: matter-labs/zksync-server-action@6632ab9a6bd841c7849e8d62a4984734e018d89f # v0.1.1
+        with:
+          version: v0.19.0
+          protocol_version: v31.0
+          setup: multi_chain
+          l2_ports: |
+            506: 3052
+            6565: 3050
+            6566: 3051
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.0.2
+        with:
+          bun-version: '1.3.11'
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Set up interop environment
+        env:
+          L1_RPC: http://localhost:8545
+          GW_RPC: http://localhost:3052
+          SRC_L2_RPC: http://localhost:3050
+          DST_L2_RPC: http://localhost:3051
+          PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
+        run: |
+          set -eo pipefail
+          bun run scripts/interop-setup.ts >> "$GITHUB_ENV"
+
+      - name: Run interop e2e tests
+        env:
+          L1_RPC: http://localhost:8545
+          GW_RPC: http://localhost:3052
+          SRC_L2_RPC: http://localhost:3050
+          DST_L2_RPC: http://localhost:3051
+          PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
+        run: |
+          bun run test:e2e:interop:${{ matrix.adapter }} --timeout 300000
