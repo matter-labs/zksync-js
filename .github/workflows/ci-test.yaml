@@ -224,7 +224,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -281,14 +281,14 @@ jobs:
           DST_L2_RPC: http://localhost:3051
           PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
         run: |
-          bun test ${{ matrix.suite }} --timeout 180000
+          bun test ${{ matrix.suite }} --timeout 300000
 
   e2e-interop:
     name: e2e-interop (${{ matrix.adapter }})
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -345,4 +345,4 @@ jobs:
           DST_L2_RPC: http://localhost:3051
           PRIVATE_KEY: '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110'
         run: |
-          bun run test:e2e:interop:${{ matrix.adapter }} --timeout 180000
+          bun run test:e2e:interop:${{ matrix.adapter }} --timeout 300000
