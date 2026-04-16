@@ -3,9 +3,7 @@ name: ci-run-tests
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - vi/interop-tests # Branch for interop tests development
+    branches: [main]
 
 concurrency:
   group: test-${{ github.ref }}
