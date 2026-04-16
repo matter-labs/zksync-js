@@ -30,9 +30,8 @@ const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
 const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
-const PRIVATE_KEY =
-  (process.env.PRIVATE_KEY ??
-    '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110') as `0x${string}`;
+const PRIVATE_KEY = (process.env.PRIVATE_KEY ??
+  '0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110') as `0x${string}`;
 
 const WAIT_OPTS = { pollMs: 5_000, timeoutMs: 30 * 60_000 };
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -41,7 +40,7 @@ const ERC20_AMOUNT = 1_000_000n;
 
 function makeInteropSetup() {
   const account = privateKeyToAccount(PRIVATE_KEY);
-  const me = account.address as Address;
+  const me = account.address;
 
   const l1 = createPublicClient({ transport: http(L1_RPC) });
   const l2Src = createPublicClient({ transport: http(SRC_L2_RPC) });
@@ -62,14 +61,14 @@ function makeInteropSetup() {
 // Suite 1: send-native — sends ETH cross-chain to a FundsReceiver contract
 // ─────────────────────────────────────────────────────────────────────────────
 describe('interop.e2e (viem): send-native', () => {
-  let sdk: any, l2Dst: any, me: Address;
+  let sdk: any, l2Dst: any;
   let fundsReceiver: Address;
   let receiverBalanceBefore: bigint;
   let handle: any;
   let finalizationInfo: any;
 
   beforeAll(async () => {
-    ({ sdk, l2Dst, me } = makeInteropSetup());
+    ({ sdk, l2Dst } = makeInteropSetup());
     fundsReceiver = await getFundsReceiverAddress({ privateKey: PRIVATE_KEY, rpcUrl: DST_L2_RPC });
     receiverBalanceBefore = await l2Dst.getBalance({ address: fundsReceiver });
   }, 60_000);
@@ -109,12 +108,16 @@ describe('interop.e2e (viem): send-native', () => {
     expect(st.l2SrcTxHash).toMatch(TX_HASH_RE);
   }, 60_000);
 
-  it('wait returns finalization info with bundle proof', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-    expect(finalizationInfo.encodedData).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info with bundle proof',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+      expect(finalizationInfo.encodedData).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes bundle on destination and FundsReceiver balance increases', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
@@ -164,11 +167,15 @@ describe('interop.e2e (viem): send-erc20', () => {
     expect(handle.l2SrcTxHash).toMatch(TX_HASH_RE);
   }, 60_000);
 
-  it('wait returns finalization info for ERC-20 bundle', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info for ERC-20 bundle',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes ERC-20 transfer and recipient receives tokens on destination', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
@@ -204,7 +211,13 @@ describe('interop.e2e (viem): remote-call', () => {
   let handle: any;
   let finalizationInfo: any;
   const GREETING_ABI = [
-    { type: 'function', name: 'message', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' },
+    {
+      type: 'function',
+      name: 'message',
+      inputs: [],
+      outputs: [{ type: 'string' }],
+      stateMutability: 'view',
+    },
   ] as const;
   const newGreeting = 'hello from viem e2e test!';
 
@@ -214,7 +227,7 @@ describe('interop.e2e (viem): remote-call', () => {
   }, 60_000);
 
   it('create sends a remote call bundle to destination', async () => {
-    const calldata = encodeAbiParameters([{ type: 'string' }], [newGreeting]) as Hex;
+    const calldata = encodeAbiParameters([{ type: 'string' }], [newGreeting]);
     handle = await sdk.interop.create(l2Dst, {
       actions: [{ type: 'call' as const, to: greeterAddress, data: calldata }],
     });
@@ -225,11 +238,15 @@ describe('interop.e2e (viem): remote-call', () => {
     expect(['SENT', 'VERIFIED', 'EXECUTED']).toContain(st.phase);
   }, 60_000);
 
-  it('wait returns finalization info for call bundle', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info for call bundle',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes call and Greeter message is updated on destination', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);

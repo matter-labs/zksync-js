@@ -45,17 +45,17 @@ function makeInteropSetup() {
 // Suite 1: send-native — sends ETH cross-chain to a FundsReceiver contract
 // ─────────────────────────────────────────────────────────────────────────────
 describe('interop.e2e (ethers): send-native', () => {
-  let sdk: any, l2Dst: JsonRpcProvider, me: Address;
+  let sdk: any, l2Dst: JsonRpcProvider;
   let fundsReceiver: Address;
   let receiverBalanceBefore: bigint;
   let handle: any;
   let finalizationInfo: any;
 
   beforeAll(async () => {
-    ({ sdk, l2Dst, me } = makeInteropSetup());
+    ({ sdk, l2Dst } = makeInteropSetup());
     const dstSigner = new Wallet(PRIVATE_KEY, l2Dst);
     fundsReceiver = await getFundsReceiverAddress({ signer: dstSigner });
-    receiverBalanceBefore = (await l2Dst.getBalance(fundsReceiver)) as bigint;
+    receiverBalanceBefore = await l2Dst.getBalance(fundsReceiver);
   }, 60_000);
 
   it('quote returns valid send-native summary', async () => {
@@ -92,12 +92,16 @@ describe('interop.e2e (ethers): send-native', () => {
     expect(st.l2SrcTxHash).toMatch(TX_HASH_RE);
   }, 60_000);
 
-  it('wait returns finalization info with bundle proof', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-    expect(finalizationInfo.encodedData).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info with bundle proof',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+      expect(finalizationInfo.encodedData).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes bundle on destination and FundsReceiver balance increases', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
@@ -107,7 +111,7 @@ describe('interop.e2e (ethers): send-native', () => {
     const st = await sdk.interop.status(l2Dst, handle);
     expect(st.phase).toBe('EXECUTED');
 
-    const receiverBalanceAfter = (await l2Dst.getBalance(fundsReceiver)) as bigint;
+    const receiverBalanceAfter = await l2Dst.getBalance(fundsReceiver);
     expect(receiverBalanceAfter - receiverBalanceBefore).toBe(NATIVE_AMOUNT);
   }, 60_000);
 });
@@ -147,11 +151,15 @@ describe('interop.e2e (ethers): send-erc20', () => {
     expect(handle.l2SrcTxHash).toMatch(TX_HASH_RE);
   }, 60_000);
 
-  it('wait returns finalization info for ERC-20 bundle', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info for ERC-20 bundle',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes ERC-20 transfer and recipient receives tokens on destination', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
@@ -199,11 +207,15 @@ describe('interop.e2e (ethers): remote-call', () => {
     expect(['SENT', 'VERIFIED', 'EXECUTED']).toContain(st.phase);
   }, 60_000);
 
-  it('wait returns finalization info for call bundle', async () => {
-    finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
-    expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
-    expect(finalizationInfo.proof).toBeDefined();
-  }, 35 * 60_000);
+  it(
+    'wait returns finalization info for call bundle',
+    async () => {
+      finalizationInfo = await sdk.interop.wait(l2Dst, handle, WAIT_OPTS);
+      expect(finalizationInfo.bundleHash).toMatch(TX_HASH_RE);
+      expect(finalizationInfo.proof).toBeDefined();
+    },
+    35 * 60_000,
+  );
 
   it('finalize executes call and Greeter message is updated on destination', async () => {
     const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
