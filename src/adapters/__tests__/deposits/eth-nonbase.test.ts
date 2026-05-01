@@ -52,6 +52,10 @@ const WETH_L2 = '0x6666666666666666666666666666666666666666' as Address;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const ETH_METADATA = '0x123456' as Hex;
 const DEPLOYED_ETH_L2_CALLDATA = '0x12345678' as Hex;
+const noReturnApproveError = () =>
+  Object.assign(new Error('The contract function "approve" returned no data ("0x").'), {
+    name: 'ContractFunctionExecutionError',
+  });
 
 function makeResolvedEthToken(l2Token: Address = ETH_ADDRESS): ResolvedToken {
   return {
@@ -193,6 +197,38 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       expect(BigInt(req.secondBridgeValue ?? 0n)).toBe(amount);
     }
   });
+
+  if (kind === 'viem') {
+    it('builds the base-token approval request when approve simulation returns no data', async () => {
+      const harness = factory();
+      const ctx = makeDepositContext(harness, {
+        l2GasLimit: MIN_L2_GAS_FOR_ETH_NONBASE,
+        baseTokenL1: BASE_TOKEN,
+        baseIsEth: false,
+        resolvedToken: makeResolvedEthToken(),
+      });
+      const amount = 5_000n;
+      const baseCost = 4_000n;
+      const mintValue = baseCost + ctx.operatorTip;
+
+      setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ETH_NONBASE });
+      setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue - 1n);
+      harness.setSimulateError(noReturnApproveError());
+
+      const res = await ROUTES.viem.build(
+        { token: FORMAL_ETH_ADDRESS, amount, to: RECEIVER } as any,
+        ctx as any,
+      );
+
+      expect(res.approvals.length).toBe(1);
+      expect(res.steps.length).toBe(2);
+
+      const approveInfo = parseApproveTx('viem', res.steps[0].tx);
+      expect(approveInfo.to).toBe(BASE_TOKEN.toLowerCase());
+      expect(approveInfo.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+      expect(approveInfo.amount).toBe(mintValue);
+    });
+  }
 
   it('uses the derived priority-floor gas limit when the bridged ETH token is already deployed on L2', async () => {
     const harness = factory();

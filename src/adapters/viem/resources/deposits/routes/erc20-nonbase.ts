@@ -21,6 +21,7 @@ import {
   derivePriorityBodyGasEstimateCap,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
+import { buildApprovalRequest } from './approval';
 
 const { wrapAs } = createErrorHandlers('deposits');
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
@@ -204,16 +205,15 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       )) as bigint;
 
       if (depositAllowance < p.amount) {
-        const approveSim = await wrapAs(
+        const approveTx = await wrapAs(
           'CONTRACT',
           OP_DEPOSITS.nonbase.estGas,
           () =>
-            ctx.client.l1.simulateContract({
-              address: p.token,
-              abi: IERC20ABI as Abi,
-              functionName: 'approve',
-              args: [assetRouter, p.amount] as const,
-              account: ctx.client.account,
+            buildApprovalRequest({
+              ctx,
+              token: p.token,
+              spender: assetRouter,
+              amount: p.amount,
             }),
           {
             ctx: { where: 'l1.simulateContract', to: p.token },
@@ -226,7 +226,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
           key: `approve:${p.token}:${assetRouter}`,
           kind: 'approve',
           description: `Approve deposit token for amount`,
-          tx: { ...approveSim.request },
+          tx: approveTx,
         });
       }
 
@@ -248,16 +248,15 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         )) as bigint;
 
         if (baseAllowance < mintValue) {
-          const approveBaseSim = await wrapAs(
+          const approveBaseTx = await wrapAs(
             'CONTRACT',
             OP_DEPOSITS.nonbase.estGas,
             () =>
-              ctx.client.l1.simulateContract({
-                address: baseToken,
-                abi: IERC20ABI as Abi,
-                functionName: 'approve',
-                args: [assetRouter, mintValue] as const,
-                account: ctx.client.account,
+              buildApprovalRequest({
+                ctx,
+                token: baseToken,
+                spender: assetRouter,
+                amount: mintValue,
               }),
             {
               ctx: { where: 'l1.simulateContract', to: baseToken },
@@ -270,7 +269,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
             key: `approve:${baseToken}:${assetRouter}`,
             kind: 'approve',
             description: `Approve base token for mintValue`,
-            tx: { ...approveBaseSim.request },
+            tx: approveBaseTx,
           });
         }
       }

@@ -18,6 +18,7 @@ import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import { applyPriorityL2GasLimitBuffer } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
+import { buildApprovalRequest } from './approval';
 
 const { wrapAs } = createErrorHandlers('deposits');
 const EMPTY_BYTES = '0x' as const;
@@ -105,16 +106,15 @@ export function routeErc20Base(): DepositRouteStrategy {
       const needsApprove = allowance < mintValue;
 
       if (needsApprove) {
-        const approveSim = await wrapAs(
+        const approveTx = await wrapAs(
           'CONTRACT',
           OP_DEPOSITS.base.estGas,
           () =>
-            ctx.client.l1.simulateContract({
-              address: baseToken,
-              abi: IERC20ABI as Abi,
-              functionName: 'approve',
-              args: [ctx.l1AssetRouter, mintValue] as const,
-              account: ctx.client.account,
+            buildApprovalRequest({
+              ctx,
+              token: baseToken,
+              spender: ctx.l1AssetRouter,
+              amount: mintValue,
             }),
           {
             ctx: { where: 'l1.simulateContract', to: baseToken },
@@ -127,7 +127,7 @@ export function routeErc20Base(): DepositRouteStrategy {
           key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
           kind: 'approve',
           description: 'Approve base token for mintValue',
-          tx: { ...approveSim.request },
+          tx: approveTx,
         });
       }
 
