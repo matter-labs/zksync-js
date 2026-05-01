@@ -3,7 +3,11 @@
 import type { DepositRouteStrategy } from './types';
 import { AbiCoder, Contract, Interface } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import { encodeSecondBridgeErc20Args } from '../../utils';
+import {
+  encodeNativeTokenVaultTransferData,
+  encodeSecondBridgeDataV1,
+  encodeSecondBridgeErc20Args,
+} from '../../utils';
 import { IERC20ABI, IL2AssetRouterABI } from '../../../../../core/abi.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -29,6 +33,35 @@ type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
   undeployedGasLimit?: bigint;
 };
+
+async function encodeSecondBridgeErc20DepositCalldata(input: {
+  ctx: Parameters<DepositRouteStrategy['build']>[1];
+  token: `0x${string}`;
+  amount: bigint;
+  receiver: `0x${string}`;
+}): Promise<`0x${string}`> {
+  if (!input.ctx.resolvedToken) {
+    return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
+  }
+
+  const { chainId: l1ChainId } = await input.ctx.client.l1.getNetwork();
+  const isL1Origin =
+    input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID ||
+    input.ctx.resolvedToken.originChainId === 0n ||
+    input.ctx.resolvedToken.originChainId === BigInt(l1ChainId);
+
+  if (isL1Origin) {
+    return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
+  }
+
+  const transferData = encodeNativeTokenVaultTransferData(
+    input.amount,
+    input.receiver,
+    input.token,
+  );
+
+  return encodeSecondBridgeDataV1(input.ctx.resolvedToken.assetId, transferData) as `0x${string}`;
+}
 
 async function getPriorityGasModel(input: {
   ctx: Parameters<DepositRouteStrategy['build']>[1];
@@ -127,9 +160,15 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.nonbase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeErc20Args(p.token, p.amount, receiver)),
+        () =>
+          encodeSecondBridgeErc20DepositCalldata({
+            ctx,
+            token: p.token,
+            amount: p.amount,
+            receiver,
+          }),
         {
-          ctx: { where: 'encodeSecondBridgeErc20Args' },
+          ctx: { where: 'encodeSecondBridgeErc20DepositCalldata' },
           message: 'Failed to encode bridging calldata.',
         },
       );

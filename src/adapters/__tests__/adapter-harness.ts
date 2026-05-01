@@ -176,6 +176,9 @@ function makeEthersL1(state: EthersL1State) {
     async getGasPrice() {
       return 5n;
     },
+    async getNetwork() {
+      return { chainId: 324n };
+    },
   };
 }
 
