@@ -13,6 +13,7 @@ import { FORMAL_ETH_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../core/constants.
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import type { ResolvedToken } from '../../../core/types/flows/token.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
+import {
   decodeSecondBridgeDataV1,
   decodeSecondBridgeErc20,
   decodeTwoBridgeOuter,
