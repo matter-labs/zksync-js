@@ -20,6 +20,11 @@ const ROUTES = {
   viem: routeViem(),
 } as const;
 
+const noReturnApproveError = () =>
+  Object.assign(new Error('The contract function "approve" returned no data ("0x").'), {
+    name: 'ContractFunctionExecutionError',
+  });
+
 describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
   it('skips approval when allowance covers mintValue and builds a zero-value bridge tx', async () => {
     const harness = factory();
@@ -101,6 +106,70 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     expect(info.mintValue).toBe(expectedMint);
     expect(info.l2Value).toBe(amount);
   });
+
+  if (kind === 'viem') {
+    it('builds an approval request when approve simulation returns no data', async () => {
+      const harness = factory();
+      const ctx = makeDepositContext(harness);
+      const amount = 5_000n;
+      const baseCost = 4_000n;
+      const expectedMint = baseCost + ctx.operatorTip + amount;
+
+      setBridgehubBaseCost(harness, ctx, baseCost);
+      setErc20Allowance(
+        harness,
+        ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+        ctx.sender,
+        ctx.l1AssetRouter,
+        expectedMint - 1n,
+      );
+      harness.setSimulateError(noReturnApproveError());
+
+      const res = await ROUTES.viem.build(
+        { token: ADAPTER_TEST_ADDRESSES.baseTokenFor324, amount } as any,
+        ctx as any,
+      );
+
+      expect(res.approvals.length).toBe(1);
+      expect(res.steps.length).toBe(2);
+
+      const approveInfo = parseApproveTx('viem', res.steps[0].tx);
+      expect(approveInfo.to).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
+      expect(approveInfo.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+      expect(approveInfo.amount).toBe(expectedMint);
+    });
+
+    it('still wraps non no-return approve simulation failures', async () => {
+      const harness = factory();
+      const ctx = makeDepositContext(harness);
+      const amount = 5_000n;
+      const baseCost = 4_000n;
+      const expectedMint = baseCost + ctx.operatorTip + amount;
+
+      setBridgehubBaseCost(harness, ctx, baseCost);
+      setErc20Allowance(
+        harness,
+        ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+        ctx.sender,
+        ctx.l1AssetRouter,
+        expectedMint - 1n,
+      );
+      harness.setSimulateError(new Error('execution reverted'));
+
+      let caught: unknown;
+      try {
+        await ROUTES.viem.build(
+          { token: ADAPTER_TEST_ADDRESSES.baseTokenFor324, amount } as any,
+          ctx as any,
+        );
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(isZKsyncError(caught)).toBe(true);
+      expect(String(caught)).toMatch(/Failed to simulate ERC-20 approve/);
+    });
+  }
 
   if (kind === 'ethers') {
     it('ignores estimateGas failures and falls back to the safe gas limit', async () => {
