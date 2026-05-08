@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.18](https://github.com/matter-labs/zksync-js/compare/v0.0.17...v0.0.18) (2026-05-08)
+
+
+### Bug Fixes
+
+* user proper calldata encoding for non-L1 ERC20 deposit ([#99](https://github.com/matter-labs/zksync-js/issues/99)) ([f93eb1d](https://github.com/matter-labs/zksync-js/commit/f93eb1da6664afa16df0164ca5306c94dd6fc850))
+
 ## [0.0.17](https://github.com/matter-labs/zksync-js/compare/v0.0.16...v0.0.17) (2026-04-13)
 
 
