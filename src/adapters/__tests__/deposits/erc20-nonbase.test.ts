@@ -11,7 +11,11 @@ import {
 } from '../adapter-harness.ts';
 import { FORMAL_ETH_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
-import { decodeSecondBridgeErc20, decodeTwoBridgeOuter } from '../decode-helpers.ts';
+import {
+  decodeSecondBridgeErc20,
+  decodeTwoBridgeOuter,
+  parseApproveTx,
+} from '../decode-helpers.ts';
 
 type AdapterKind = 'ethers' | 'viem';
 
@@ -25,6 +29,10 @@ const MIN_L2_GAS_FOR_ERC20 = 2_500_000n;
 const ERC20_TOKEN = '0x3333333333333333333333333333333333333333' as const;
 const BASE_TOKEN = ADAPTER_TEST_ADDRESSES.baseTokenFor324;
 const RECEIVER = '0x4444444444444444444444444444444444444444' as const;
+const noReturnApproveError = () =>
+  Object.assign(new Error('The contract function "approve" returned no data ("0x").'), {
+    name: 'ContractFunctionExecutionError',
+  });
 
 describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
   it('handles non-base ERC-20 where fees are paid in ETH (no approvals required)', async () => {
@@ -142,6 +150,40 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       expect(BigInt((bridgeTx.args?.[0] as any)?.mintValue ?? 0n)).toBe(mintValue);
     }
   });
+
+  if (kind === 'viem') {
+    it('builds both approval requests when approve simulations return no data', async () => {
+      const harness = factory();
+      const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
+      const amount = 5_000n;
+      const baseCost = 4_000n;
+      const mintValue = baseCost + ctx.operatorTip;
+
+      setBridgehubBaseToken(harness, ctx, BASE_TOKEN);
+      setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
+      setErc20Allowance(harness, ERC20_TOKEN, ctx.sender, ctx.l1AssetRouter, amount - 1n);
+      setErc20Allowance(harness, BASE_TOKEN, ctx.sender, ctx.l1AssetRouter, mintValue - 1n);
+      harness.setSimulateError(noReturnApproveError());
+
+      const res = await ROUTES.viem.build(
+        { token: ERC20_TOKEN, amount, to: RECEIVER } as any,
+        ctx as any,
+      );
+
+      expect(res.approvals.length).toBe(2);
+      expect(res.steps.length).toBe(3);
+
+      const depositApprove = parseApproveTx('viem', res.steps[0].tx);
+      expect(depositApprove.to).toBe(ERC20_TOKEN.toLowerCase());
+      expect(depositApprove.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+      expect(depositApprove.amount).toBe(amount);
+
+      const baseApprove = parseApproveTx('viem', res.steps[1].tx);
+      expect(baseApprove.to).toBe(BASE_TOKEN.toLowerCase());
+      expect(baseApprove.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+      expect(baseApprove.amount).toBe(mintValue);
+    });
+  }
 
   if (kind === 'ethers') {
     it('ignores estimateGas failures and applies the safe fallback gas limit', async () => {

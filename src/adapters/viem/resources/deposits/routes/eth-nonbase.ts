@@ -33,6 +33,7 @@ import {
   derivePriorityBodyGasEstimateCap,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
+import { buildApprovalRequest } from './approval';
 
 const { wrapAs } = createErrorHandlers('deposits');
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
@@ -215,16 +216,15 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const needsApprove = allowance < mintValue;
 
       if (needsApprove) {
-        const approveSim = await wrapAs(
+        const approveTx = await wrapAs(
           'CONTRACT',
           OP_DEPOSITS.ethNonBase.estGas,
           () =>
-            ctx.client.l1.simulateContract({
-              address: baseToken,
-              abi: IERC20ABI,
-              functionName: 'approve',
-              args: [ctx.l1AssetRouter, mintValue] as const,
-              account: ctx.client.account,
+            buildApprovalRequest({
+              ctx,
+              token: baseToken,
+              spender: ctx.l1AssetRouter,
+              amount: mintValue,
             }),
           {
             ctx: { where: 'l1.simulateContract', to: baseToken },
@@ -237,7 +237,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
           key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
           kind: 'approve',
           description: `Approve base token for fees (mintValue)`,
-          tx: { ...approveSim.request },
+          tx: approveTx,
         });
       }
 
