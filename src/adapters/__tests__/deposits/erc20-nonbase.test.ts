@@ -11,7 +11,10 @@ import {
 } from '../adapter-harness.ts';
 import { FORMAL_ETH_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
+import type { ResolvedToken } from '../../../core/types/flows/token.ts';
+import type { Address, Hex } from '../../../core/types/primitives.ts';
 import {
+  decodeSecondBridgeDataV1,
   decodeSecondBridgeErc20,
   decodeTwoBridgeOuter,
   parseApproveTx,
@@ -27,8 +30,27 @@ const ROUTES = {
 const MIN_L2_GAS_FOR_ERC20 = 2_500_000n;
 
 const ERC20_TOKEN = '0x3333333333333333333333333333333333333333' as const;
+const ERC20_TOKEN_L2 = '0x5555555555555555555555555555555555555555' as Address;
 const BASE_TOKEN = ADAPTER_TEST_ADDRESSES.baseTokenFor324;
 const RECEIVER = '0x4444444444444444444444444444444444444444' as const;
+const BASE_TOKEN_ASSET_ID = `0x${'11'.repeat(32)}` as Hex;
+const NON_L1_ORIGIN_ASSET_ID = `0x${'22'.repeat(32)}` as Hex;
+
+function makeResolvedErc20Token(overrides: Partial<ResolvedToken> = {}): ResolvedToken {
+  return {
+    kind: 'erc20',
+    l1: ERC20_TOKEN,
+    l2: ERC20_TOKEN_L2,
+    assetId: NON_L1_ORIGIN_ASSET_ID,
+    originChainId: 9n,
+    isChainEthBased: true,
+    baseTokenAssetId: BASE_TOKEN_ASSET_ID,
+    wethL1: FORMAL_ETH_ADDRESS,
+    wethL2: FORMAL_ETH_ADDRESS,
+    ...overrides,
+  };
+}
+
 const noReturnApproveError = () =>
   Object.assign(new Error('The contract function "approve" returned no data ("0x").'), {
     name: 'ContractFunctionExecutionError',
@@ -85,6 +107,44 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
       expect(BigInt(infoArgs.mintValue ?? 0n)).toBe(mintValue);
       expect(BigInt(infoArgs.l2GasLimit ?? 0n)).toBe(MIN_L2_GAS_FOR_ERC20);
     }
+  });
+
+  it('uses V1 second-bridge calldata for ERC-20 tokens that do not originate on L1', async () => {
+    const harness = factory();
+    const ctx = makeDepositContext(harness, {
+      l2GasLimit: MIN_L2_GAS_FOR_ERC20,
+      baseTokenL1: FORMAL_ETH_ADDRESS,
+      baseIsEth: true,
+      resolvedToken: makeResolvedErc20Token(),
+    });
+    const amount = 1_000n;
+    const baseCost = 3_000n;
+    const mintValue = baseCost + ctx.operatorTip;
+
+    setBridgehubBaseToken(harness, ctx, FORMAL_ETH_ADDRESS);
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
+    setErc20Allowance(harness, ERC20_TOKEN, ctx.sender, ctx.l1AssetRouter, amount);
+
+    const res = await ROUTES[kind].build(
+      { token: ERC20_TOKEN, amount, to: RECEIVER } as any,
+      ctx as any,
+    );
+
+    expect(res.approvals.length).toBe(0);
+    expect(res.steps.length).toBe(1);
+    expect(res.fees?.mintValue).toBe(mintValue);
+
+    const bridge = res.steps[0];
+    const secondBridgeCalldata =
+      kind === 'ethers'
+        ? decodeTwoBridgeOuter((bridge.tx as any).data).secondBridgeCalldata
+        : ((bridge.tx as any).args?.[0] as any).secondBridgeCalldata;
+    const decoded = decodeSecondBridgeDataV1(secondBridgeCalldata);
+
+    expect(decoded.assetId.toLowerCase()).toBe(NON_L1_ORIGIN_ASSET_ID.toLowerCase());
+    expect(decoded.amount).toBe(amount);
+    expect(decoded.receiver).toBe(RECEIVER.toLowerCase());
+    expect(decoded.token).toBe(ERC20_TOKEN.toLowerCase());
   });
 
   it('requires approvals when deposit and base allowances are insufficient', async () => {

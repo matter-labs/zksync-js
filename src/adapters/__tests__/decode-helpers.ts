@@ -34,6 +34,25 @@ export function decodeSecondBridgeErc20(calldata: string) {
   };
 }
 
+export function decodeSecondBridgeDataV1(calldata: string) {
+  if (!calldata.toLowerCase().startsWith('0x01')) {
+    throw new Error('second bridge calldata is not V1 encoded');
+  }
+
+  const [assetId, transferData] = coder.decode(['bytes32', 'bytes'], `0x${calldata.slice(4)}`);
+  const [amount, receiver, token] = coder.decode(
+    ['uint256', 'address', 'address'],
+    transferData as string,
+  );
+
+  return {
+    assetId: assetId as `0x${string}`,
+    amount: BigInt(amount),
+    receiver: (receiver as string).toLowerCase(),
+    token: (token as string).toLowerCase(),
+  };
+}
+
 export function decodeAssetRouterWithdraw(data: string) {
   const [assetId, assetData] = L2AssetRouter.decodeFunctionData('withdraw(bytes32,bytes)', data);
   const [amount, receiver, token] = coder.decode(['uint256', 'address', 'address'], assetData);
