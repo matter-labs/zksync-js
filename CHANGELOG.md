@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-05-12)
+
+
+### Bug Fixes
+
+* disable interop tests ([#104](https://github.com/matter-labs/zksync-js/issues/104)) ([1b48bee](https://github.com/matter-labs/zksync-js/commit/1b48bee9cd6253aba7cdb9d094ab99cd3219ddce))
+
 ## [0.0.18](https://github.com/matter-labs/zksync-js/compare/v0.0.17...v0.0.18) (2026-05-08)
 
 
