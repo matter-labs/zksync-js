@@ -147,6 +147,36 @@ describeForAdapters('adapters/deposits/routeErc20NonBase', (kind, factory) => {
     expect(decoded.token).toBe(ERC20_TOKEN.toLowerCase());
   });
 
+  it('uses V1 calldata for a non-L1 assetId even when originChainId reads as 0 (bridged L1 token, e.g. ZK)', async () => {
+    const harness = factory();
+    const ctx = makeDepositContext(harness, {
+      l2GasLimit: MIN_L2_GAS_FOR_ERC20,
+      baseTokenL1: FORMAL_ETH_ADDRESS,
+      baseIsEth: true,
+      resolvedToken: makeResolvedErc20Token({ originChainId: 0n }),
+    });
+    const amount = 1_000n;
+    const baseCost = 3_000n;
+
+    setBridgehubBaseToken(harness, ctx, FORMAL_ETH_ADDRESS);
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });
+    setErc20Allowance(harness, ERC20_TOKEN, ctx.sender, ctx.l1AssetRouter, amount);
+
+    const res = await ROUTES[kind].build(
+      { token: ERC20_TOKEN, amount, to: RECEIVER } as any,
+      ctx as any,
+    );
+
+    const bridge = res.steps[0];
+    const secondBridgeCalldata =
+      kind === 'ethers'
+        ? decodeTwoBridgeOuter((bridge.tx as any).data).secondBridgeCalldata
+        : ((bridge.tx as any).args?.[0] as any).secondBridgeCalldata;
+    const decoded = decodeSecondBridgeDataV1(secondBridgeCalldata);
+
+    expect(decoded.assetId.toLowerCase()).toBe(NON_L1_ORIGIN_ASSET_ID.toLowerCase());
+  });
+
   it('requires approvals when deposit and base allowances are insufficient', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness, { l2GasLimit: MIN_L2_GAS_FOR_ERC20 });

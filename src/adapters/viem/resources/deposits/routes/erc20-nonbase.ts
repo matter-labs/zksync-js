@@ -1,7 +1,7 @@
 // src/adapters/viem/resources/deposits/routes/erc20-nonbase.ts
 
 import type { Abi, TransactionRequest } from 'viem';
-import { encodeAbiParameters, encodeFunctionData, zeroAddress } from 'viem';
+import { encodeAbiParameters, encodeFunctionData, keccak256, zeroAddress } from 'viem';
 
 import type { DepositRouteStrategy, ViemPlanWriteRequest } from './types';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
@@ -15,7 +15,12 @@ import {
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH, normalizeAddrEq } from '../../../../../core/utils/addr';
-import { L2_ASSET_ROUTER_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import {
+  L2_ASSET_ROUTER_ADDRESS,
+  L2_NATIVE_TOKEN_VAULT_ADDRESS,
+  SAFE_L1_BRIDGE_GAS,
+} from '../../../../../core/constants.ts';
+import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
@@ -29,6 +34,14 @@ import { buildApprovalRequest } from './approval';
 
 const { wrapAs } = createErrorHandlers('deposits');
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+const ntvCodec = createNTVCodec({
+  encode: (types, values) =>
+    encodeAbiParameters(
+      types.map((t, i) => ({ type: t, name: `arg${i}` })),
+      values,
+    ),
+  keccak256,
+});
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
@@ -46,10 +59,15 @@ async function encodeSecondBridgeErc20DepositCalldata(input: {
   }
 
   const l1ChainId = BigInt(await input.ctx.client.l1.getChainId());
+  // Legacy encoding is valid only for L1-native tokens; see L1AssetRouter._handleLegacyData.
+  const expectedL1AssetId = ntvCodec.encodeAssetId(
+    l1ChainId,
+    L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    input.token,
+  );
   const isL1Origin =
     input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID ||
-    input.ctx.resolvedToken.originChainId === 0n ||
-    input.ctx.resolvedToken.originChainId === l1ChainId;
+    input.ctx.resolvedToken.assetId.toLowerCase() === expectedL1AssetId.toLowerCase();
 
   if (isL1Origin) {
     return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
