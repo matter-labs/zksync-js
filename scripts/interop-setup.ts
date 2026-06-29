@@ -45,9 +45,49 @@ function log(msg: string) {
   process.stderr.write(msg + '\n');
 }
 
+async function rpcReady(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }),
+    });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { result?: unknown };
+    return typeof body.result === 'string';
+  } catch {
+    return false;
+  }
+}
+
+async function waitForRpc(
+  url: string,
+  label: string,
+  timeoutMs = 120_000,
+  intervalMs = 1_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!(await rpcReady(url))) {
+    if (Date.now() > deadline) {
+      throw new Error(`RPC ${label} (${url}) not ready after ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  log(`RPC ready: ${label} (${url})`);
+}
+
 async function main() {
   const PRIVATE_KEY = process.env.PRIVATE_KEY;
   if (!PRIVATE_KEY) throw new Error('PRIVATE_KEY env var is required');
+
+  // Chains are launched moments before this script runs, and the dst L2 (last to start) can still
+  // be binding its RPC. Wait for every endpoint before use so we don't race into an ECONNREFUSED.
+  await Promise.all([
+    waitForRpc(L1_RPC, 'L1'),
+    waitForRpc(SRC_L2_RPC, 'L2 src'),
+    waitForRpc(DST_L2_RPC, 'L2 dst'),
+    waitForRpc(GW_RPC, 'GW'),
+  ]);
 
   const l1 = new JsonRpcProvider(L1_RPC);
   const l2Src = new JsonRpcProvider(SRC_L2_RPC);
