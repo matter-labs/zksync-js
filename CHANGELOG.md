@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-06-30)
+
+
+### Bug Fixes
+
+* disable interop tests ([#104](https://github.com/matter-labs/zksync-js/issues/104)) ([1b48bee](https://github.com/matter-labs/zksync-js/commit/1b48bee9cd6253aba7cdb9d094ab99cd3219ddce))
+* use V1 deposit encoding for non-L1-origin ERC-20 tokens ([#110](https://github.com/matter-labs/zksync-js/issues/110)) ([5bd203a](https://github.com/matter-labs/zksync-js/commit/5bd203ac1418b3ad04acd009594b332315ff00cd))
+
 ## [0.0.18](https://github.com/matter-labs/zksync-js/compare/v0.0.17...v0.0.18) (2026-05-08)
 
 
