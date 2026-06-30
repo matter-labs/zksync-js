@@ -1,7 +1,7 @@
 // src/adapters/ethers/resources/deposits/routes/erc20-nonbase.ts
 
 import type { DepositRouteStrategy } from './types';
-import { AbiCoder, Contract, Interface } from 'ethers';
+import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import {
   encodeNativeTokenVaultTransferData,
@@ -17,7 +17,13 @@ import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts
 
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
-import { L2_ASSET_ROUTER_ADDRESS, SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
+import {
+  L2_ASSET_ROUTER_ADDRESS,
+  L2_NATIVE_TOKEN_VAULT_ADDRESS,
+  SAFE_L1_BRIDGE_GAS,
+} from '../../../../../core/constants.ts';
+import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
+import type { Hex } from '../../../../../core/types/primitives';
 import {
   applyPriorityL2GasLimitBuffer,
   derivePriorityBodyGasEstimateCap,
@@ -28,11 +34,46 @@ import { getPriorityTxGasBreakdown } from './priority';
 const { wrapAs } = createErrorHandlers('deposits');
 const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_ASSET_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const ntvCodec = createNTVCodec({
+  encode: (types, values) => AbiCoder.defaultAbiCoder().encode(types, values) as Hex,
+  keccak256: (data) => keccak256(data) as Hex,
+});
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
   undeployedGasLimit?: bigint;
 };
+
+function isLegacySecondBridgeErc20Calldata(input: {
+  assetId: `0x${string}`;
+  l1ChainId: bigint;
+  token: `0x${string}`;
+}): boolean {
+  const expectedL1AssetId = ntvCodec.encodeAssetId(
+    input.l1ChainId,
+    L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    input.token,
+  );
+
+  return (
+    input.assetId.toLowerCase() === ZERO_ASSET_ID ||
+    input.assetId.toLowerCase() === expectedL1AssetId.toLowerCase()
+  );
+}
+
+async function resolveErc20MetadataOriginChainId(input: {
+  l1NativeTokenVault: Awaited<
+    ReturnType<Parameters<DepositRouteStrategy['build']>[1]['contracts']['l1NativeTokenVault']>
+  >;
+  assetId: `0x${string}`;
+  resolvedOriginChainId: bigint;
+}): Promise<bigint> {
+  if (input.resolvedOriginChainId !== 0n) {
+    return input.resolvedOriginChainId;
+  }
+
+  return (await input.l1NativeTokenVault.originChainId(input.assetId)) as bigint;
+}
 
 async function encodeSecondBridgeErc20DepositCalldata(input: {
   ctx: Parameters<DepositRouteStrategy['build']>[1];
@@ -44,11 +85,12 @@ async function encodeSecondBridgeErc20DepositCalldata(input: {
     return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
   }
 
-  const { chainId: l1ChainId } = await input.ctx.client.l1.getNetwork();
-  const isL1Origin =
-    input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID ||
-    input.ctx.resolvedToken.originChainId === 0n ||
-    input.ctx.resolvedToken.originChainId === BigInt(l1ChainId);
+  const { chainId } = await input.ctx.client.l1.getNetwork();
+  const isL1Origin = isLegacySecondBridgeErc20Calldata({
+    assetId: input.ctx.resolvedToken.assetId,
+    l1ChainId: BigInt(chainId),
+    token: input.token,
+  });
 
   if (isL1Origin) {
     return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
@@ -73,12 +115,14 @@ async function getPriorityGasModel(input: {
     const l1NativeTokenVault = await input.ctx.contracts.l1NativeTokenVault();
     const l1AssetRouter = await input.ctx.contracts.l1AssetRouter();
     const { chainId: l1ChainId } = await input.ctx.client.l1.getNetwork();
-    const isFirstBridge =
-      input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID ||
-      input.ctx.resolvedToken.originChainId === 0n;
+    const isFirstBridge = input.ctx.resolvedToken.assetId.toLowerCase() === ZERO_ASSET_ID;
     const erc20MetadataOriginChainId = isFirstBridge
       ? BigInt(l1ChainId)
-      : input.ctx.resolvedToken.originChainId;
+      : await resolveErc20MetadataOriginChainId({
+          l1NativeTokenVault,
+          assetId: input.ctx.resolvedToken.assetId,
+          resolvedOriginChainId: input.ctx.resolvedToken.originChainId,
+        });
     const erc20Metadata = (await l1NativeTokenVault.getERC20Getters(
       input.token,
       erc20MetadataOriginChainId,
