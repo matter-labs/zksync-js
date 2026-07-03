@@ -143,6 +143,7 @@
     "test": "bun test",
     "test:e2e:ethers": "bun test ./src/adapters/ethers/e2e/*.e2e.ts --path-ignore-patterns='**/interop*'",
     "test:e2e:viem": "bun test ./src/adapters/viem/e2e/*.e2e.ts --path-ignore-patterns='**/interop*'",
+    "test:e2e:prividium:viem": "bun test ./src/adapters/viem/e2e/prividium/*.e2e.ts --timeout 240000",
     "test:e2e:interop:ethers": "bun test ./src/adapters/ethers/e2e/interop.e2e.ts",
     "test:e2e:interop:viem": "bun test ./src/adapters/viem/e2e/interop.e2e.ts",
     "test:watch": "bun test --watch",

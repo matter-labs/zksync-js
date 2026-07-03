@@ -1,0 +1,177 @@
+name: ci-prividium-e2e
+
+on:
+  schedule:
+    # Every Tuesday at 10:00 UTC to catch Prividium regressions without blocking PRs.
+    - cron: '0 10 * * 2'
+  workflow_dispatch:
+
+concurrency:
+  group: prividium-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRIVIDIUM_REF: 55606ce1cd3599e5354fcb5292d7bef91ffc092e
+  PRIVIDIUM_API_URL: http://127.0.0.1:8000
+  PRIVIDIUM_RPC_URL: http://127.0.0.1:8000/rpc
+  L1_RPC_URL: http://127.0.0.1:5502
+  L2_RPC_URL: http://127.0.0.1:5501
+  PRIVIDIUM_ADMIN_PRIVATE_KEY: '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6'
+  PRIVIDIUM_PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  PRIVIDIUM_ADMIN_ADDRESS: '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720'
+  PRIVIDIUM_TEST_ADDRESS: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+
+jobs:
+  prividium-viem-e2e:
+    name: prividium-viem-e2e
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.0.2
+        with:
+          bun-version: '1.3.11'
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Checkout Prividium
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: matter-labs/zksync-prividium
+          path: .ci/zksync-prividium
+          ref: ${{ env.PRIVIDIUM_REF }}
+          token: ${{ secrets.PRIVIDIUM_REPO_TOKEN }}
+
+      - name: Install Prividium deps
+        working-directory: .ci/zksync-prividium
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Start Prividium deps
+        working-directory: .ci/zksync-prividium
+        run: docker compose -f packages/test-deps/docker-compose.yaml up -d --wait
+
+      - name: Create Prividium API database
+        working-directory: .ci/zksync-prividium
+        run: |
+          docker compose -f packages/test-deps/docker-compose.yaml exec -T postgres psql -U postgres -c "DROP DATABASE IF EXISTS prividium_api WITH (FORCE);"
+          docker compose -f packages/test-deps/docker-compose.yaml exec -T postgres psql -U postgres -c "CREATE DATABASE prividium_api;"
+
+      - name: Build permissions API
+        working-directory: .ci/zksync-prividium
+        run: pnpm turbo run build --filter @repo/permissions-api
+
+      - name: Start permissions API
+        working-directory: .ci/zksync-prividium
+        env:
+          NODE_ENV: production
+          PORT: '8000'
+          METRICS_PORT: '9091'
+          DATABASE_URL: postgres://postgres:notsecurepassword@127.0.0.1:5500/prividium_api
+          DATABASE_ENABLE_SSL: 'false'
+          DATABASE_SSL_REJECT_UNAUTHORIZED: 'false'
+          DB_QUERY_TIMEOUT_MS: '100000'
+          DB_STATEMENT_TIMEOUT_MS: '100000'
+          DB_POOL_MAX_CONNECTIONS: '10'
+          LOG_LEVEL: info
+          SEQUENCER_RPC_URL: http://127.0.0.1:5501
+          CORS_ORIGIN: http://localhost:3001
+          CORS_CACHE_DURATION_MS: '60000'
+          AUTH_METHODS: crypto_native
+          USER_SESSION_DURATION_SECONDS: '3600'
+          TENANT_SESSION_DURATION_SECONDS: '3600'
+          SERVICE_SESSION_DURATION_SECONDS: '86400'
+          HEALTH_CHECK_INTERVAL_MS: '1000'
+          SIWE_CHAIN_ID: '6565'
+          SIWE_VALID_DOMAINS: localhost:3001
+          SIWE_HMAC_SECRET: aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000
+          SIWE_CHALLENGE_RATE_LIMIT_COUNT: '100'
+          SIWE_CHALLENGE_RATE_LIMIT_WINDOW_SECONDS: '300'
+          SIWE_CONSUMED_NONCE_TTL_SECONDS: '600'
+          SIWE_CLEANUP_INTERVAL_SECONDS: '60'
+          SIWE_CHALLENGE_RATE_LIMIT_BYPASS_IPS: 127.0.0.1,::1
+          DEPLOYMENT_PENDING_TTL_SECONDS: '3600'
+          DEPLOYMENT_ERRORED_RETENTION_SECONDS: '604800'
+          DEPLOYMENT_CLEANUP_INTERVAL_SECONDS: '300'
+          CRYPTO_NATIVE_ADMIN_WALLETS: ${{ env.PRIVIDIUM_ADMIN_ADDRESS }}
+          KNOWN_DEV_WALLETS_ALLOWLIST: ${{ env.PRIVIDIUM_ADMIN_ADDRESS }},${{ env.PRIVIDIUM_TEST_ADDRESS }}
+          ADMIN_PANEL_REDIRECT_URLS: http://localhost:3000/callback
+          BLOCK_EXPLORER_REDIRECT_URLS: http://localhost:3010/auth/callback
+          SWAGGER_UI_ALLOWED_ROLES: none
+          BUNDLER_ENABLED: 'false'
+          THE_GRAPH_API_ENABLED: 'false'
+          FAUCET_ENABLED: 'false'
+          WALLETS_API_ENABLED: 'true'
+          TENANTS_ENABLED: 'false'
+          DISCLOSURE_METHODS_ENABLED: 'false'
+          MULTI_ORG_ENABLED: 'false'
+          MAX_ORGANIZATIONS: '100'
+          INSECURE_M2M_ALLOW_ANY_IP_ENABLED: 'false'
+          WEBAUTHN_RP_NAME: ZKsync Prividium
+          WEBAUTHN_RP_ID: localhost
+          WEBAUTHN_ORIGIN: http://localhost:3001
+          WEBAUTHN_REQUIRE_USER_VERIFICATION: 'false'
+          EXTRA_PUBLIC_CODE_ADDRESSES: '0x36615Cf349d7F6344891B1e7CA7C72883F5dc049'
+          RATE_LIMIT_ENABLED: 'false'
+          RATE_LIMIT_AUTH_MAX: '100'
+          RATE_LIMIT_PUBLIC_MAX: '300'
+          RATE_LIMIT_USER_MAX: '300'
+          RATE_LIMIT_RPC_MAX: '1000'
+          RATE_LIMIT_M2M_MAX: '1000'
+          RATE_LIMIT_WINDOW_MS: '60000'
+          VERSION: prividium-e2e
+          PRIVIDIUM_API_URL: ${{ env.PRIVIDIUM_API_URL }}
+          BLOCK_EXPLORER_URL: http://localhost:3010
+          USER_PANEL_URL: http://localhost:3001
+          CHAIN_NAME: Prividium Local
+          NATIVE_TOKEN_NAME: Ether
+          NATIVE_TOKEN_SYMBOL: ETH
+          NATIVE_TOKEN_DECIMALS: '18'
+          L1_CHAIN_ID: '31337'
+          L1_CHAIN_NAME: Anvil Localhost
+        run: |
+          pnpm --filter @repo/permissions-api start > "$RUNNER_TEMP/prividium-api.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/prividium-api.pid"
+
+      - name: Wait for permissions API
+        run: |
+          for attempt in {1..120}; do
+            if curl -fsS "$PRIVIDIUM_API_URL/readyz" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/prividium-api.log"
+          exit 1
+
+      - name: Configure Prividium bridge permissions
+        run: bun run scripts/prividium/setup-ci.ts
+
+      - name: Run Prividium viem e2e
+        run: bun run test:e2e:prividium:viem
+
+      - name: Permissions API logs
+        if: always()
+        run: cat "$RUNNER_TEMP/prividium-api.log" || true
+
+      - name: Prividium dependency logs
+        if: always()
+        working-directory: .ci/zksync-prividium
+        run: docker compose -f packages/test-deps/docker-compose.yaml logs --no-color
+
+      - name: Teardown
+        if: always()
+        working-directory: .ci/zksync-prividium
+        run: |
+          if [ -f "$RUNNER_TEMP/prividium-api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/prividium-api.pid")" || true
+          fi
+          docker compose -f packages/test-deps/docker-compose.yaml down -v
