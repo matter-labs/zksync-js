@@ -74,60 +74,23 @@ jobs:
         env:
           NODE_ENV: production
           PORT: '8000'
-          METRICS_PORT: '9091'
           DATABASE_URL: postgres://postgres:notsecurepassword@127.0.0.1:5500/prividium_api
-          DATABASE_ENABLE_SSL: 'false'
-          DATABASE_SSL_REJECT_UNAUTHORIZED: 'false'
-          DB_QUERY_TIMEOUT_MS: '100000'
-          DB_STATEMENT_TIMEOUT_MS: '100000'
-          DB_POOL_MAX_CONNECTIONS: '10'
-          LOG_LEVEL: info
           SEQUENCER_RPC_URL: http://127.0.0.1:5501
           CORS_ORIGIN: http://localhost:3001
           CORS_CACHE_DURATION_MS: '60000'
           AUTH_METHODS: crypto_native
-          USER_SESSION_DURATION_SECONDS: '3600'
-          TENANT_SESSION_DURATION_SECONDS: '3600'
-          SERVICE_SESSION_DURATION_SECONDS: '86400'
-          HEALTH_CHECK_INTERVAL_MS: '1000'
           SIWE_CHAIN_ID: '6565'
           SIWE_VALID_DOMAINS: localhost:3001
           SIWE_HMAC_SECRET: aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000
-          SIWE_CHALLENGE_RATE_LIMIT_COUNT: '100'
-          SIWE_CHALLENGE_RATE_LIMIT_WINDOW_SECONDS: '300'
-          SIWE_CONSUMED_NONCE_TTL_SECONDS: '600'
-          SIWE_CLEANUP_INTERVAL_SECONDS: '60'
-          SIWE_CHALLENGE_RATE_LIMIT_BYPASS_IPS: 127.0.0.1,::1
-          DEPLOYMENT_PENDING_TTL_SECONDS: '3600'
-          DEPLOYMENT_ERRORED_RETENTION_SECONDS: '604800'
-          DEPLOYMENT_CLEANUP_INTERVAL_SECONDS: '300'
           CRYPTO_NATIVE_ADMIN_WALLETS: ${{ env.PRIVIDIUM_ADMIN_ADDRESS }}
           KNOWN_DEV_WALLETS_ALLOWLIST: ${{ env.PRIVIDIUM_ADMIN_ADDRESS }},${{ env.PRIVIDIUM_TEST_ADDRESS }}
           ADMIN_PANEL_REDIRECT_URLS: http://localhost:3000/callback
           BLOCK_EXPLORER_REDIRECT_URLS: http://localhost:3010/auth/callback
-          SWAGGER_UI_ALLOWED_ROLES: none
-          BUNDLER_ENABLED: 'false'
-          THE_GRAPH_API_ENABLED: 'false'
-          FAUCET_ENABLED: 'false'
-          WALLETS_API_ENABLED: 'true'
-          TENANTS_ENABLED: 'false'
-          DISCLOSURE_METHODS_ENABLED: 'false'
-          MULTI_ORG_ENABLED: 'false'
-          MAX_ORGANIZATIONS: '100'
-          INSECURE_M2M_ALLOW_ANY_IP_ENABLED: 'false'
+          WALLETS_API_ENABLED: 'false'
           WEBAUTHN_RP_NAME: ZKsync Prividium
           WEBAUTHN_RP_ID: localhost
           WEBAUTHN_ORIGIN: http://localhost:3001
           WEBAUTHN_REQUIRE_USER_VERIFICATION: 'false'
-          EXTRA_PUBLIC_CODE_ADDRESSES: '0x36615Cf349d7F6344891B1e7CA7C72883F5dc049'
-          RATE_LIMIT_ENABLED: 'false'
-          RATE_LIMIT_AUTH_MAX: '100'
-          RATE_LIMIT_PUBLIC_MAX: '300'
-          RATE_LIMIT_USER_MAX: '300'
-          RATE_LIMIT_RPC_MAX: '1000'
-          RATE_LIMIT_M2M_MAX: '1000'
-          RATE_LIMIT_WINDOW_MS: '60000'
-          VERSION: prividium-e2e
           PRIVIDIUM_API_URL: ${{ env.PRIVIDIUM_API_URL }}
           BLOCK_EXPLORER_URL: http://localhost:3010
           USER_PANEL_URL: http://localhost:3001
