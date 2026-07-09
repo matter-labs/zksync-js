@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'bun:test';
+import { BrowserProvider } from 'ethers';
 
 import { routeErc20NonBase as routeEthers } from '../../ethers/resources/withdrawals/routes/erc20-nonbase.ts';
 import { routeErc20NonBase as routeViem } from '../../viem/resources/withdrawals/routes/erc20-nonbase.ts';
+import { createEthersClient } from '../../ethers/client.ts';
+import { createContractsResource as createEthersContractsResource } from '../../ethers/resources/contracts/index.ts';
 import {
   ADAPTER_TEST_ADDRESSES,
+  createEthersHarness,
   makeWithdrawalContext,
   setErc20Allowance,
   setL2TokenRegistration,
@@ -213,5 +217,53 @@ describeForAdapters('adapters/withdrawals/routeErc20NonBase', (kind, factory) =>
     }
     expect(isZKsyncError(caught)).toBe(true);
     expect(String(caught)).toMatch(/Failed to read L2 ERC-20 allowance/);
+  });
+});
+
+// Needs a real BrowserProvider: the harness's plain signer reconnects to l2 and would mask the bug.
+describe('adapters/withdrawals/routeErc20NonBase browser-wallet signer (ethers)', () => {
+  it('reads L2 allowance via the read provider, not the wallet signer', async () => {
+    const harness = createEthersHarness();
+
+    let walletEthCalls = 0;
+    const walletRpc = {
+      request: async ({ method }: { method: string }) => {
+        switch (method) {
+          case 'eth_chainId':
+            return '0x144';
+          case 'eth_accounts':
+          case 'eth_requestAccounts':
+            return [ADAPTER_TEST_ADDRESSES.signer];
+          case 'eth_call':
+            walletEthCalls += 1;
+            throw new Error('Method eth_call is forbidden');
+          default:
+            throw new Error(`unexpected wallet method ${method}`);
+        }
+      },
+    };
+    const browserProvider = new BrowserProvider(walletRpc as any);
+    const signer = await browserProvider.getSigner();
+
+    const client = createEthersClient({ l1: harness.l1 as any, l2: harness.l2 as any, signer });
+
+    const ctx = makeWithdrawalContext(harness, {
+      l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+      l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
+    });
+    ctx.client = client;
+    ctx.contracts = createEthersContractsResource(client);
+
+    const amount = 5_000n;
+    setErc20Allowance(harness, TOKEN, ctx.sender, ctx.l2NativeTokenVault, amount);
+    setL2TokenRegistration(harness, ctx.l2NativeTokenVault, TOKEN, ASSET_ID);
+
+    const res = await routeEthers().build(
+      { token: TOKEN, amount, to: RECEIVER } as any,
+      ctx as any,
+    );
+
+    expect(res.steps.at(-1)?.key).toBe('l2-asset-router:withdraw');
+    expect(walletEthCalls).toBe(0);
   });
 });

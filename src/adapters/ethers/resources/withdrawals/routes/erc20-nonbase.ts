@@ -27,8 +27,8 @@ export function routeErc20NonBase(): WithdrawRouteStrategy {
       const steps: Array<PlanStep<TransactionRequest>> = [];
       const approvals: ApprovalNeed[] = [];
 
-      // L2 allowance
-      const erc20 = new Contract(p.token, IERC20ABI, ctx.client.getL2Signer());
+      // Read via l2, not the signer: a browser-wallet signer routes this eth_call to its own RPC, which may forbid it.
+      const erc20 = new Contract(p.token, IERC20ABI, ctx.client.l2);
       const current: bigint = (await wrapAs(
         'CONTRACT',
         OP_WITHDRAWALS.erc20.allowance,

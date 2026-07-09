@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'bun:test';
-import { Interface } from 'ethers';
+import { BrowserProvider, Interface } from 'ethers';
 
 import { routeIndirect as routeEthers } from '../../ethers/resources/interop/routes/indirect.ts';
 import { routeIndirect as routeViem } from '../../viem/resources/interop/routes/indirect.ts';
+import { resolveErc20AssetIds } from '../../ethers/resources/interop/services/erc20.ts';
+import { createEthersClient } from '../../ethers/client.ts';
+import { createContractsResource as createEthersContractsResource } from '../../ethers/resources/contracts/index.ts';
 import {
+  ADAPTER_TEST_ADDRESSES,
+  createEthersHarness,
   describeForAdapters,
   makeInteropContext,
   setErc20Allowance,
@@ -390,5 +395,45 @@ describeForAdapters('adapters/interop/routeIndirect', (kind, factory) => {
     const erc20Iface = new Interface(IERC20ABI);
     const approveArgs = erc20Iface.decodeFunctionData('approve', approveStep!.tx.data as Hex);
     expect(approveArgs[1]).toBe(amount);
+  });
+});
+
+// Needs a real BrowserProvider: the harness's plain signer reconnects to l2 and would mask the bug.
+describe('interop/resolveErc20AssetIds browser-wallet signer (ethers)', () => {
+  it('resolves asset ids via the read provider, not the wallet signer', async () => {
+    const harness = createEthersHarness();
+
+    let walletEthCalls = 0;
+    const walletRpc = {
+      request: async ({ method }: { method: string }) => {
+        switch (method) {
+          case 'eth_chainId':
+            return '0x144';
+          case 'eth_accounts':
+          case 'eth_requestAccounts':
+            return [ADAPTER_TEST_ADDRESSES.signer];
+          case 'eth_call':
+            walletEthCalls += 1;
+            throw new Error('Method eth_call is forbidden');
+          default:
+            throw new Error(`unexpected wallet method ${method}`);
+        }
+      },
+    };
+    const browserProvider = new BrowserProvider(walletRpc as any);
+    const signer = await browserProvider.getSigner();
+    const client = createEthersClient({ l1: harness.l1 as any, l2: harness.l2 as any, signer });
+
+    const token = '0x6666666666666666666666666666666666666666' as Address;
+    const ctx = makeTestBuildCtx('ethers', harness, {
+      client,
+      contracts: createEthersContractsResource(client) as any,
+    });
+    setL2TokenRegistration(harness, ctx.l2NativeTokenVault, token, TEST_ASSET_ID);
+
+    const assetIds = await resolveErc20AssetIds([token], ctx);
+
+    expect(assetIds.get(token.toLowerCase())).toBe(TEST_ASSET_ID);
+    expect(walletEthCalls).toBe(0);
   });
 });

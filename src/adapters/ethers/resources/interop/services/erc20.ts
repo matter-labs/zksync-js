@@ -88,7 +88,8 @@ export async function resolveErc20AssetIds(
   const assetIds = new Map<string, Hex>();
   if (erc20Tokens.length === 0) return assetIds;
 
-  const ntv = new Contract(ctx.l2NativeTokenVault, L2NativeTokenVaultABI, ctx.client.getL2Signer());
+  // Read via l2, not the signer: a browser-wallet signer routes this eth_call to its own RPC, which may forbid it.
+  const ntv = new Contract(ctx.l2NativeTokenVault, L2NativeTokenVaultABI, ctx.client.l2);
 
   for (const token of erc20Tokens) {
     const assetId = (await ntv.getFunction('ensureTokenIsRegistered').staticCall(token)) as Hex;
