@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.20](https://github.com/matter-labs/zksync-js/compare/v0.0.19...v0.0.20) (2026-07-09)
+
+
+### Bug Fixes
+
+* read ethers ERC-20 allowance/asset-id via L2 provider, not the wallet signer ([#112](https://github.com/matter-labs/zksync-js/issues/112)) ([73af218](https://github.com/matter-labs/zksync-js/commit/73af2186e02769b196d5be8256dfce0e02a31aa5))
+
 ## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-06-30)
 
 
