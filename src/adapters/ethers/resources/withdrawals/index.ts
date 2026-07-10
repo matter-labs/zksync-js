@@ -311,8 +311,8 @@ export function createWithdrawalsResource(
             }
           },
           getFinalizationInfo: () => bundleSvc.fetchBundleFinalizationInfo(l2TxHash),
-          readBundleState: bundleSvc.readBundleState,
-          simulate: bundleSvc.simulateExecuteBundle,
+          readBundleState: (bundleHash) => bundleSvc.readBundleState(bundleHash),
+          simulate: (info) => bundleSvc.simulateExecuteBundle(info),
           getExecutionState: async () => {
             const txHash = providedL1TxHash ?? finalizeCache.get(l2TxHash);
             if (!txHash) return undefined;
@@ -438,8 +438,8 @@ export function createWithdrawalsResource(
               });
             }
           },
-          readBundleState: bundleSvc.readBundleState,
-          simulate: bundleSvc.simulateExecuteBundle,
+          readBundleState: (bundleHash) => bundleSvc.readBundleState(bundleHash),
+          simulate: (info) => bundleSvc.simulateExecuteBundle(info),
           execute: async (info) => {
             const tx = await bundleSvc.executeBundle(info);
             finalizeCache.set(l2TxHash, tx.hash);

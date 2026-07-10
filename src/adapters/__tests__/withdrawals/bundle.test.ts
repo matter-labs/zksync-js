@@ -24,6 +24,7 @@ import {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
 } from '../../../core/constants';
 import type { Address, Hex } from '../../../core/types/primitives';
+import { isZKsyncError } from '../../../core/types/errors';
 
 const BASE_ASSET_ID = `0x${'11'.repeat(32)}` as Hex;
 const ERC20_ASSET_ID = `0x${'22'.repeat(32)}` as Hex;
@@ -193,6 +194,68 @@ describeForAdapters('adapters/withdrawals/bundle planning', (kind, factory) => {
       `approve:l2:${ERC20}:${ctx.l2NativeTokenVault}`,
       'l2-asset-router:withdraw',
     ]);
+  });
+
+  it('preserves the L2 gas policy and defaults the recipient to the sender', async () => {
+    const harness = factory();
+    setL1ChainId(kind, harness, 1n);
+    const ctx = makeWithdrawalContext(harness, {
+      baseTokenAssetId: BASE_ASSET_ID,
+      baseTokenL1: ETH_ADDRESS,
+    });
+    if (kind === 'ethers') harness.setL2EstimateGas(200_000n);
+    else harness.setEstimateGas(200_000n, 'l2');
+
+    const result = await ROUTES[kind]
+      .eth({ randomBytes: deterministicBytes(10) })
+      .build({ token: ETH_ADDRESS, amount: 20n }, ctx as any);
+    const bundle = parseSendBundleTx(result.steps[0].tx);
+
+    expect(decodeStarterPayload(bundle.callStarters[0].data).receiver).toBe(
+      ctx.sender.toLowerCase(),
+    );
+    if (kind === 'ethers') expect((result.steps[0].tx as any).gasLimit).toBe(240_000n);
+    else expect((result.steps[0].tx as any).gas).toBe(240_000n);
+  });
+
+  it('omits gas fields when bundle estimation fails', async () => {
+    const harness = factory();
+    setL1ChainId(kind, harness, 1n);
+    const ctx = makeWithdrawalContext(harness, {
+      baseTokenAssetId: BASE_ASSET_ID,
+      baseTokenL1: ETH_ADDRESS,
+    });
+    if (kind === 'ethers') harness.setL2EstimateGas(new Error('estimate failed'));
+    else harness.setEstimateGas(new Error('estimate failed'), 'l2');
+
+    const result = await ROUTES[kind]
+      .eth({ randomBytes: deterministicBytes(11) })
+      .build({ token: ETH_ADDRESS, amount: 20n }, ctx as any);
+    const tx = result.steps[0].tx as any;
+
+    expect(tx.gasLimit ?? tx.gas).toBeUndefined();
+    expect(tx.maxFeePerGas).toBeUndefined();
+  });
+
+  it('preserves the wrapped allowance error contract', async () => {
+    const harness = factory();
+    const ctx = makeWithdrawalContext(harness, {
+      baseTokenAssetId: BASE_ASSET_ID,
+      baseTokenL1: ETH_ADDRESS,
+      l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
+    });
+
+    let caught: unknown;
+    try {
+      await ROUTES[kind]
+        .erc20({ randomBytes: deterministicBytes(12) })
+        .build({ token: ERC20, amount: 1n }, ctx as any);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isZKsyncError(caught)).toBe(true);
+    expect(String(caught)).toMatch(/Failed to read L2 ERC-20 allowance/);
   });
 });
 

@@ -115,6 +115,29 @@ const IL2AssetRouterABI = [
   },
   {
     type: 'function',
+    name: 'initiateIndirectCall',
+    inputs: [
+      { name: '_chainId', type: 'uint256', internalType: 'uint256' },
+      { name: '_originalCaller', type: 'address', internalType: 'address' },
+      { name: '_value', type: 'uint256', internalType: 'uint256' },
+      { name: '_data', type: 'bytes', internalType: 'bytes' },
+    ],
+    outputs: [
+      {
+        name: 'interopCallStarter',
+        type: 'tuple',
+        internalType: 'struct InteropCallStarter',
+        components: [
+          { name: 'to', type: 'bytes', internalType: 'bytes' },
+          { name: 'data', type: 'bytes', internalType: 'bytes' },
+          { name: 'callAttributes', type: 'bytes[]', internalType: 'bytes[]' },
+        ],
+      },
+    ],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
     name: 'l1Bridge',
     inputs: [],
     outputs: [{ name: '', type: 'address', internalType: 'address' }],
@@ -225,39 +248,6 @@ const IL2AssetRouterABI = [
     stateMutability: 'nonpayable',
   },
   {
-    type: 'function',
-    name: 'withdraw',
-    inputs: [
-      { name: '_assetId', type: 'bytes32', internalType: 'bytes32' },
-      { name: '_assetData', type: 'bytes', internalType: 'bytes' },
-    ],
-    outputs: [{ name: '', type: 'bytes32', internalType: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'withdraw',
-    inputs: [
-      { name: '_l1Receiver', type: 'address', internalType: 'address' },
-      { name: '_l2Token', type: 'address', internalType: 'address' },
-      { name: '_amount', type: 'uint256', internalType: 'uint256' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'withdrawLegacyBridge',
-    inputs: [
-      { name: '_l1Receiver', type: 'address', internalType: 'address' },
-      { name: '_l2Token', type: 'address', internalType: 'address' },
-      { name: '_amount', type: 'uint256', internalType: 'uint256' },
-      { name: '_sender', type: 'address', internalType: 'address' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
     type: 'event',
     name: 'AssetDeploymentTrackerRegistered',
     inputs: [
@@ -311,17 +301,6 @@ const IL2AssetRouterABI = [
   },
   {
     type: 'event',
-    name: 'BridgehubWithdrawalInitiated',
-    inputs: [
-      { name: 'chainId', type: 'uint256', indexed: false, internalType: 'uint256' },
-      { name: 'sender', type: 'address', indexed: true, internalType: 'address' },
-      { name: 'assetId', type: 'bytes32', indexed: true, internalType: 'bytes32' },
-      { name: 'assetDataHash', type: 'bytes32', indexed: false, internalType: 'bytes32' },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
     name: 'DepositFinalizedAssetRouter',
     inputs: [
       { name: 'chainId', type: 'uint256', indexed: true, internalType: 'uint256' },
@@ -364,17 +343,6 @@ const IL2AssetRouterABI = [
     type: 'event',
     name: 'Unpaused',
     inputs: [{ name: 'account', type: 'address', indexed: false, internalType: 'address' }],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'WithdrawalInitiatedAssetRouter',
-    inputs: [
-      { name: 'chainId', type: 'uint256', indexed: false, internalType: 'uint256' },
-      { name: 'l2Sender', type: 'address', indexed: true, internalType: 'address' },
-      { name: 'assetId', type: 'bytes32', indexed: true, internalType: 'bytes32' },
-      { name: 'assetData', type: 'bytes', indexed: false, internalType: 'bytes' },
-    ],
     anonymous: false,
   },
   { type: 'error', name: 'AmountMustBeGreaterThanZero', inputs: [] },

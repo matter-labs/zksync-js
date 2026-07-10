@@ -1,5 +1,4 @@
 import type { AbstractProvider } from 'ethers';
-import type { Hex } from '../../../../../../core/types/primitives';
 import type {
   InteropFinalizationInfo,
   InteropWaitable,

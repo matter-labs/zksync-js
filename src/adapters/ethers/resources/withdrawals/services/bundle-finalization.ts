@@ -127,7 +127,7 @@ export function createWithdrawalBundleFinalizationServices(
     const rawStatus = await wrapAs(
       'RPC',
       OP_WITHDRAWALS.finalize.isFinalized,
-      async () => BigInt(await handler.bundleStatus(bundleHash)),
+      async () => (await handler.bundleStatus(bundleHash)) as bigint,
       {
         ctx: { where: 'L1InteropHandler.bundleStatus', handlerAddress, bundleHash },
         message: 'Failed to read L1 withdrawal bundle status.',

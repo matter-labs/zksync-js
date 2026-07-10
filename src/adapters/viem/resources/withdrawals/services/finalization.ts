@@ -16,7 +16,7 @@ import {
 } from '../../../../../core/internal/cross-chain/bundle-lifecycle';
 import { createWithdrawalBundleFinalizationServices } from './bundle-finalization';
 
-const ZERO_TX_HASH = `0x${'00'.repeat(32)}` as Hex;
+const ZERO_TX_HASH: Hex = `0x${'00'.repeat(32)}`;
 
 /** @deprecated Use `sdk.withdrawals.status`, `wait`, and `finalize` instead. */
 export interface FinalizationServices {

@@ -224,7 +224,7 @@ export function routeErc20NonBaseBundle(
             message: 'Failed to ensure token is registered in L2NativeTokenVault.',
           },
         )
-      ).result as Hex;
+      ).result;
       const { l1ChainId, interopCenter } = await resolveBundleTarget(ctx);
       const bundle = buildBundle(
         {

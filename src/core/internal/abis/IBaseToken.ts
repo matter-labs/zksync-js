@@ -8,6 +8,13 @@ const IBaseTokenABI = [
   },
   {
     type: 'function',
+    name: 'initializeBaseTokenHolderBalance',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'mint',
     inputs: [
       { name: '_account', type: 'address', internalType: 'address' },
@@ -35,23 +42,6 @@ const IBaseTokenABI = [
     stateMutability: 'nonpayable',
   },
   {
-    type: 'function',
-    name: 'withdraw',
-    inputs: [{ name: '_l1Receiver', type: 'address', internalType: 'address' }],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    name: 'withdrawWithMessage',
-    inputs: [
-      { name: '_l1Receiver', type: 'address', internalType: 'address' },
-      { name: '_additionalData', type: 'bytes', internalType: 'bytes' },
-    ],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
     type: 'event',
     name: 'Mint',
     inputs: [
@@ -67,27 +57,6 @@ const IBaseTokenABI = [
       { name: 'from', type: 'address', indexed: true, internalType: 'address' },
       { name: 'to', type: 'address', indexed: true, internalType: 'address' },
       { name: 'value', type: 'uint256', indexed: false, internalType: 'uint256' },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'Withdrawal',
-    inputs: [
-      { name: '_l2Sender', type: 'address', indexed: true, internalType: 'address' },
-      { name: '_l1Receiver', type: 'address', indexed: true, internalType: 'address' },
-      { name: '_amount', type: 'uint256', indexed: false, internalType: 'uint256' },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'WithdrawalWithMessage',
-    inputs: [
-      { name: '_l2Sender', type: 'address', indexed: true, internalType: 'address' },
-      { name: '_l1Receiver', type: 'address', indexed: true, internalType: 'address' },
-      { name: '_amount', type: 'uint256', indexed: false, internalType: 'uint256' },
-      { name: '_additionalData', type: 'bytes', indexed: false, internalType: 'bytes' },
     ],
     anonymous: false,
   },

@@ -3,8 +3,7 @@ import type { FinalizeReadiness, WithdrawalStatus } from '../../types/flows/with
 import type { Hex } from '../../types/primitives';
 import { createError } from '../../errors/factory';
 import { OP_WITHDRAWALS } from '../../types/errors';
-import { sleep } from '../../utils';
-import type { BundleLifecycleState } from './bundle-lifecycle';
+import { pollUntil, type BundleLifecycleState } from './bundle-lifecycle';
 
 export interface WithdrawalExecutionState {
   txHash: Hex;
@@ -161,14 +160,15 @@ export interface PollWithdrawalStatusInput {
 export async function pollWithdrawalStatus(
   input: PollWithdrawalStatusInput,
 ): Promise<WithdrawalStatus | null> {
-  const now = input.clock?.now ?? Date.now;
-  const delay = input.clock?.sleep ?? sleep;
-  const deadline = input.timeoutMs == null ? undefined : now() + input.timeoutMs;
-
-  while (true) {
-    const status = await input.read();
-    if (input.done(status)) return status;
-    if (deadline != null && now() > deadline) return null;
-    await delay(input.pollMs);
-  }
+  const clock = input.clock;
+  const now = () => clock?.now() ?? Date.now();
+  const delay = clock ? (ms: number) => clock.sleep(ms) : undefined;
+  return pollUntil({
+    read: () => input.read(),
+    done: (status) => input.done(status),
+    pollMs: input.pollMs,
+    deadline: input.timeoutMs == null ? undefined : now() + input.timeoutMs,
+    now,
+    delay,
+  });
 }

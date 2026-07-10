@@ -1,16 +1,8 @@
 import { Interface, AbiCoder } from 'ethers';
 
-import {
-  IBridgehubABI,
-  IL2AssetRouterABI,
-  IBaseTokenABI,
-  IERC20ABI,
-  IInteropCenterABI,
-} from '../../core/abi.ts';
+import { IBridgehubABI, IERC20ABI, IInteropCenterABI } from '../../core/abi.ts';
 
 const Bridgehub = new Interface(IBridgehubABI as any);
-const L2AssetRouter = new Interface(IL2AssetRouterABI as any);
-const BaseToken = new Interface(IBaseTokenABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const InteropCenter = new Interface(IInteropCenterABI as any);
 const coder = new AbiCoder();
@@ -51,22 +43,6 @@ export function decodeSecondBridgeDataV1(calldata: string) {
     receiver: (receiver as string).toLowerCase(),
     token: (token as string).toLowerCase(),
   };
-}
-
-export function decodeAssetRouterWithdraw(data: string) {
-  const [assetId, assetData] = L2AssetRouter.decodeFunctionData('withdraw(bytes32,bytes)', data);
-  const [amount, receiver, token] = coder.decode(['uint256', 'address', 'address'], assetData);
-  return {
-    assetId: assetId as `0x${string}`,
-    amount: BigInt(amount),
-    receiver: (receiver as string).toLowerCase(),
-    token: (token as string).toLowerCase(),
-  };
-}
-
-export function decodeBaseTokenWithdraw(data: string) {
-  const [to] = BaseToken.decodeFunctionData('withdraw', data);
-  return (to as string).toLowerCase();
 }
 
 type AdapterKind = 'ethers' | 'viem';

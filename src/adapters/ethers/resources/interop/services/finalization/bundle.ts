@@ -53,7 +53,7 @@ export async function readBundleStatus(
   const handler = new Contract(interopHandler, IInteropHandlerAbi, dstProvider);
   return wrap(
     OP_INTEROP.svc.status.derive,
-    async () => BigInt(await handler.bundleStatus(bundleHash)),
+    async () => (await handler.bundleStatus(bundleHash)) as bigint,
     {
       ctx: { interopHandler, bundleHash },
       message: 'Failed to read bundle status from the destination interop handler.',

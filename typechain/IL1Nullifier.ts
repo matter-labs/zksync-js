@@ -23,34 +23,6 @@ import type {
   TypedContractMethod,
 } from './common';
 
-export type FinalizeL1DepositParamsStruct = {
-  chainId: BigNumberish;
-  l2BatchNumber: BigNumberish;
-  l2MessageIndex: BigNumberish;
-  l2Sender: AddressLike;
-  l2TxNumberInBatch: BigNumberish;
-  message: BytesLike;
-  merkleProof: BytesLike[];
-};
-
-export type FinalizeL1DepositParamsStructOutput = [
-  chainId: bigint,
-  l2BatchNumber: bigint,
-  l2MessageIndex: bigint,
-  l2Sender: string,
-  l2TxNumberInBatch: bigint,
-  message: string,
-  merkleProof: string[],
-] & {
-  chainId: bigint;
-  l2BatchNumber: bigint;
-  l2MessageIndex: bigint;
-  l2Sender: string;
-  l2TxNumberInBatch: bigint;
-  message: string;
-  merkleProof: string[];
-};
-
 export interface IL1NullifierInterface extends Interface {
   getFunction(
     nameOrSignature:
@@ -63,9 +35,6 @@ export interface IL1NullifierInterface extends Interface {
       | 'claimFailedDeposit'
       | 'claimFailedDepositLegacyErc20Bridge'
       | 'depositHappened'
-      | 'finalizeDeposit'
-      | 'finalizeWithdrawal'
-      | 'isWithdrawalFinalized'
       | 'l1NativeTokenVault'
       | 'l2BridgeAddress'
       | 'legacyBridge'
@@ -130,18 +99,6 @@ export interface IL1NullifierInterface extends Interface {
     functionFragment: 'depositHappened',
     values: [BigNumberish, BytesLike],
   ): string;
-  encodeFunctionData(
-    functionFragment: 'finalizeDeposit',
-    values: [FinalizeL1DepositParamsStruct],
-  ): string;
-  encodeFunctionData(
-    functionFragment: 'finalizeWithdrawal',
-    values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, BytesLike, BytesLike[]],
-  ): string;
-  encodeFunctionData(
-    functionFragment: 'isWithdrawalFinalized',
-    values: [BigNumberish, BigNumberish, BigNumberish],
-  ): string;
   encodeFunctionData(functionFragment: 'l1NativeTokenVault', values?: undefined): string;
   encodeFunctionData(functionFragment: 'l2BridgeAddress', values: [BigNumberish]): string;
   encodeFunctionData(functionFragment: 'legacyBridge', values?: undefined): string;
@@ -168,9 +125,6 @@ export interface IL1NullifierInterface extends Interface {
     data: BytesLike,
   ): Result;
   decodeFunctionResult(functionFragment: 'depositHappened', data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: 'finalizeDeposit', data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: 'finalizeWithdrawal', data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: 'isWithdrawalFinalized', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'l1NativeTokenVault', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'l2BridgeAddress', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'legacyBridge', data: BytesLike): Result;
@@ -310,31 +264,6 @@ export interface IL1Nullifier extends BaseContract {
     'view'
   >;
 
-  finalizeDeposit: TypedContractMethod<
-    [_finalizeWithdrawalParams: FinalizeL1DepositParamsStruct],
-    [void],
-    'nonpayable'
-  >;
-
-  finalizeWithdrawal: TypedContractMethod<
-    [
-      _chainId: BigNumberish,
-      _l2BatchNumber: BigNumberish,
-      _l2MessageIndex: BigNumberish,
-      _l2TxNumberInBatch: BigNumberish,
-      _message: BytesLike,
-      _merkleProof: BytesLike[],
-    ],
-    [void],
-    'nonpayable'
-  >;
-
-  isWithdrawalFinalized: TypedContractMethod<
-    [_chainId: BigNumberish, _l2BatchNumber: BigNumberish, _l2MessageIndex: BigNumberish],
-    [boolean],
-    'view'
-  >;
-
   l1NativeTokenVault: TypedContractMethod<[], [string], 'view'>;
 
   l2BridgeAddress: TypedContractMethod<[_chainId: BigNumberish], [string], 'view'>;
@@ -427,34 +356,6 @@ export interface IL1Nullifier extends BaseContract {
   getFunction(
     nameOrSignature: 'depositHappened',
   ): TypedContractMethod<[_chainId: BigNumberish, _l2TxHash: BytesLike], [string], 'view'>;
-  getFunction(
-    nameOrSignature: 'finalizeDeposit',
-  ): TypedContractMethod<
-    [_finalizeWithdrawalParams: FinalizeL1DepositParamsStruct],
-    [void],
-    'nonpayable'
-  >;
-  getFunction(
-    nameOrSignature: 'finalizeWithdrawal',
-  ): TypedContractMethod<
-    [
-      _chainId: BigNumberish,
-      _l2BatchNumber: BigNumberish,
-      _l2MessageIndex: BigNumberish,
-      _l2TxNumberInBatch: BigNumberish,
-      _message: BytesLike,
-      _merkleProof: BytesLike[],
-    ],
-    [void],
-    'nonpayable'
-  >;
-  getFunction(
-    nameOrSignature: 'isWithdrawalFinalized',
-  ): TypedContractMethod<
-    [_chainId: BigNumberish, _l2BatchNumber: BigNumberish, _l2MessageIndex: BigNumberish],
-    [boolean],
-    'view'
-  >;
   getFunction(nameOrSignature: 'l1NativeTokenVault'): TypedContractMethod<[], [string], 'view'>;
   getFunction(
     nameOrSignature: 'l2BridgeAddress',

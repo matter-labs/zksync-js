@@ -23,6 +23,18 @@ import type {
   TypedContractMethod,
 } from './common';
 
+export type InteropCallStarterStruct = {
+  to: BytesLike;
+  data: BytesLike;
+  callAttributes: BytesLike[];
+};
+
+export type InteropCallStarterStructOutput = [
+  to: string,
+  data: string,
+  callAttributes: string[],
+] & { to: string; data: string; callAttributes: string[] };
+
 export interface IL2AssetRouterInterface extends Interface {
   getFunction(
     nameOrSignature:
@@ -31,11 +43,10 @@ export interface IL2AssetRouterInterface extends Interface {
       | 'assetHandlerAddress'
       | 'finalizeDeposit'
       | 'finalizeDepositLegacyBridge'
+      | 'initiateIndirectCall'
       | 'setAssetHandlerAddress'
       | 'setAssetHandlerAddressThisChain'
-      | 'setLegacyTokenAssetHandler'
-      | 'withdraw'
-      | 'withdrawLegacyBridge',
+      | 'setLegacyTokenAssetHandler',
   ): FunctionFragment;
 
   getEvent(
@@ -44,9 +55,7 @@ export interface IL2AssetRouterInterface extends Interface {
       | 'AssetHandlerRegistered'
       | 'BridgehubDepositBaseTokenInitiated'
       | 'BridgehubDepositInitiated'
-      | 'BridgehubWithdrawalInitiated'
-      | 'DepositFinalizedAssetRouter'
-      | 'WithdrawalInitiatedAssetRouter',
+      | 'DepositFinalizedAssetRouter',
   ): EventFragment;
 
   encodeFunctionData(functionFragment: 'BRIDGE_HUB', values?: undefined): string;
@@ -61,6 +70,10 @@ export interface IL2AssetRouterInterface extends Interface {
     values: [AddressLike, AddressLike, AddressLike, BigNumberish, BytesLike],
   ): string;
   encodeFunctionData(
+    functionFragment: 'initiateIndirectCall',
+    values: [BigNumberish, AddressLike, BigNumberish, BytesLike],
+  ): string;
+  encodeFunctionData(
     functionFragment: 'setAssetHandlerAddress',
     values: [BigNumberish, BytesLike, AddressLike],
   ): string;
@@ -69,25 +82,19 @@ export interface IL2AssetRouterInterface extends Interface {
     values: [BytesLike, AddressLike],
   ): string;
   encodeFunctionData(functionFragment: 'setLegacyTokenAssetHandler', values: [BytesLike]): string;
-  encodeFunctionData(functionFragment: 'withdraw', values: [BytesLike, BytesLike]): string;
-  encodeFunctionData(
-    functionFragment: 'withdrawLegacyBridge',
-    values: [AddressLike, AddressLike, BigNumberish, AddressLike],
-  ): string;
 
   decodeFunctionResult(functionFragment: 'BRIDGE_HUB', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'L1_ASSET_ROUTER', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'assetHandlerAddress', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'finalizeDeposit', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'finalizeDepositLegacyBridge', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'initiateIndirectCall', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'setAssetHandlerAddress', data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: 'setAssetHandlerAddressThisChain',
     data: BytesLike,
   ): Result;
   decodeFunctionResult(functionFragment: 'setLegacyTokenAssetHandler', data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: 'withdrawLegacyBridge', data: BytesLike): Result;
 }
 
 export namespace AssetDeploymentTrackerRegisteredEvent {
@@ -173,56 +180,11 @@ export namespace BridgehubDepositInitiatedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export namespace BridgehubWithdrawalInitiatedEvent {
-  export type InputTuple = [
-    chainId: BigNumberish,
-    sender: AddressLike,
-    assetId: BytesLike,
-    assetDataHash: BytesLike,
-  ];
-  export type OutputTuple = [
-    chainId: bigint,
-    sender: string,
-    assetId: string,
-    assetDataHash: string,
-  ];
-  export interface OutputObject {
-    chainId: bigint;
-    sender: string;
-    assetId: string;
-    assetDataHash: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
 export namespace DepositFinalizedAssetRouterEvent {
   export type InputTuple = [chainId: BigNumberish, assetId: BytesLike, assetData: BytesLike];
   export type OutputTuple = [chainId: bigint, assetId: string, assetData: string];
   export interface OutputObject {
     chainId: bigint;
-    assetId: string;
-    assetData: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace WithdrawalInitiatedAssetRouterEvent {
-  export type InputTuple = [
-    chainId: BigNumberish,
-    l2Sender: AddressLike,
-    assetId: BytesLike,
-    assetData: BytesLike,
-  ];
-  export type OutputTuple = [chainId: bigint, l2Sender: string, assetId: string, assetData: string];
-  export interface OutputObject {
-    chainId: bigint;
-    l2Sender: string;
     assetId: string;
     assetData: string;
   }
@@ -277,10 +239,10 @@ export interface IL2AssetRouter extends BaseContract {
 
   L1_ASSET_ROUTER: TypedContractMethod<[], [string], 'view'>;
 
-  assetHandlerAddress: TypedContractMethod<[_assetId: BytesLike], [string], 'view'>;
+  assetHandlerAddress: TypedContractMethod<[assetId: BytesLike], [string], 'view'>;
 
   finalizeDeposit: TypedContractMethod<
-    [_chainId: BigNumberish, _assetId: BytesLike, _transferData: BytesLike],
+    [arg0: BigNumberish, _assetId: BytesLike, _transferData: BytesLike],
     [void],
     'payable'
   >;
@@ -297,6 +259,12 @@ export interface IL2AssetRouter extends BaseContract {
     'nonpayable'
   >;
 
+  initiateIndirectCall: TypedContractMethod<
+    [_chainId: BigNumberish, _originalCaller: AddressLike, _value: BigNumberish, _data: BytesLike],
+    [InteropCallStarterStructOutput],
+    'payable'
+  >;
+
   setAssetHandlerAddress: TypedContractMethod<
     [_originChainId: BigNumberish, _assetId: BytesLike, _assetHandlerAddress: AddressLike],
     [void],
@@ -311,29 +279,17 @@ export interface IL2AssetRouter extends BaseContract {
 
   setLegacyTokenAssetHandler: TypedContractMethod<[_assetId: BytesLike], [void], 'nonpayable'>;
 
-  withdraw: TypedContractMethod<
-    [_assetId: BytesLike, _transferData: BytesLike],
-    [string],
-    'nonpayable'
-  >;
-
-  withdrawLegacyBridge: TypedContractMethod<
-    [_l1Receiver: AddressLike, _l2Token: AddressLike, _amount: BigNumberish, _sender: AddressLike],
-    [void],
-    'nonpayable'
-  >;
-
   getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
   getFunction(nameOrSignature: 'BRIDGE_HUB'): TypedContractMethod<[], [string], 'view'>;
   getFunction(nameOrSignature: 'L1_ASSET_ROUTER'): TypedContractMethod<[], [string], 'view'>;
   getFunction(
     nameOrSignature: 'assetHandlerAddress',
-  ): TypedContractMethod<[_assetId: BytesLike], [string], 'view'>;
+  ): TypedContractMethod<[assetId: BytesLike], [string], 'view'>;
   getFunction(
     nameOrSignature: 'finalizeDeposit',
   ): TypedContractMethod<
-    [_chainId: BigNumberish, _assetId: BytesLike, _transferData: BytesLike],
+    [arg0: BigNumberish, _assetId: BytesLike, _transferData: BytesLike],
     [void],
     'payable'
   >;
@@ -349,6 +305,13 @@ export interface IL2AssetRouter extends BaseContract {
     ],
     [void],
     'nonpayable'
+  >;
+  getFunction(
+    nameOrSignature: 'initiateIndirectCall',
+  ): TypedContractMethod<
+    [_chainId: BigNumberish, _originalCaller: AddressLike, _value: BigNumberish, _data: BytesLike],
+    [InteropCallStarterStructOutput],
+    'payable'
   >;
   getFunction(
     nameOrSignature: 'setAssetHandlerAddress',
@@ -367,16 +330,6 @@ export interface IL2AssetRouter extends BaseContract {
   getFunction(
     nameOrSignature: 'setLegacyTokenAssetHandler',
   ): TypedContractMethod<[_assetId: BytesLike], [void], 'nonpayable'>;
-  getFunction(
-    nameOrSignature: 'withdraw',
-  ): TypedContractMethod<[_assetId: BytesLike, _transferData: BytesLike], [string], 'nonpayable'>;
-  getFunction(
-    nameOrSignature: 'withdrawLegacyBridge',
-  ): TypedContractMethod<
-    [_l1Receiver: AddressLike, _l2Token: AddressLike, _amount: BigNumberish, _sender: AddressLike],
-    [void],
-    'nonpayable'
-  >;
 
   getEvent(
     key: 'AssetDeploymentTrackerRegistered',
@@ -407,25 +360,11 @@ export interface IL2AssetRouter extends BaseContract {
     BridgehubDepositInitiatedEvent.OutputObject
   >;
   getEvent(
-    key: 'BridgehubWithdrawalInitiated',
-  ): TypedContractEvent<
-    BridgehubWithdrawalInitiatedEvent.InputTuple,
-    BridgehubWithdrawalInitiatedEvent.OutputTuple,
-    BridgehubWithdrawalInitiatedEvent.OutputObject
-  >;
-  getEvent(
     key: 'DepositFinalizedAssetRouter',
   ): TypedContractEvent<
     DepositFinalizedAssetRouterEvent.InputTuple,
     DepositFinalizedAssetRouterEvent.OutputTuple,
     DepositFinalizedAssetRouterEvent.OutputObject
-  >;
-  getEvent(
-    key: 'WithdrawalInitiatedAssetRouter',
-  ): TypedContractEvent<
-    WithdrawalInitiatedAssetRouterEvent.InputTuple,
-    WithdrawalInitiatedAssetRouterEvent.OutputTuple,
-    WithdrawalInitiatedAssetRouterEvent.OutputObject
   >;
 
   filters: {
@@ -473,17 +412,6 @@ export interface IL2AssetRouter extends BaseContract {
       BridgehubDepositInitiatedEvent.OutputObject
     >;
 
-    'BridgehubWithdrawalInitiated(uint256,address,bytes32,bytes32)': TypedContractEvent<
-      BridgehubWithdrawalInitiatedEvent.InputTuple,
-      BridgehubWithdrawalInitiatedEvent.OutputTuple,
-      BridgehubWithdrawalInitiatedEvent.OutputObject
-    >;
-    BridgehubWithdrawalInitiated: TypedContractEvent<
-      BridgehubWithdrawalInitiatedEvent.InputTuple,
-      BridgehubWithdrawalInitiatedEvent.OutputTuple,
-      BridgehubWithdrawalInitiatedEvent.OutputObject
-    >;
-
     'DepositFinalizedAssetRouter(uint256,bytes32,bytes)': TypedContractEvent<
       DepositFinalizedAssetRouterEvent.InputTuple,
       DepositFinalizedAssetRouterEvent.OutputTuple,
@@ -493,17 +421,6 @@ export interface IL2AssetRouter extends BaseContract {
       DepositFinalizedAssetRouterEvent.InputTuple,
       DepositFinalizedAssetRouterEvent.OutputTuple,
       DepositFinalizedAssetRouterEvent.OutputObject
-    >;
-
-    'WithdrawalInitiatedAssetRouter(uint256,address,bytes32,bytes)': TypedContractEvent<
-      WithdrawalInitiatedAssetRouterEvent.InputTuple,
-      WithdrawalInitiatedAssetRouterEvent.OutputTuple,
-      WithdrawalInitiatedAssetRouterEvent.OutputObject
-    >;
-    WithdrawalInitiatedAssetRouter: TypedContractEvent<
-      WithdrawalInitiatedAssetRouterEvent.InputTuple,
-      WithdrawalInitiatedAssetRouterEvent.OutputTuple,
-      WithdrawalInitiatedAssetRouterEvent.OutputObject
     >;
   };
 }

@@ -7,410 +7,347 @@ import type { IL2AssetRouter, IL2AssetRouterInterface } from '../IL2AssetRouter'
 
 const _abi = [
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'additionalData',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'address',
-        name: 'assetDeploymentTracker',
-        type: 'address',
-      },
-    ],
-    name: 'AssetDeploymentTrackerRegistered',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: '_assetHandlerAddress',
-        type: 'address',
-      },
-    ],
-    name: 'AssetHandlerRegistered',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'chainId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'from',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
-    ],
-    name: 'BridgehubDepositBaseTokenInitiated',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'chainId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'txDataHash',
-        type: 'bytes32',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'from',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes',
-        name: 'bridgeMintCalldata',
-        type: 'bytes',
-      },
-    ],
-    name: 'BridgehubDepositInitiated',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'chainId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
-      },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes32',
-        name: 'assetDataHash',
-        type: 'bytes32',
-      },
-    ],
-    name: 'BridgehubWithdrawalInitiated',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'chainId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes',
-        name: 'assetData',
-        type: 'bytes',
-      },
-    ],
-    name: 'DepositFinalizedAssetRouter',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'chainId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'l2Sender',
-        type: 'address',
-      },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'assetId',
-        type: 'bytes32',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes',
-        name: 'assetData',
-        type: 'bytes',
-      },
-    ],
-    name: 'WithdrawalInitiatedAssetRouter',
-    type: 'event',
-  },
-  {
-    inputs: [],
+    type: 'function',
     name: 'BRIDGE_HUB',
-    outputs: [
-      {
-        internalType: 'contract IBridgehub',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IBridgehub',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'L1_ASSET_ROUTER',
+    inputs: [],
     outputs: [
       {
-        internalType: 'address',
         name: '',
         type: 'address',
+        internalType: 'address',
       },
     ],
     stateMutability: 'view',
-    type: 'function',
   },
   {
-    inputs: [
-      {
-        internalType: 'bytes32',
-        name: '_assetId',
-        type: 'bytes32',
-      },
-    ],
+    type: 'function',
     name: 'assetHandlerAddress',
+    inputs: [
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
     outputs: [
       {
-        internalType: 'address',
-        name: '',
+        name: 'assetHandlerAddress',
         type: 'address',
+        internalType: 'address',
       },
     ],
     stateMutability: 'view',
-    type: 'function',
   },
   {
+    type: 'function',
+    name: 'finalizeDeposit',
     inputs: [
       {
-        internalType: 'uint256',
-        name: '_chainId',
+        name: '',
         type: 'uint256',
+        internalType: 'uint256',
       },
       {
-        internalType: 'bytes32',
         name: '_assetId',
         type: 'bytes32',
+        internalType: 'bytes32',
       },
       {
-        internalType: 'bytes',
         name: '_transferData',
         type: 'bytes',
+        internalType: 'bytes',
       },
     ],
-    name: 'finalizeDeposit',
     outputs: [],
     stateMutability: 'payable',
-    type: 'function',
   },
   {
+    type: 'function',
+    name: 'finalizeDepositLegacyBridge',
     inputs: [
       {
-        internalType: 'address',
         name: '_l1Sender',
         type: 'address',
+        internalType: 'address',
       },
       {
-        internalType: 'address',
         name: '_l2Receiver',
         type: 'address',
+        internalType: 'address',
       },
       {
-        internalType: 'address',
         name: '_l1Token',
         type: 'address',
+        internalType: 'address',
       },
       {
-        internalType: 'uint256',
         name: '_amount',
         type: 'uint256',
+        internalType: 'uint256',
       },
       {
-        internalType: 'bytes',
         name: '_data',
         type: 'bytes',
-      },
-    ],
-    name: 'finalizeDepositLegacyBridge',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: '_originChainId',
-        type: 'uint256',
-      },
-      {
-        internalType: 'bytes32',
-        name: '_assetId',
-        type: 'bytes32',
-      },
-      {
-        internalType: 'address',
-        name: '_assetHandlerAddress',
-        type: 'address',
-      },
-    ],
-    name: 'setAssetHandlerAddress',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'bytes32',
-        name: '_assetRegistrationData',
-        type: 'bytes32',
-      },
-      {
-        internalType: 'address',
-        name: '_assetHandlerAddress',
-        type: 'address',
-      },
-    ],
-    name: 'setAssetHandlerAddressThisChain',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'bytes32',
-        name: '_assetId',
-        type: 'bytes32',
-      },
-    ],
-    name: 'setLegacyTokenAssetHandler',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'bytes32',
-        name: '_assetId',
-        type: 'bytes32',
-      },
-      {
         internalType: 'bytes',
-        name: '_transferData',
-        type: 'bytes',
       },
     ],
-    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'initiateIndirectCall',
+    inputs: [
+      {
+        name: '_chainId',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: '_originalCaller',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_value',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: '_data',
+        type: 'bytes',
+        internalType: 'bytes',
+      },
+    ],
     outputs: [
       {
-        internalType: 'bytes32',
-        name: '',
-        type: 'bytes32',
+        name: 'interopCallStarter',
+        type: 'tuple',
+        internalType: 'struct InteropCallStarter',
+        components: [
+          {
+            name: 'to',
+            type: 'bytes',
+            internalType: 'bytes',
+          },
+          {
+            name: 'data',
+            type: 'bytes',
+            internalType: 'bytes',
+          },
+          {
+            name: 'callAttributes',
+            type: 'bytes[]',
+            internalType: 'bytes[]',
+          },
+        ],
       },
     ],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    stateMutability: 'payable',
   },
   {
+    type: 'function',
+    name: 'setAssetHandlerAddress',
     inputs: [
       {
-        internalType: 'address',
-        name: '_l1Receiver',
-        type: 'address',
-      },
-      {
-        internalType: 'address',
-        name: '_l2Token',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: '_amount',
+        name: '_originChainId',
         type: 'uint256',
+        internalType: 'uint256',
       },
       {
-        internalType: 'address',
-        name: '_sender',
+        name: '_assetId',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+      {
+        name: '_assetHandlerAddress',
         type: 'address',
+        internalType: 'address',
       },
     ],
-    name: 'withdrawLegacyBridge',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
     type: 'function',
+    name: 'setAssetHandlerAddressThisChain',
+    inputs: [
+      {
+        name: '_assetRegistrationData',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+      {
+        name: '_assetHandlerAddress',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'setLegacyTokenAssetHandler',
+    inputs: [
+      {
+        name: '_assetId',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    name: 'AssetDeploymentTrackerRegistered',
+    inputs: [
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'additionalData',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'assetDeploymentTracker',
+        type: 'address',
+        indexed: false,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'AssetHandlerRegistered',
+    inputs: [
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: '_assetHandlerAddress',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BridgehubDepositBaseTokenInitiated',
+    inputs: [
+      {
+        name: 'chainId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'from',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        indexed: false,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BridgehubDepositInitiated',
+    inputs: [
+      {
+        name: 'chainId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'txDataHash',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'from',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        indexed: false,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'bridgeMintCalldata',
+        type: 'bytes',
+        indexed: false,
+        internalType: 'bytes',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'DepositFinalizedAssetRouter',
+    inputs: [
+      {
+        name: 'chainId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'assetId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32',
+      },
+      {
+        name: 'assetData',
+        type: 'bytes',
+        indexed: false,
+        internalType: 'bytes',
+      },
+    ],
+    anonymous: false,
   },
 ] as const;
 

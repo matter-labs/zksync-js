@@ -380,27 +380,49 @@ function timeoutError(
   });
 }
 
+export interface PollUntilInput<T> {
+  read(): Promise<T>;
+  done(value: T): boolean;
+  pollMs: number;
+  deadline?: number;
+  now?: () => number;
+  delay?: (ms: number) => Promise<void>;
+}
+
+export async function pollUntil<T>(input: PollUntilInput<T>): Promise<T | null> {
+  const now = input.now ?? (() => Date.now());
+  const delay = input.delay ?? ((ms: number) => sleep(ms));
+
+  while (true) {
+    if (input.deadline != null && now() > input.deadline) return null;
+    const value = await input.read();
+    if (input.done(value)) return value;
+    await delay(input.pollMs);
+  }
+}
+
 export async function waitForBundleLifecycle(
   input: WaitForBundleLifecycleInput,
 ): Promise<InteropFinalizationInfo> {
   const errors = input.errors ?? INTEROP_BUNDLE_LIFECYCLE_ERRORS;
   const pollMs = input.options?.pollMs ?? DEFAULT_POLL_MS;
   const timeoutMs = input.options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const now = input.clock?.now ?? Date.now;
-  const delay = input.clock?.sleep ?? sleep;
+  const now = () => input.clock?.now() ?? Date.now();
+  const delay = (ms: number) => input.clock?.sleep(ms) ?? sleep(ms);
   const deadline = now() + timeoutMs;
 
-  const assertWithinDeadline = (message: string, context: Record<string, unknown>) => {
-    if (now() > deadline) throw timeoutError(errors, message, context);
-  };
-
-  let receipt: ReceiptWithL2ToL1 | null = null;
-  while (!receipt) {
-    assertWithinDeadline('Timed out waiting for source receipt to be available.', {
+  const receipt = await pollUntil({
+    read: () => input.getSourceReceipt(input.sourceTxHash),
+    done: (value) => value != null,
+    pollMs,
+    deadline,
+    now,
+    delay,
+  });
+  if (!receipt) {
+    throw timeoutError(errors, 'Timed out waiting for source receipt to be available.', {
       sourceTxHash: input.sourceTxHash,
     });
-    receipt = await input.getSourceReceipt(input.sourceTxHash);
-    if (!receipt) await delay(pollMs);
   }
 
   const bundleInfo = input.parseReceipt(receipt);
@@ -429,29 +451,45 @@ export async function waitForBundleLifecycle(
   }
   const sourceBlockNumber = BigInt(receipt.blockNumber);
 
-  while (true) {
-    assertWithinDeadline('Timed out waiting for block to be finalized.', {
+  const sourceFinalized = await pollUntil({
+    read: async () => {
+      const finalizedBlockNumber = await input.getFinalizedBlockNumber();
+      return finalizedBlockNumber != null && finalizedBlockNumber >= sourceBlockNumber;
+    },
+    done: (finalized) => finalized,
+    pollMs,
+    deadline,
+    now,
+    delay,
+  });
+  if (!sourceFinalized) {
+    throw timeoutError(errors, 'Timed out waiting for block to be finalized.', {
       sourceTxHash: input.sourceTxHash,
       logIndex: bundleInfo.l2ToL1LogIndex,
       blockNumber: sourceBlockNumber,
     });
-    const finalizedBlockNumber = await input.getFinalizedBlockNumber();
-    if (finalizedBlockNumber != null && finalizedBlockNumber >= sourceBlockNumber) break;
-    await delay(pollMs);
   }
 
-  let proof: ProofNormalized | undefined;
-  while (!proof) {
-    assertWithinDeadline('Timed out waiting for L2->L1 log proof to become available.', {
+  const proof = await pollUntil({
+    read: async () => {
+      try {
+        return await input.getProof(input.sourceTxHash, bundleInfo.l2ToL1LogIndex);
+      } catch (error) {
+        if (!input.isProofNotReadyError(error)) throw error;
+        return undefined;
+      }
+    },
+    done: (value) => value != null,
+    pollMs,
+    deadline,
+    now,
+    delay,
+  });
+  if (!proof) {
+    throw timeoutError(errors, 'Timed out waiting for L2->L1 log proof to become available.', {
       sourceTxHash: input.sourceTxHash,
       logIndex: bundleInfo.l2ToL1LogIndex,
     });
-    try {
-      proof = await input.getProof(input.sourceTxHash, bundleInfo.l2ToL1LogIndex);
-    } catch (error) {
-      if (!input.isProofNotReadyError(error)) throw error;
-    }
-    if (!proof) await delay(pollMs);
   }
 
   const finalizationInfo = buildFinalizationInfo(
@@ -462,20 +500,33 @@ export async function waitForBundleLifecycle(
     errors,
   );
 
-  if (!input.destination) return finalizationInfo;
+  const destination = input.destination;
+  if (!destination) return finalizationInfo;
 
-  while (true) {
-    assertWithinDeadline(
-      input.destination.timeoutMessage,
-      input.destination.timeoutContext?.(proof) ?? {
+  const destinationReady = await pollUntil({
+    read: async () => {
+      try {
+        return await destination.isReady(proof, finalizationInfo);
+      } catch (error) {
+        if (!destination.shouldRetryError?.(error)) throw error;
+        return false;
+      }
+    },
+    done: (ready) => ready,
+    pollMs,
+    deadline,
+    now,
+    delay,
+  });
+  if (!destinationReady) {
+    throw timeoutError(
+      errors,
+      destination.timeoutMessage,
+      destination.timeoutContext?.(proof) ?? {
         bundleHash: finalizationInfo.bundleHash,
       },
     );
-    try {
-      if (await input.destination.isReady(proof, finalizationInfo)) return finalizationInfo;
-    } catch (error) {
-      if (!input.destination.shouldRetryError?.(error)) throw error;
-    }
-    await delay(pollMs);
   }
+
+  return finalizationInfo;
 }

@@ -11,8 +11,10 @@ export { default as IERC20ABI } from './internal/abis/IERC20';
 export { default as IERC7786AttributesABI } from './internal/abis/IERC7786Attributes';
 export { default as MailboxABI } from './internal/abis/Mailbox';
 export { default as IInteropCenterABI } from './internal/abis/IInteropCenter';
-export { default as IInteropHandlerABI } from './internal/abis/IInteropHandler';
-export { default as IInteropHandlerBaseABI } from './internal/abis/IInteropHandler';
+export {
+  default as IInteropHandlerABI,
+  default as IInteropHandlerBaseABI,
+} from './internal/abis/IInteropHandler';
 export { default as IL1InteropHandlerABI } from './internal/abis/IL1InteropHandler';
 export { default as IInteropRootStorageABI } from './internal/abis/IInteropRootStorage';
 export { default as L2MessageVerificationABI } from './internal/abis/L2MessageVerification';

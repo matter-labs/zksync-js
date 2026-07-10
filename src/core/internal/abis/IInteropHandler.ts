@@ -1,19 +1,6 @@
 const IInteropHandlerABI = [
   {
     type: 'function',
-    name: 'L1_CHAIN_ID',
-    inputs: [],
-    outputs: [
-      {
-        name: '',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     name: 'bundleStatus',
     inputs: [
       {
@@ -119,26 +106,8 @@ const IInteropHandlerABI = [
   },
   {
     type: 'function',
-    name: 'initL2',
-    inputs: [
-      {
-        name: '_l1ChainId',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
     name: 'unbundleBundle',
     inputs: [
-      {
-        name: '_sourceChainId',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
       {
         name: '_bundle',
         type: 'bytes',
