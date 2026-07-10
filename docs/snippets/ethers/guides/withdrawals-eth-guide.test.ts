@@ -85,7 +85,7 @@ async function main() {
   // Quick status check
   // ANCHOR: status
   const s = await sdk.withdrawals.status(handle.l2TxHash); /* input can be handle or l2TxHash */
-// s.phase: 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+// s.phase includes READY_TO_FINALIZE, FINALIZING, FINALIZED, and FINALIZE_FAILED.
 // ANCHOR_END: status
   console.log('STATUS (initial):', s.phase);
 
@@ -105,7 +105,7 @@ async function main() {
   // Optional: check status again
   console.log('STATUS (post-L2):', await sdk.withdrawals.status(handle.l2TxHash));
 
-  // finalize on L1
+  // Atomically execute the withdrawal bundle on L1
   // Use tryFinalize to avoid throwing in an example script
   // ANCHOR: wait-for-ready
   await sdk.withdrawals.wait(handle.l2TxHash, { for: 'ready' });

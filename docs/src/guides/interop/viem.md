@@ -6,7 +6,7 @@ Interop is a **three-step process**:
 
 1. **Create** the bundle on the source L2.
 2. **Wait** until the bundle proof is available on the destination.
-3. **Finalize** to execute the actions on the destination L2.
+3. **Finalize** to verify and execute every action atomically on the destination L2.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ Interop is a **three-step process**:
 
 ## Setup
 
-Interop requires the SDK to know the **gateway chain** RPC, used to poll for interop root availability.
+Interop requires the SDK to know the **gateway chain** RPC, used internally by `wait()` to determine destination proof readiness.
 
 ```ts
 {{#include ../../../snippets/viem/guides/interop-guide.test.ts:imports}}
@@ -34,7 +34,6 @@ Interop requires the SDK to know the **gateway chain** RPC, used to poll for int
 | ------------- | -------- | ----------------------------------------------------- |
 | `actions`     | Yes      | Ordered list of actions to execute on destination     |
 | `execution`   | No       | Restrict execution to a specific address              |
-| `unbundling`  | No       | Specify who can unbundle actions individually         |
 | `fee`         | No       | `{ useFixed: true }` to use fixed ZK fee instead of dynamic base-token fee |
 | `txOverrides` | No       | Gas overrides for the source L2 transaction           |
 
@@ -67,7 +66,7 @@ main().catch((e) => {
 
 - `create()` sends the interop bundle on **source L2**.
 - `wait()` blocks until the bundle proof is available on destination.
-- `finalize()` executes the bundle on **destination L2**.
+- `finalize()` atomically verifies and executes the bundle on **destination L2**.
 
 ## Inspect & customize (quote → prepare → create)
 
@@ -106,7 +105,7 @@ Executes all required source-chain steps and waits for receipts.
 {{#include ../../../snippets/viem/guides/interop-guide.test.ts:wait}}
 ```
 
-## Finalization (required step)
+## Atomic finalization (required step)
 
 ```ts
 {{#include ../../../snippets/viem/guides/interop-guide.test.ts:finalize}}
@@ -114,7 +113,7 @@ Executes all required source-chain steps and waits for receipts.
 
 > [!INFO]
 > You can also pass the `handle` (or raw `l2SrcTxHash`) directly to `finalize()`.
-> It will call `wait()` internally before executing on destination.
+> It will call `wait()` internally before calling `executeBundle` on the destination. Partial unbundling is not exposed by the intent API.
 
 ## Error handling patterns
 

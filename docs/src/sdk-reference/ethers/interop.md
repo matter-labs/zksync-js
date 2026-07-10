@@ -9,7 +9,7 @@ Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 token
 * **Resource:** `sdk.interop`
 * **Typical flow:** `create → wait → finalize`
 * **Inspection flow:** `quote → prepare → create → status → wait → finalize`
-* **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`, `getInteropRoot`, `verifyBundle`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
+* **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
 * **SDK config:** Requires `interop: { gwChain }` — see [Import](#import)
 
 ## Import
@@ -22,7 +22,7 @@ Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 token
 
 > [!INFO]
 > The `gwChain` option is **required** for interop. It can be a RPC URL string or a live `AbstractProvider`.
-> It is used to poll the gateway chain for interop root availability during `wait()`.
+> It is used internally by `wait()` to determine destination proof readiness.
 
 ## Quick Start
 
@@ -50,7 +50,6 @@ Estimate the operation (route, approvals, fee). Does **not** send transactions.
 | `dstChain`            | `ChainRef`        | ✅        | Destination chain — URL string or `AbstractProvider`.                |
 | `params.actions`      | `InteropAction[]` | ✅        | Ordered list of actions to execute on the destination chain.         |
 | `params.execution`    | `{ only: Address }` | ❌      | Restrict who can execute the bundle on destination.                  |
-| `params.unbundling`   | `{ by: Address }` | ❌       | Allow a specific address to unbundle actions individually.           |
 | `params.fee`          | `{ useFixed: boolean }` | ❌  | Use fixed ZK fee (`true`) instead of dynamic base-token fee.         |
 | `params.txOverrides`  | `TxOverrides`     | ❌        | Gas overrides for the source L2 transaction.                         |
 
@@ -138,7 +137,7 @@ Result-style `wait`.
 
 ### `finalize(dstChain, h, opts?, txOverrides?) → Promise<InteropFinalizationResult>`
 
-Execute the bundle on the **destination chain**. Accepts either:
+Verify and execute the complete bundle atomically on the **destination chain**. Accepts either:
 - `InteropFinalizationInfo` (returned by `wait()`) — executes immediately
 - `InteropHandle` or raw tx hash — calls `wait()` internally first
 
@@ -171,42 +170,6 @@ await sdk.interop.finalize(l2Destination, finalizationInfo, undefined, {
 ### `tryFinalize(dstChain, h, opts?, txOverrides?) → Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error }>`
 
 Result-style `finalize`. Accepts the same `txOverrides` parameter.
-
-### `getInteropRoot(dstChain, rootChainId, batchNumber) → Promise<Hex>`
-
-Read the interop root stored on the destination chain for a given source chain and batch number. Useful for low-level inspection or building custom proof-verification flows.
-
-**Parameters**
-
-| Name            | Type       | Description                                      |
-| --------------- | ---------- | ------------------------------------------------ |
-| `dstChain`      | `ChainRef` | Destination chain — URL string or `AbstractProvider`. |
-| `rootChainId`   | `bigint`   | Chain ID of the source (root) chain.             |
-| `batchNumber`   | `bigint`   | Batch number on the source chain.                |
-
-**Returns:** `Promise<Hex>` — the raw interop root hash, or zero bytes if not yet available.
-
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:get-interop-root}}
-```
-
-### `verifyBundle(dstChain, h) → Promise<InteropFinalizationResult>`
-
-Submit a `verifyBundle` transaction on the destination chain. Unlike `finalize()`, this calls the handler's verify path, which records the bundle as verified without executing actions.
-
-Accepts either:
-- `InteropFinalizationInfo` (returned by `wait()`) — submits immediately
-- `InteropHandle` or raw tx hash — calls `wait()` internally first
-
-**Returns:** `InteropFinalizationResult`
-
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:verify-bundle}}
-```
-
-> [!INFO]
-> `verifyBundle()` is a **power-user** method. Most integrations should use `finalize()` instead.
-> Use this when you need to separate the verification and execution steps.
 
 ---
 
@@ -274,7 +237,7 @@ Accepts either:
 * **`gwChain` is required:** Forgetting it causes a `STATE` error on the first interop call.
 * **`dstChain` first:** All interop methods take the destination chain as the **first** argument — unlike deposits/withdrawals.
 * **Finalization is on destination:** `finalize()` sends a transaction on the **destination L2**, not on L1. Use `txOverrides` to set a custom gas limit when the receiver contract consumes significant gas.
-* **`wait()` can take minutes:** It polls until the L2→L1 proof is generated and the interop root is available on destination. Use `timeoutMs` to bound long waits.
+* **`wait()` can take minutes:** It polls until the L2→L1 proof and destination handler are ready. Use `timeoutMs` to bound long waits.
 * **ERC-20 approvals:** If `approvalsNeeded` is non-empty, `create()` automatically sends approval transactions first.
 * **ERC-20 tokens must be migrated to Gateway:** The SDK does **not** migrate tokens automatically. If the ERC-20 token has not been migrated to the Gateway chain, `create()` will throw an error. Migrate the token first before using it in an interop transfer.
-* **Multiple actions:** Actions are atomic — all succeed or the bundle fails. Use `unbundling` to allow partial execution.
+* **Multiple actions:** Actions are atomic — all succeed or the bundle fails. Partial unbundling is not exposed by the intent resource.

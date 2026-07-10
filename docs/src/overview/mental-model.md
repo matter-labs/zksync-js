@@ -1,6 +1,6 @@
 # Mental Model
 
-The SDK is designed around a predictable and layered API for handling L1-L2, and L2-L1 operations. Every action, whether it's a deposit or a withdrawal, follows a consistent lifecycle. Understanding this lifecycle is key to using the SDK effectively.
+The SDK is designed around predictable intent resources for L1-to-L2 deposits, L2-to-L1 withdrawals, and L2-to-L2 interop. They share sequencing, receipt handling, proof assembly, polling, timeout, and idempotency internally without exposing a generic cross-chain resource.
 
 The complete lifecycle for any action is:
 
@@ -8,8 +8,9 @@ The complete lifecycle for any action is:
 quote → prepare → create → status → wait → (finalize*)
 ```
 
-- The first five steps are common to both **Deposits** and **Withdrawals**.
-- Withdrawals require an additional **`finalize`** step to prove and claim the funds on L1.
+- The first five steps are common to **Deposits**, **Withdrawals**, and **Interop**.
+- Deposits complete automatically through the priority-transaction path.
+- Withdrawals and interop add **`finalize`**, which atomically executes a bundle on L1 or the destination L2.
 
 You can enter this lifecycle at different stages depending on how much control you need.
 
@@ -48,7 +49,8 @@ _"Where is my transaction right now?"_
 This is a **non-blocking** check to get the current state of an operation. It takes a `Handle` from the `create` method or a transaction hash and returns a structured status object, such as:
 
 - **Deposits:** `{ phase: 'L1_PENDING' | 'L2_EXECUTED' }`
-- **Withdrawals:** `{ phase: 'L1_INCLUDED','L2_PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED' }`
+- **Withdrawals:** `{ phase: 'L2_PENDING' | 'READY_TO_FINALIZE' | 'FINALIZING' | 'FINALIZED' }`
+- **Interop:** `{ phase: 'SENT' | 'VERIFIED' | 'EXECUTED' }`
 
 ➡️ **Best for:** Polling in a UI to show a user the live progress of their transaction without blocking the interface.
 
@@ -65,11 +67,11 @@ This is a **blocking** (asynchronous) method that polls for you. It pauses execu
 
 ### `finalize(l2TxHash)`
 
-_(Withdrawals Only)_
+_(Withdrawals and Interop)_
 
 _"My funds are ready on L1. Finalize and release them."_
 
-This method executes the final step of a withdrawal. After `status` reports `READY_TO_FINALIZE`, you call this method with the L2 transaction hash to submit the finalization transaction on L1, which releases the funds to the recipient.
+For withdrawals, this method calls `L1InteropHandler.executeBundle` after `status` reports `READY_TO_FINALIZE`. For interop, it calls `executeBundle` on the destination L2. Both paths verify and execute the complete bundle atomically.
 
 ➡️ **Best for:** The final step of any withdrawal flow.
 

@@ -4,7 +4,7 @@
  *
  * Notes:
  * - Use the ETH sentinel (SDK constant `ETH_ADDRESS`) as `token`.
- * - Route: `eth-nonbase` → NTV + L2AssetRouter.withdraw(assetId, assetData).
+ * - Route: `erc20-nonbase` → optional NTV approval + InteropCenter.sendBundle.
  * - SDK inserts L2 approval step for the L2-ETH representation if needed.
  *
  * Flow:

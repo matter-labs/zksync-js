@@ -138,7 +138,7 @@ async function main() {
   // ANCHOR_END: prepare
   console.log('PREPARE:', plan);
 
-  // Create (send L2 withdraw)
+  // Create (send the L2-to-L1 bundle)
   // ANCHOR: create
   const handle = await sdk.withdrawals.create(params);
   // ANCHOR_END: create
@@ -147,7 +147,7 @@ async function main() {
   // Quick status
   // ANCHOR: status
   const status = await sdk.withdrawals.status(handle.l2TxHash); // input can be handle or l2TxHash
-  // status.phase: 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+  // status.phase includes READY_TO_FINALIZE, FINALIZING, FINALIZED, and FINALIZE_FAILED.
   // ANCHOR_END: status
   console.log('STATUS (initial):', status);
 
@@ -168,7 +168,7 @@ async function main() {
   // ANCHOR_END: wait
   console.log('STATUS (ready):', await sdk.withdrawals.status(handle.l2TxHash));
 
-  // Try to finalize on L1
+  // Try to execute the complete bundle atomically on L1
   const fin = await sdk.withdrawals.tryFinalize(handle.l2TxHash);
   console.log('TRY FINALIZE:', fin);
 

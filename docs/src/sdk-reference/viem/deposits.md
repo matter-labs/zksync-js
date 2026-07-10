@@ -12,6 +12,8 @@ L1 → L2 deposits for ETH and ERC-20 tokens with quote, prepare, create, status
 * **Error style:** Throwing methods (`quote`, `prepare`, `create`, `wait`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`)
 * **Token mapping:** Use `sdk.tokens` for L1⇄L2 token lookups and assetIds if you need token metadata ahead of time.
 
+Deposits retain the priority-transaction protocol path and complete automatically on L2. Their public API is unchanged by the shared internal lifecycle.
+
 ## Import
 
 ```ts

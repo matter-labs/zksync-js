@@ -195,7 +195,7 @@ await sdk.withdrawals.wait(handle, { for: 'l2' });
 // 2) Wait until finalizable (no side effects)
 await sdk.withdrawals.wait(handle, { for: 'ready', pollMs: 6000 });
 
-// 3) Finalize on L1 (no-op if already finalized)
+// 3) Atomically execute the bundle on L1 (no-op if already finalized)
 const { status, receipt: l1Receipt } = await sdk.withdrawals.finalize(handle.l2TxHash);
 // ANCHOR_END: create-withdrawal
 });

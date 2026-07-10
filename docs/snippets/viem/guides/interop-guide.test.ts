@@ -102,7 +102,7 @@ async function main() {
   // Returns InteropFinalizationInfo once bundle proof is available on destination
   // ANCHOR_END: wait
 
-  // Execute the bundle on destination L2
+  // Verify and execute the bundle atomically on destination L2
   // ANCHOR: finalize
   const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
   // { bundleHash: Hex, dstExecTxHash: Hex }

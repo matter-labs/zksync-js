@@ -44,6 +44,8 @@ main().catch((e) => {
 - `wait(..., { for: 'l1' })` ⇒ included on L1.
 - `wait(..., { for: 'l2' })` ⇒ executed on L2 (funds available).
 
+Deposits keep their priority-transaction route and complete automatically on L2. The SDK shares lifecycle sequencing and receipt handling with withdrawals and interop internally; no generic cross-chain API is exposed.
+
 ## Inspect & customize (quote → prepare → create)
 
 **1. Quote (no side-effects)**

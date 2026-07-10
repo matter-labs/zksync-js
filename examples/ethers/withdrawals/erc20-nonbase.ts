@@ -4,7 +4,7 @@
  *
  * Notes:
  * - Pass the L1 token address to `sdk.tokens.toL2Address` to discover its L2 counterpart.
- * - Route: `erc20-nonbase` → NTV + L2AssetRouter.withdraw(assetId, assetData).
+ * - Route: `erc20-nonbase` → optional NTV approval + InteropCenter.sendBundle.
  * - SDK will add an L2 approval step (spender = L2NativeTokenVault) if needed.
  *
  * Flow:
@@ -83,7 +83,7 @@ async function main() {
   // Wait until the withdrawal is ready to finalize
   await sdk.withdrawals.wait(created.l2TxHash, { for: 'ready' });
 
-  // Finalize on L1 (if not already finalized)
+  // Atomically execute the bundle on L1 (if not already finalized)
   const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
   if (!fin.ok) {
     console.error('FINALIZE failed:', fin.error);

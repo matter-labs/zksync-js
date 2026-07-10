@@ -11,6 +11,8 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 * ZKsync-specific **RPC** helpers (`client.zks.*`)
 * A consistent, typed **Error model** (`ZKsyncError`, `try*` results)
 
+`sdk.deposits`, `sdk.withdrawals`, and `sdk.interop` are the stable user-facing intent layers. They share lifecycle machinery internally, but no generic cross-chain handle or resource is public. Use each intent resource's `status`, `wait`, and `finalize` methods instead of low-level proof or finalization services.
+
 ## Quick Start
 
 <details>

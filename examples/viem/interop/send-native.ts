@@ -88,7 +88,7 @@ async function main() {
     pollMs: 5_000,
     timeoutMs: 30 * 60 * 1_000,
   });
-  console.log('Bundle finalized on source; root available on destination.');
+  console.log('Bundle proof is ready on destination.');
 
   // FINALIZE: Execute on destination chain.
   const finalizationResult = await sdk.interop.finalize(l2Destination, finalizationInfo);

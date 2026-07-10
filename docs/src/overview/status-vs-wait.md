@@ -28,13 +28,15 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 | `UNKNOWN`           | Handle doesn’t contain an L2 hash yet.            |
 | `L2_PENDING`        | L2 transaction not yet included.                  |
 | `PENDING`           | L2 included, **not** yet ready to finalize on L1. |
-| `READY_TO_FINALIZE` | Finalization on L1 would succeed now.             |
-| `FINALIZED`         | Finalized on L1; funds released.                  |
+| `READY_TO_FINALIZE` | Atomic bundle execution on L1 would succeed now.  |
+| `FINALIZING`        | The L1 `executeBundle` transaction is pending.    |
+| `FINALIZED`         | Bundle fully executed on L1; funds released.      |
+| `FINALIZE_FAILED`   | L1 bundle execution failed or cannot continue.    |
 
 **Notes**
 
 * No L2 receipt ⇒ `L2_PENDING`
-* Finalization key derivable but not ready ⇒ `PENDING`
+* Bundle proof derivable but not ready ⇒ `PENDING`
 * Already finalized ⇒ `FINALIZED`
 
 <details>

@@ -6,10 +6,10 @@ When withdrawing from ZKsync (L2) back to Ethereum (L1), **funds are *not* autom
 
 Withdrawals are a **two-step process**:
 
-1. **Initiate on L2** — call `withdraw()` (via the SDK’s `create`) to start the withdrawal.
-   This burns or locks funds on L2 and emits logs; **funds are still unavailable on L1**.
-2. **Finalize on L1** — call **`finalize(l2TxHash)`** to release funds on L1.
-   This submits an L1 transaction; only then does your ETH or token balance increase on Ethereum.
+1. **Create on L2** — `withdrawals.create` sends a uniquely salted bundle through `InteropCenter.sendBundle`.
+   This burns or locks funds on L2 and emits the bundle message; **funds are still unavailable on L1**.
+2. **Finalize on L1** — call **`finalize(l2TxHash)`** to execute the complete bundle through `L1InteropHandler.executeBundle`.
+   Execution is atomic: the whole bundle succeeds once or no withdrawal call is applied.
 
 > [!WARNING]
 > If you **never finalize**, your funds remain locked — visible as “ready to withdraw,” but unavailable on L1.
@@ -18,7 +18,7 @@ Withdrawals are a **two-step process**:
 ## Why Finalization Matters
 
 * **Funds remain locked** until finalized.
-* **Anyone can finalize** — typically the withdrawer does.
+* **Anyone can finalize** — duplicate calls are idempotent once the bundle is fully executed.
 * **Finalization costs L1 gas** — budget for it.
 
 ## Finalization Methods
@@ -27,7 +27,7 @@ Withdrawals are a **two-step process**:
 | ------------------------------------------ | ----------------------------------------------------------- | --------------------- |
 | `withdrawals.status(h \| l2TxHash)`        | Snapshot phase (`UNKNOWN` → `FINALIZED`)                    | `WithdrawalStatus`    |
 | `withdrawals.wait(h \| l2TxHash, { for })` | Block until a checkpoint (`'l2' \| 'ready' \| 'finalized'`) | Receipt or `null`     |
-| `withdrawals.finalize(l2TxHash)`           | **Send** the L1 finalize transaction                        | `{ status, receipt }` |
+| `withdrawals.finalize(l2TxHash)`           | **Send** the atomic L1 `executeBundle` transaction           | `{ status, receipt }` |
 
 > [!NOTE]
 > All methods accept either a **handle** (from `create`) or a **raw L2 transaction hash**.
@@ -41,7 +41,9 @@ Withdrawals are a **two-step process**:
 | `L2_PENDING`        | L2 transaction not yet included.                  |
 | `PENDING`           | L2 included, but not yet ready to finalize on L1. |
 | `READY_TO_FINALIZE` | Finalization on L1 would succeed now.             |
-| `FINALIZED`         | Finalized on L1; funds released.                  |
+| `FINALIZING`        | Atomic L1 bundle execution has been submitted.    |
+| `FINALIZED`         | Bundle fully executed on L1; funds released.      |
+| `FINALIZE_FAILED`   | Bundle execution failed or was unbundled externally. |
 
 ## Examples
 

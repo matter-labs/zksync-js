@@ -90,12 +90,12 @@ async function main() {
   const st0 = await sdk.interop.status(l2Destination, created);
   console.log('STATUS after create:', st0);
 
-  // WAIT: Wait for proof and interop root availability.
+  // WAIT: Wait for destination proof readiness.
   const finalizationInfo = await sdk.interop.wait(l2Destination, created, {
     pollMs: 5_000,
     timeoutMs: 30 * 60 * 1_000,
   });
-  console.log('Bundle finalized on source; root available on destination.');
+  console.log('Bundle proof is ready on destination.');
 
   // FINALIZE: Execute on destination chain.
   const finalizationResult = await sdk.interop.finalize(l2Destination, finalizationInfo);

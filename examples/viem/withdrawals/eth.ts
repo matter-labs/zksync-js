@@ -4,7 +4,7 @@
  *
  * Notes:
  * - Use the L2 base-token system address (0x...800A) as `token` or `ETH_ADDRESS`.
- * - Route: `eth-base` → L2 BaseTokenSystem.withdraw(to).
+ * - Route: `base` → InteropCenter.sendBundle with base-token value.
  *
  * Flow:
  * 1) Connect to L1 + L2 RPCs and create Viem SDK client.
@@ -14,7 +14,7 @@
  * 5) Track with `sdk.withdrawals.status` and `sdk.withdrawals.wait`:
  *      - wait(..., { for: 'l2' })       → L2 inclusion
  *      - wait(..., { for: 'ready' })    → ready to finalize
- *      - tryFinalize(...)                → submit L1 finalize (if needed)
+ *      - tryFinalize(...)                → submit atomic L1 bundle execution
  *      - wait(..., { for: 'finalized' })→ finalized on L1
  */
 

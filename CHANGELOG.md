@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+* Deposits, withdrawals, and interop now share one internal cross-chain execution and completion lifecycle while retaining their existing intent-resource APIs.
+* Withdrawals are sent as uniquely salted L2-to-L1 bundles and finalized atomically through `L1InteropHandler.executeBundle`.
+* Interop finalization now verifies and executes bundles atomically through `executeBundle`.
+
+### Deprecated
+
+* `createFinalizationServices`, `createInteropFinalizationServices`, `verifyBundle`, and `getInteropRoot` remain compatibility wrappers for one minor release. Use the deposit, withdrawal, and interop intent resources instead.
+
+### Breaking
+
+* Raw `IBaseToken`, `IL2AssetRouter`, and `IL1Nullifier` ABI exports no longer contain the removed standalone withdrawal and nullifier-finalization members. Intent-resource methods and handles are unchanged.
+
 ## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-06-30)
 
 

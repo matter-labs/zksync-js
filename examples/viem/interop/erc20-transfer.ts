@@ -92,7 +92,6 @@ async function main() {
         amount: balanceOnSrc,
       },
     ],
-    unbundling: { by: me },
   };
 
   // QUOTE: Build and return the summary.
@@ -107,12 +106,12 @@ async function main() {
   const created = await sdk.interop.create(l2Destination, params);
   console.log('CREATE:', created);
 
-  // WAIT: Wait for proof and interop root availability.
+  // WAIT: Wait for destination proof readiness.
   const finalizationInfo = await sdk.interop.wait(l2Destination, created, {
     pollMs: 5_000,
     timeoutMs: 30 * 60 * 1_000,
   });
-  console.log('Bundle finalized on source; root available on destination.');
+  console.log('Bundle proof is ready on destination.');
 
   // FINALIZE: Execute on destination chain.
   const finalizationResult = await sdk.interop.finalize(l2Destination, finalizationInfo);

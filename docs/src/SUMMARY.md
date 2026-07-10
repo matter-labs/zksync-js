@@ -34,7 +34,6 @@
     - [deposits](sdk-reference/ethers/deposits.md)
     - [withdrawals](sdk-reference/ethers/withdrawals.md)
     - [interop](sdk-reference/ethers/interop.md)
-    - [finalization services](sdk-reference/ethers/finalization-services.md)
     - [tokens](sdk-reference/ethers/tokens.md)
   - [Viem]()
     - [client](sdk-reference/viem/client.md)
@@ -43,7 +42,6 @@
     - [deposits](sdk-reference/viem/deposits.md)
     - [withdrawals](sdk-reference/viem/withdrawals.md)
     - [interop](sdk-reference/viem/interop.md)
-    - [finalization services](sdk-reference/viem/finalization-services.md)
     - [tokens](sdk-reference/viem/tokens.md)
 
 - [Contributing]()

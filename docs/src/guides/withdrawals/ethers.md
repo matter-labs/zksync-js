@@ -4,8 +4,8 @@ A fast path to withdraw **ETH / ERC-20** from ZKsync (L2) → Ethereum (L1) usin
 
 Withdrawals are a **two-step process**:
 
-1. **Initiate** on L2.
-2. **Finalize** on L1 to release funds.
+1. **Create** a uniquely salted L2-to-L1 bundle through `InteropCenter.sendBundle`.
+2. **Finalize** the complete bundle atomically through `L1InteropHandler.executeBundle` on L1.
 
 ## Prerequisites
 
@@ -42,7 +42,9 @@ main().catch((e) => {
 - `create()` prepares **and** sends the L2 withdrawal.
 - `wait(..., { for: 'l2' })` ⇒ included on L2.
 - `wait(..., { for: 'ready' })` ⇒ ready for finalization.
-- `finalize(l2TxHash)` ⇒ required to release funds on L1.
+- `finalize(l2TxHash)` ⇒ atomically executes the withdrawal bundle on L1.
+
+Base-token and ERC-20 withdrawals use the same bundle lifecycle. ERC-20 withdrawals may add an NTV approval step before `sendBundle`; base-token value is carried by the bundle transaction itself.
 
 ## Inspect & customize (quote → prepare → create)
 
@@ -79,7 +81,7 @@ main().catch((e) => {
 {{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:wait-for-ready}}
 ```
 
-## Finalization (required step)
+## Atomic finalization (required step)
 
 ```ts
 {{#include ../../../snippets/ethers/guides/withdrawals-eth-guide.test.ts:wfinalize}}
@@ -105,7 +107,7 @@ Perfect for UIs or services that prefer explicit flow control.
 ## Troubleshooting
 
 - **Never reaches READY_TO_FINALIZE:** proofs may not be available yet.
-- **Finalize reverts:** ensure enough L1 gas; inspect revert info.
+- **Finalize reverts:** ensure enough L1 gas and inspect the `executeBundle` revert info.
 - **Finalized but no receipt:** `wait(..., { for: 'finalized' })` may return `null`; retry or rely on `finalize()` result.
 
 ---

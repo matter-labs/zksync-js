@@ -4,7 +4,7 @@
  *
  * Notes:
  * - Use the ETH sentinel (0xEeeee… or your SDK’s ETH constant) as `token`.
- * - Route: `eth-nonbase` → NTV + L2AssetRouter.withdraw(assetId, assetData).
+ * - Route: `erc20-nonbase` → optional NTV approval + InteropCenter.sendBundle.
  * - SDK will add an L2 approval step for the L2-ETH token if needed.
  *
  * Flow:
@@ -64,7 +64,7 @@ async function main() {
   await sdk.withdrawals.wait(created, { for: 'ready' });
   console.log('STATUS (ready):', await sdk.withdrawals.status(created));
 
-  // Finalize on L1 (if needed)
+  // Atomically execute the bundle on L1 (if needed)
   const fin = await sdk.withdrawals.tryFinalize(created.l2TxHash);
   console.log('TRY FINALIZE:', fin);
 

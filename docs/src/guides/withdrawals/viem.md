@@ -4,8 +4,8 @@ A fast path to withdraw **ETH / ERC-20** from ZKsync (L2) → Ethereum (L1) usin
 
 Withdrawals are a **two-step process**:
 
-1. **Initiate** on L2.
-2. **Finalize** on L1 to release funds.
+1. **Create** a uniquely salted L2-to-L1 bundle through `InteropCenter.sendBundle`.
+2. **Finalize** the complete bundle atomically through `L1InteropHandler.executeBundle` on L1.
 
 ## Prerequisites
 
@@ -42,7 +42,9 @@ main().catch((e) => {
 - `create()` prepares **and** sends the L2 withdrawal.
 - `wait(..., { for: 'l2' })` ⇒ included on L2.
 - `wait(..., { for: 'ready' })` ⇒ ready for finalization.
-- `finalize(l2TxHash)` ⇒ required to release funds on L1.
+- `finalize(l2TxHash)` ⇒ atomically executes the withdrawal bundle on L1.
+
+Base-token and ERC-20 withdrawals use the same bundle lifecycle. ERC-20 withdrawals may add an NTV approval step before `sendBundle`; base-token value is carried by the bundle transaction itself.
 
 ## Inspect & customize (quote → prepare → create)
 
@@ -84,10 +86,9 @@ Use defaults, or send your prepared txs if you customized.
 {{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:wait}}
 ```
 
-## Finalization (required step)
+## Atomic finalization (required step)
 
-To actually release funds on L1, call `finalize`. Note
-the transaction needs to be ready for finalization.
+To release funds on L1, call `finalize` after the bundle is ready. The SDK submits one atomic `executeBundle` transaction; it never exposes partial unbundling through the intent API.
 
 ```ts
 {{#include ../../../snippets/viem/guides/withdrawals-eth-guide.test.ts:wfinalize}}

@@ -4,7 +4,7 @@
  *
  * Notes:
  * - Resolve the L2 token with `sdk.tokens.toL2Address(L1_TOKEN)`.
- * - Route: `erc20-nonbase` → ensureRegistered + L2AssetRouter.withdraw(assetId, assetData).
+ * - Route: `erc20-nonbase` → optional NTV approval + InteropCenter.sendBundle.
  * - SDK inserts L2 approve(step) to NTV if needed.
  *
  * Flow:

@@ -12,6 +12,8 @@ L2 → L1 withdrawals for ETH and ERC-20 tokens with quote, prepare, create, sta
 * **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
 * **Token mapping:** Use `sdk.tokens` if you need L1/L2 token addresses or assetIds ahead of time.
 
+`create()` sends one uniquely salted L2-to-L1 bundle. `finalize()` proves that emitted bundle and calls `L1InteropHandler.executeBundle` atomically; the intent API never calls the legacy base-token, asset-router, or nullifier withdrawal entrypoints.
+
 ## Import
 
 ```ts
@@ -121,8 +123,10 @@ Accepts either a `WithdrawHandle` or a raw **L2 transaction hash**.
 | `UNKNOWN`           | No L2 hash provided                    |
 | `L2_PENDING`        | L2 receipt missing                     |
 | `PENDING`           | Included on L2 but not yet finalizable |
-| `READY_TO_FINALIZE` | Can be finalized on L1 now             |
-| `FINALIZED`         | Already finalized on L1                |
+| `READY_TO_FINALIZE` | Atomic L1 execution can be submitted   |
+| `FINALIZING`        | L1 `executeBundle` transaction pending |
+| `FINALIZED`         | Bundle fully executed on L1            |
+| `FINALIZE_FAILED`   | Bundle execution failed                |
 
 ```ts
 {{#include ../../../snippets/ethers/reference/withdrawals.test.ts:status}}
@@ -151,7 +155,7 @@ Result-style `wait`.
 
 ### `finalize(l2TxHash: Hex) → Promise<{ status: WithdrawalStatus; receipt?: TransactionReceipt }>`
 
-Send the **L1 finalize** transaction — **only if ready**.
+Send the atomic **L1 `executeBundle`** transaction — **only if ready**.
 If already finalized, returns the current status without sending.
 
 ```ts

@@ -33,9 +33,9 @@ Supports ETH, Custom Base Token, and ERC-20.
 
 Supports ETH, Custom Base Token, and ERC-20.
 
-* **Initiate on L2:** Create the withdrawal transaction on ZKsync.
+* **Initiate on L2:** Create a uniquely salted withdrawal bundle on ZKsync.
 * **Track progress:** Monitor execution and finalization availability.
-* **Finalize on L1:** Finalize withdrawal to release funds back to Ethereum.
+* **Finalize on L1:** Atomically execute the bundle through the L1 interop handler.
 
 ### Interop (L2 → L2)
 
@@ -43,7 +43,7 @@ Supports native token, ERC-20, and arbitrary contract calls.
 
 * **Create on source L2:** Bundle and send cross-chain actions in a single transaction.
 * **Wait for proof:** Poll until the bundle proof is available on the destination chain.
-* **Finalize on destination L2:** Execute the bundled actions on the destination chain.
+* **Finalize on destination L2:** Verify and execute all bundled actions atomically.
 
 ### ZKsync RPC Extensions
 

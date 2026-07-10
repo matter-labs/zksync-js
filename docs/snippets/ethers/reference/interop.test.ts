@@ -18,7 +18,6 @@ type InteropAction =
 interface InteropParams {
   actions: InteropAction[];
   execution?: { only: Address };
-  unbundling?: { by: Address };
   fee?: { useFixed: boolean };
   txOverrides?: {
     nonce?: number;
@@ -292,7 +291,6 @@ const handle = await sdk.interop.create(l2Dst, {
       amount: 1_000_000n, // e.g. 1 USDC (6 decimals)
     },
   ],
-  unbundling: { by: me }, // allow recipient to unbundle
 });
 
 const finalizationInfo = await sdk.interop.wait(l2Dst, handle, {
@@ -331,37 +329,6 @@ const finalizationInfo = await sdk.interop.wait(l2Dst, handle, {
 const result = await sdk.interop.finalize(l2Dst, finalizationInfo);
 console.log('Remote call executed on destination:', result.dstExecTxHash);
 // ANCHOR_END: e2e-call
-  });
-
-  it('get-interop-root', async () => {
-    const l2Dst = new JsonRpcProvider(process.env.DST_L2_RPC!);
-
-// ANCHOR: get-interop-root
-// Fetch the interop root for a given source chain ID and batch number
-const root = await sdk.interop.getInteropRoot(
-  l2Dst,
-  /* rootChainId */ 300n,   // source chain ID
-  /* batchNumber */ 42n,    // batch number on the source chain
-);
-console.log('Interop root:', root); // 0x...
-// ANCHOR_END: get-interop-root
-  });
-
-  it('verify-bundle', async () => {
-    const l2Dst = new JsonRpcProvider(process.env.DST_L2_RPC!);
-    const me = '0x0000000000000000000000000000000000000001' as Address;
-    const tokenSrcAddress = process.env.TOKEN_SRC_ADDRESS! as Address;
-    const handle = await sdk.interop.create(l2Dst, {
-      actions: [{ type: 'sendErc20', token: tokenSrcAddress, to: me, amount: 1_000_000n }],
-    });
-
-// ANCHOR: verify-bundle
-// Verify the bundle on the destination chain without executing actions.
-// Accepts an InteropHandle, InteropFinalizationInfo, or raw tx hash.
-const result = await sdk.interop.verifyBundle(l2Dst, handle);
-// { bundleHash: Hex, dstExecTxHash: Hex }
-console.log('Bundle verified on destination:', result.dstExecTxHash);
-// ANCHOR_END: verify-bundle
   });
 
 });
