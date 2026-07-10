@@ -4,6 +4,8 @@ import { createWithdrawalBundleFinalizationServices as createEthersServices } fr
 import { createWithdrawalBundleFinalizationServices as createViemServices } from '../../viem/resources/withdrawals/services/bundle-finalization';
 import { createFinalizationServices as createEthersLegacyServices } from '../../ethers/resources/withdrawals/services/finalization';
 import { createFinalizationServices as createViemLegacyServices } from '../../viem/resources/withdrawals/services/finalization';
+import { createWithdrawalsResource as createEthersWithdrawalsResource } from '../../ethers/resources/withdrawals';
+import { createWithdrawalsResource as createViemWithdrawalsResource } from '../../viem/resources/withdrawals';
 import { createAdapterHarness, describeForAdapters } from '../adapter-harness';
 import { IInteropCenterABI, IL1InteropHandlerABI, IL1NullifierABI } from '../../../core/abi';
 import {
@@ -53,6 +55,13 @@ function seedHandler(harness: any, bundleStatus: number) {
     'bundleStatus',
     bundleStatus,
     [BUNDLE_HASH],
+  );
+  harness.registry.set(
+    HANDLER,
+    new Interface(IL1InteropHandlerABI as any),
+    'executeBundle',
+    [],
+    [FINALIZATION_INFO.encodedData, FINALIZATION_INFO.proof],
   );
 }
 
@@ -104,6 +113,26 @@ const LEGACY_SERVICES = {
   ethers: createEthersLegacyServices,
   viem: createViemLegacyServices,
 } as const;
+const RESOURCES = {
+  ethers: createEthersWithdrawalsResource,
+  viem: createViemWithdrawalsResource,
+} as const;
+
+function mockBundleProof(harness: any) {
+  const receipt = createBundleReceipt();
+  (harness.client.zks as any).getReceiptWithL2ToL1 = async () => receipt;
+  (harness.client.zks as any).getL2ToL1LogProof = async () => ({
+    id: 3n,
+    batchNumber: 10n,
+    proof: [PROOF_HASH],
+    root: ZERO_HASH,
+  });
+  if (harness.kind === 'ethers') {
+    (harness.l2 as any).getTransactionReceipt = async () => ({ status: 1 });
+  } else {
+    (harness.l2 as any).getTransactionReceipt = async () => ({ status: 'success' });
+  }
+}
 
 describeForAdapters('adapters/withdrawals/L1 bundle finalization', (kind, factory) => {
   it('resolves L1InteropHandler and maps bundleStatus', async () => {
@@ -253,6 +282,77 @@ describeForAdapters('adapters/withdrawals/L1 bundle finalization', (kind, factor
         l2MessageIndex: 3n,
       }),
     ).toBe(true);
+  });
+
+  it('withdrawals.finalize executes the L1 bundle and preserves its result shape', async () => {
+    const harness = factory();
+    seedHandler(harness, 0);
+    mockBundleProof(harness);
+    let sent: any;
+    if (kind === 'ethers') {
+      (harness.signer as any).sendTransaction = async (tx: any) => {
+        sent = tx;
+        return { hash: EXECUTION_TX_HASH };
+      };
+      (harness.l1 as any).getTransactionReceipt = async () => ({
+        status: 1,
+        hash: EXECUTION_TX_HASH,
+        transactionHash: EXECUTION_TX_HASH,
+        blockNumber: 1,
+        blockHash: ZERO_HASH,
+        logs: [],
+        confirmations: async () => 1,
+      });
+      (harness.l1 as any).getBlockNumber = async () => 1;
+    } else {
+      (harness.l1Wallet as any).writeContract = async (request: any) => {
+        sent = request;
+        return EXECUTION_TX_HASH;
+      };
+      (harness.l1 as any).waitForTransactionReceipt = async () => ({
+        status: 'success',
+        transactionHash: EXECUTION_TX_HASH,
+      });
+    }
+    const withdrawals = RESOURCES[kind](harness.client as never);
+
+    const result = await withdrawals.finalize(SOURCE_TX_HASH);
+
+    expect(result.status.phase).toBe('FINALIZED');
+    expect(result.status.key?.bundleHash).toBe(BUNDLE_HASH);
+    expect(result.receipt).toBeDefined();
+    if (kind === 'ethers') {
+      expect(new Interface(IL1InteropHandlerABI as any).parseTransaction(sent)?.name).toBe(
+        'executeBundle',
+      );
+    } else {
+      expect(sent.functionName).toBe('executeBundle');
+    }
+  });
+
+  it('withdrawals.finalize is idempotent for a fully executed bundle', async () => {
+    const harness = factory();
+    seedHandler(harness, 2);
+    mockBundleProof(harness);
+    let sends = 0;
+    if (kind === 'ethers') {
+      (harness.signer as any).sendTransaction = async () => {
+        sends += 1;
+        throw new Error('must not send');
+      };
+    } else {
+      (harness.l1Wallet as any).writeContract = async () => {
+        sends += 1;
+        throw new Error('must not send');
+      };
+    }
+    const withdrawals = RESOURCES[kind](harness.client as never);
+
+    const result = await withdrawals.finalize(SOURCE_TX_HASH);
+
+    expect(result.status.phase).toBe('FINALIZED');
+    expect(result.receipt).toBeUndefined();
+    expect(sends).toBe(0);
   });
 });
 

@@ -8,9 +8,8 @@ import type {
   WithdrawalWaitable,
   WithdrawRoute,
   WithdrawalStatus,
-  FinalizeDepositParams,
 } from '../../../../core/types/flows/withdrawals';
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Hex } from '../../../../core/types/primitives';
 import type {
   Abi,
   EstimateContractGasParameters,
@@ -27,9 +26,12 @@ import type {
   TransactionReceiptZKsyncOS,
   ViemPlanWriteRequest,
 } from './routes/types';
-import { routeEthBase } from './routes/eth';
-import { routeErc20NonBase } from './routes/erc20-nonbase';
+import { routeEthBaseBundle, routeErc20NonBaseBundle } from './routes/bundle';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
+import {
+  createWithdrawalBundleFinalizationServices,
+  type WithdrawalBundleFinalizationServices,
+} from './services/bundle-finalization';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 import { createTokensResource } from '../tokens';
@@ -37,13 +39,18 @@ import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
 import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import {
+  finalizeWithdrawalBundleLifecycle,
+  inspectWithdrawalBundleLifecycle,
+  pollWithdrawalStatus,
+} from '../../../../core/internal/cross-chain/withdrawal-lifecycle';
 
 // --------------------
 // Withdrawal Route map
 // --------------------
 export const ROUTES: Record<WithdrawRoute, WithdrawRouteStrategy> = {
-  base: routeEthBase(), // BaseTokenSystem.withdraw, chain base = ETH
-  'erc20-nonbase': routeErc20NonBase(), // AssetRouter.withdraw for non-base ERC-20s
+  base: routeEthBaseBundle(),
+  'erc20-nonbase': routeErc20NonBaseBundle(),
 };
 
 export interface WithdrawalsResource {
@@ -124,8 +131,8 @@ export function createWithdrawalsResource(
   tokens?: TokensResource,
   contracts?: ContractsResource,
 ): WithdrawalsResource {
-  // Finalization services
-  const svc: FinalizationServices = createFinalizationServices(client);
+  const bundleSvc: WithdrawalBundleFinalizationServices =
+    createWithdrawalBundleFinalizationServices(client);
   // error handlers
   const { wrap, toResult } = createErrorHandlers('withdrawals');
   const tokensResource = tokens ?? createTokensResource(client);
@@ -152,7 +159,7 @@ export function createWithdrawalsResource(
     };
   }
 
-  const finalizeCache = new Map<Hex, string>();
+  const finalizeCache = new Map<Hex, Hex>();
 
   // quote prepares a withdrawal and returns its summary without executing it
   const quote = (p: WithdrawParams): Promise<WithdrawQuote> =>
@@ -329,56 +336,44 @@ export function createWithdrawalsResource(
           return { phase: 'UNKNOWN', l2TxHash: '0x' as Hex };
         }
 
-        // L2 receipt
-        let l2Rcpt: TransactionReceipt | null;
-        try {
-          l2Rcpt = await client.l2.getTransactionReceipt({ hash: l2TxHash });
-        } catch (e) {
-          if (isReceiptNotFound(e)) {
-            // Expected pending state: do not throw
-            return { phase: 'L2_PENDING', l2TxHash };
-          }
-          // Unexpected provider/transport error: do throw
-          throw toZKsyncError(
-            'RPC',
-            {
-              resource: 'withdrawals',
-              operation: 'withdrawals.status.getTransactionReceipt',
-              message: 'Failed to fetch L2 transaction receipt.',
-              context: { l2TxHash, where: 'l2.getTransactionReceipt' },
-            },
-            e,
-          );
-        }
-        if (!l2Rcpt) return { phase: 'L2_PENDING', l2TxHash };
-
-        // Derive finalize params/key — if unavailable, not ready yet
-        let pack: { params: FinalizeDepositParams; nullifier: Address } | undefined;
-        try {
-          pack = await svc.fetchFinalizeDepositParams(l2TxHash);
-        } catch {
-          return { phase: 'PENDING', l2TxHash };
-        }
-
-        const key = {
-          chainIdL2: pack.params.chainId,
-          l2BatchNumber: pack.params.l2BatchNumber,
-          l2MessageIndex: pack.params.l2MessageIndex,
-        };
-
-        try {
-          const done = await svc.isWithdrawalFinalized(key);
-          if (done) return { phase: 'FINALIZED', l2TxHash, key };
-        } catch {
-          // ignore; continue to readiness simulation
-        }
-
-        // check finalization would succeed right now
-        const readiness = await svc.simulateFinalizeReadiness(pack.params);
-        if (readiness.kind === 'FINALIZED') return { phase: 'FINALIZED', l2TxHash, key };
-        if (readiness.kind === 'READY') return { phase: 'READY_TO_FINALIZE', l2TxHash, key };
-
-        return { phase: 'PENDING', l2TxHash, key };
+        const providedL1TxHash = typeof h !== 'string' && 'l1TxHash' in h ? h.l1TxHash : undefined;
+        return inspectWithdrawalBundleLifecycle({
+          l2TxHash,
+          isSourceIncluded: async () => {
+            try {
+              return Boolean(await client.l2.getTransactionReceipt({ hash: l2TxHash }));
+            } catch (e) {
+              if (isReceiptNotFound(e)) return false;
+              throw toZKsyncError(
+                'RPC',
+                {
+                  resource: 'withdrawals',
+                  operation: 'withdrawals.status.getTransactionReceipt',
+                  message: 'Failed to fetch L2 transaction receipt.',
+                  context: { l2TxHash, where: 'l2.getTransactionReceipt' },
+                },
+                e,
+              );
+            }
+          },
+          getFinalizationInfo: () => bundleSvc.fetchBundleFinalizationInfo(l2TxHash),
+          readBundleState: bundleSvc.readBundleState,
+          simulate: bundleSvc.simulateExecuteBundle,
+          getExecutionState: async () => {
+            const txHash = providedL1TxHash ?? finalizeCache.get(l2TxHash);
+            if (!txHash) return undefined;
+            try {
+              const receipt = await client.l1.getTransactionReceipt({ hash: txHash });
+              if (!receipt) return { txHash, state: 'pending' };
+              return {
+                txHash,
+                state: receipt.status === 'reverted' ? 'failed' : 'success',
+              };
+            } catch {
+              return { txHash, state: 'pending' };
+            }
+          },
+        });
       },
       {
         message: 'Internal error while checking withdrawal status.',
@@ -440,34 +435,29 @@ export function createWithdrawalsResource(
         }
 
         const poll = Math.max(1000, opts.pollMs ?? 2500);
-        const deadline = opts.timeoutMs ? Date.now() + opts.timeoutMs : undefined;
+        const completed = await pollWithdrawalStatus({
+          read: () => status(l2Hash),
+          done: (current) =>
+            opts.for === 'ready'
+              ? current.phase === 'READY_TO_FINALIZE' || current.phase === 'FINALIZED'
+              : current.phase === 'FINALIZED',
+          pollMs: poll,
+          timeoutMs: opts.timeoutMs,
+        });
+        if (!completed || opts.for === 'ready') return null;
 
-        while (true) {
-          const s = await status(l2Hash);
-
-          if (opts.for === 'ready') {
-            if (s.phase === 'READY_TO_FINALIZE' || s.phase === 'FINALIZED') return null;
-          } else {
-            if (s.phase === 'FINALIZED') {
-              const l1Hash = finalizeCache.get(l2Hash) as Hex;
-              if (l1Hash) {
-                try {
-                  const l1Rcpt = await client.l1.getTransactionReceipt({ hash: l1Hash });
-                  if (l1Rcpt) {
-                    finalizeCache.delete(l2Hash);
-                    return l1Rcpt;
-                  }
-                } catch {
-                  /* ignore */
-                }
-              }
-              return null;
-            }
+        const l1Hash = completed.l1FinalizeTxHash ?? finalizeCache.get(l2Hash);
+        if (!l1Hash) return null;
+        try {
+          const l1Rcpt = await client.l1.getTransactionReceipt({ hash: l1Hash });
+          if (l1Rcpt) {
+            finalizeCache.delete(l2Hash);
+            return l1Rcpt;
           }
-
-          if (deadline && Date.now() > deadline) return null;
-          await new Promise((r) => setTimeout(r, poll));
+        } catch {
+          // Finalized status is authoritative even when receipt lookup is unavailable.
         }
+        return null;
       },
       {
         message: 'Internal error while waiting for withdrawal.',
@@ -486,77 +476,45 @@ export function createWithdrawalsResource(
     wrap(
       OP_WITHDRAWALS.finalize.send,
       async () => {
-        const pack = await (async () => {
-          try {
-            return await svc.fetchFinalizeDepositParams(l2TxHash);
-          } catch (e: unknown) {
-            throw createError('STATE', {
-              resource: 'withdrawals',
-              operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
-              message: 'Withdrawal not ready: finalize params unavailable.',
-              context: { l2TxHash },
-              cause: e,
-            });
-          }
-        })();
-
-        const { params } = pack;
-        const key = {
-          chainIdL2: params.chainId,
-          l2BatchNumber: params.l2BatchNumber,
-          l2MessageIndex: params.l2MessageIndex,
-        };
-
-        try {
-          const done = await svc.isWithdrawalFinalized(key);
-          if (done) {
-            const statusNow = await status(l2TxHash);
-            return { status: statusNow };
-          }
-        } catch {
-          // ignore; continue to readiness simulation
-        }
-
-        const readiness = await svc.simulateFinalizeReadiness(params);
-        if (readiness.kind === 'FINALIZED') {
-          const statusNow = await status(l2TxHash);
-          return { status: statusNow };
-        }
-        if (readiness.kind === 'NOT_READY') {
-          throw createError('STATE', {
-            resource: 'withdrawals',
-            operation: OP_WITHDRAWALS.finalize.readiness.simulate,
-            message: 'Withdrawal not ready to finalize.',
-            context: readiness,
-          });
-        }
-
-        // READY → send finalize tx on L1
-        try {
-          const tx = await svc.finalizeDeposit(params);
-          finalizeCache.set(l2TxHash, tx.hash);
-          const rcpt = await tx.wait();
-          const statusNow = await status(l2TxHash);
-          return { status: statusNow, receipt: rcpt };
-        } catch (e) {
-          const statusNow = await status(l2TxHash);
-          if (statusNow.phase === 'FINALIZED') return { status: statusNow };
-
-          try {
-            const again = await svc.simulateFinalizeReadiness(params);
-            if (again.kind === 'NOT_READY') {
+        const result = await finalizeWithdrawalBundleLifecycle({
+          getFinalizationInfo: async () => {
+            try {
+              return await bundleSvc.fetchBundleFinalizationInfo(l2TxHash);
+            } catch (e) {
               throw createError('STATE', {
                 resource: 'withdrawals',
-                operation: OP_WITHDRAWALS.finalize.readiness.simulate,
-                message: 'Withdrawal not ready to finalize.',
-                context: again,
+                operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
+                message: 'Withdrawal not ready: bundle proof unavailable.',
+                context: { l2TxHash },
+                cause: e,
               });
             }
-          } catch {
-            // ignore; rethrow EXECUTION error below
-          }
-          throw e;
-        }
+          },
+          readBundleState: bundleSvc.readBundleState,
+          simulate: bundleSvc.simulateExecuteBundle,
+          execute: async (info) => {
+            const tx = await bundleSvc.executeBundle(info);
+            finalizeCache.set(l2TxHash, tx.hash);
+            return tx;
+          },
+        });
+
+        if (!result.execution) return { status: await status(l2TxHash) };
+        const { info, execution } = result;
+        return {
+          status: {
+            phase: 'FINALIZED',
+            l2TxHash,
+            l1FinalizeTxHash: execution.hash,
+            key: {
+              bundleHash: info.bundleHash,
+              chainIdL2: info.proof.chainId,
+              l2BatchNumber: info.proof.l1BatchNumber,
+              l2MessageIndex: info.proof.l2MessageIndex,
+            },
+          },
+          receipt: execution.receipt,
+        };
       },
       {
         message: 'Internal error while attempting to finalize withdrawal.',

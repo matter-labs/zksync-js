@@ -4,6 +4,8 @@ import { routeEthBaseBundle as routeEthersEth } from '../../ethers/resources/wit
 import { routeErc20NonBaseBundle as routeEthersErc20 } from '../../ethers/resources/withdrawals/routes/bundle';
 import { routeEthBaseBundle as routeViemEth } from '../../viem/resources/withdrawals/routes/bundle';
 import { routeErc20NonBaseBundle as routeViemErc20 } from '../../viem/resources/withdrawals/routes/bundle';
+import { createWithdrawalsResource as createEthersWithdrawalsResource } from '../../ethers/resources/withdrawals';
+import { createWithdrawalsResource as createViemWithdrawalsResource } from '../../viem/resources/withdrawals';
 import { interopCodec as ethersCodec } from '../../ethers/resources/interop/address';
 import { interopCodec as viemCodec } from '../../viem/resources/interop/address';
 import {
@@ -13,7 +15,7 @@ import {
   setL2TokenRegistration,
 } from '../adapter-harness';
 import { parseSendBundleTx } from '../decode-helpers';
-import { IERC7786AttributesABI } from '../../../core/abi';
+import { IERC7786AttributesABI, IInteropCenterABI } from '../../../core/abi';
 import {
   ETH_ADDRESS,
   FORMAL_ETH_ADDRESS,
@@ -42,6 +44,10 @@ const ROUTES = {
     codec: viemCodec,
   },
 } as const;
+const RESOURCES = {
+  ethers: createEthersWithdrawalsResource,
+  viem: createViemWithdrawalsResource,
+} as const;
 
 function deterministicBytes(value: number) {
   return () => new Uint8Array(32).fill(value);
@@ -53,6 +59,23 @@ function setL1ChainId(kind: 'ethers' | 'viem', harness: any, chainId: bigint) {
   } else {
     harness.l1.getChainId = async () => Number(chainId);
   }
+}
+
+function createIntentResource(kind: 'ethers' | 'viem', harness: any) {
+  if (kind === 'viem' && typeof harness.client.account === 'string') {
+    const account = { address: harness.client.account, type: 'json-rpc' } as const;
+    harness.client.account = account;
+    harness.l1Wallet.account = account;
+    harness.l2Wallet.account = account;
+  }
+  const tokens = {
+    resolve: async () => ({
+      baseTokenAssetId: BASE_ASSET_ID,
+      isChainEthBased: true,
+    }),
+    l1TokenFromAssetId: async () => ETH_ADDRESS,
+  };
+  return RESOURCES[kind](harness.client as never, tokens as never);
 }
 
 function decodeStarterPayload(data: string) {
@@ -194,5 +217,58 @@ describe('withdrawal bundle salt generation', () => {
     );
 
     expect(first.bundleAttributes[0]).not.toBe(second.bundleAttributes[0]);
+  });
+});
+
+describeForAdapters('withdrawal intent route activation', (kind, factory) => {
+  it('prepare exposes sendBundle while preserving the withdrawal step key', async () => {
+    const harness = factory();
+    setL1ChainId(kind, harness, 1n);
+    const withdrawals = createIntentResource(kind, harness);
+
+    const plan = await withdrawals.prepare({ token: ETH_ADDRESS, amount: 12n });
+    const step = plan.steps.at(-1)!;
+    const decoded = parseSendBundleTx(step.tx);
+
+    expect(step.key).toBe('l2-base-token:withdraw');
+    expect(decoded.to).toBe(L2_INTEROP_CENTER_ADDRESS.toLowerCase());
+    expect(decoded.value).toBe(12n);
+  });
+
+  it('create submits sendBundle and never a legacy withdrawal entrypoint', async () => {
+    const harness = factory();
+    setL1ChainId(kind, harness, 1n);
+    const withdrawals = createIntentResource(kind, harness);
+    let sent: any;
+
+    if (kind === 'ethers') {
+      (harness.l2 as any).getTransactionCount = async () => 4;
+      (harness.signer as any).populateTransaction = async (tx: any) => tx;
+      (harness.signer as any).sendTransaction = async (tx: any) => {
+        sent = tx;
+        return {
+          hash: `0x${'aa'.repeat(32)}`,
+          wait: async () => ({ status: 1 }),
+        };
+      };
+    } else {
+      (harness.l2 as any).getTransactionCount = async () => 4;
+      (harness.l2Wallet as any).writeContract = async (tx: any) => {
+        sent = tx;
+        return `0x${'aa'.repeat(32)}`;
+      };
+      (harness.l2 as any).waitForTransactionReceipt = async () => ({ status: 'success' });
+    }
+
+    const handle = await withdrawals.create({ token: ETH_ADDRESS, amount: 12n });
+
+    expect(handle.l2TxHash).toBe(`0x${'aa'.repeat(32)}`);
+    if (kind === 'ethers') {
+      expect(new Interface(IInteropCenterABI as any).parseTransaction(sent)?.name).toBe(
+        'sendBundle',
+      );
+    } else {
+      expect(sent.functionName).toBe('sendBundle');
+    }
   });
 });
