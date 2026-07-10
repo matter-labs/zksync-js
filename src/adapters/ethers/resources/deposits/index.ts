@@ -29,6 +29,10 @@ import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
 import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import {
+  inspectPriorityLifecycle,
+  mapPriorityStateToDepositPhase,
+} from '../../../../core/internal/cross-chain/priority-lifecycle';
 
 import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/types/errors';
 import { createError } from '../../../../core/errors/factory.ts';
@@ -314,68 +318,66 @@ export function createDepositsResource(
           return { phase: 'UNKNOWN', l1TxHash: '0x' as Hex };
         }
 
-        // L1 receipt
-        let l1Rcpt;
-        try {
-          l1Rcpt = await client.l1.getTransactionReceipt(l1TxHash);
-        } catch (e) {
-          throw toZKsyncError(
-            'RPC',
-            {
-              resource: 'deposits',
-              operation: 'deposits.status.getTransactionReceipt',
-              context: { where: 'l1.getTransactionReceipt', l1TxHash },
-              message: 'Failed to fetch L1 transaction receipt.',
-            },
-            e,
-          );
-        }
-        if (!l1Rcpt) return { phase: 'L1_PENDING', l1TxHash };
+        const inspection = await inspectPriorityLifecycle({
+          sourceTxHash: l1TxHash,
+          getSourceReceipt: async (sourceTxHash) => {
+            try {
+              return await client.l1.getTransactionReceipt(sourceTxHash);
+            } catch (e) {
+              throw toZKsyncError(
+                'RPC',
+                {
+                  resource: 'deposits',
+                  operation: 'deposits.status.getTransactionReceipt',
+                  context: { where: 'l1.getTransactionReceipt', l1TxHash: sourceTxHash },
+                  message: 'Failed to fetch L1 transaction receipt.',
+                },
+                e,
+              );
+            }
+          },
+          deriveDestinationTxHash: (receipt) => {
+            try {
+              return getL2TransactionHashFromLogs(receipt.logs);
+            } catch (e) {
+              throw toZKsyncError(
+                'INTERNAL',
+                {
+                  resource: 'deposits',
+                  operation: 'deposits.status.getL2TransactionHashFromLogs',
+                  context: { where: 'getL2TransactionHashFromLogs', l1TxHash },
+                  message: 'Failed to derive L2 transaction hash from L1 logs.',
+                },
+                e,
+              );
+            }
+          },
+          getDestinationReceipt: async (l2TxHash) => {
+            try {
+              return await client.l2.getTransactionReceipt(l2TxHash);
+            } catch (e) {
+              if (isReceiptNotFound(e)) throw e;
+              throw toZKsyncError(
+                'RPC',
+                {
+                  resource: 'deposits',
+                  operation: 'deposits.status.getTransactionReceipt',
+                  message: 'Failed to fetch L2 transaction receipt.',
+                  context: { l2TxHash, where: 'l2.getTransactionReceipt' },
+                },
+                e,
+              );
+            }
+          },
+          isDestinationReceiptNotFoundError: isReceiptNotFound,
+          isDestinationReceiptSuccessful: (receipt) => receipt.status === 1,
+        });
 
-        let l2TxHash: Hex | undefined;
-        try {
-          l2TxHash = getL2TransactionHashFromLogs(l1Rcpt.logs) ?? undefined;
-        } catch (e) {
-          throw toZKsyncError(
-            'INTERNAL',
-            {
-              resource: 'deposits',
-              operation: 'deposits.status.getL2TransactionHashFromLogs',
-              context: { where: 'getL2TransactionHashFromLogs', l1TxHash },
-              message: 'Failed to derive L2 transaction hash from L1 logs.',
-            },
-            e,
-          );
-        }
-        if (!l2TxHash) return { phase: 'L1_INCLUDED', l1TxHash };
-
-        // L2 receipt
-        let l2Rcpt;
-        try {
-          l2Rcpt = await client.l2.getTransactionReceipt(l2TxHash);
-        } catch (e) {
-          if (isReceiptNotFound(e)) {
-            // Expected pending state: do not throw
-            return { phase: 'L2_PENDING', l1TxHash, l2TxHash };
-          }
-          // Unexpected provider/transport error: do throw
-          throw toZKsyncError(
-            'RPC',
-            {
-              resource: 'deposits',
-              operation: 'deposits.status.getTransactionReceipt',
-              message: 'Failed to fetch L2 transaction receipt.',
-              context: { l2TxHash, where: 'l2.getTransactionReceipt' },
-            },
-            e,
-          );
-        }
-        if (!l2Rcpt) return { phase: 'L2_PENDING', l1TxHash, l2TxHash };
-
-        const ok = l2Rcpt.status === 1;
-        return ok
-          ? { phase: 'L2_EXECUTED', l1TxHash, l2TxHash }
-          : { phase: 'L2_FAILED', l1TxHash, l2TxHash };
+        return {
+          phase: mapPriorityStateToDepositPhase(inspection.state),
+          l1TxHash,
+          l2TxHash: inspection.destinationTxHash,
+        };
       },
       {
         message: 'Internal error while checking deposit status.',
@@ -421,7 +423,12 @@ export function createDepositsResource(
 
         // Derive canonical L2 hash + wait for L2 execution
         try {
-          const { l2Receipt } = await waitForL2ExecutionFromL1Tx(client.l1, client.l2, l1Hash);
+          const { l2Receipt } = await waitForL2ExecutionFromL1Tx(
+            client.l1,
+            client.l2,
+            l1Hash,
+            l1Receipt,
+          );
           return l2Receipt ?? null;
         } catch (e) {
           if (isZKsyncError(e)) throw e;

@@ -5,7 +5,7 @@ import type { Hex } from '../../../../../core/types/primitives';
 import { decodeEventLog } from 'viem';
 import { isHash66 } from '../../../../../core/utils/hash';
 import { TOPIC_CANONICAL_ASSIGNED, TOPIC_CANONICAL_SUCCESS } from '../../../../../core/constants';
-import { createError } from '../../../../../core/errors/factory';
+import { waitForPriorityLifecycle } from '../../../../../core/internal/cross-chain/priority-lifecycle';
 
 // Event ABI for Bridgehub's NewPriorityRequest
 const I_BRIDGEHUB_NEW_PRIORITY_REQUEST = {
@@ -62,48 +62,29 @@ export async function waitForL2ExecutionFromL1Tx(
   l1: PublicClient,
   l2: PublicClient,
   l1TxHash: Hex,
+  knownL1Receipt?: TransactionReceipt,
 ): Promise<{ l2Receipt: TransactionReceipt; l2TxHash: Hex }> {
-  // Wait for L1 receipt
-  const l1Receipt = await l1.waitForTransactionReceipt({ hash: l1TxHash });
+  const result = await waitForPriorityLifecycle({
+    sourceTxHash: l1TxHash,
+    target: 'destination',
+    waitForSourceReceipt: () =>
+      knownL1Receipt
+        ? Promise.resolve(knownL1Receipt)
+        : l1.waitForTransactionReceipt({ hash: l1TxHash }),
+    deriveDestinationTxHash: (receipt) =>
+      getL2TransactionHashFromLogs(receipt.logs as ReadonlyArray<Log>),
+    waitForDestinationReceipt: (l2TxHash) =>
+      l2.waitForTransactionReceipt({ hash: l2TxHash }).catch(() => null),
+    getDestinationReceipt: (l2TxHash) =>
+      l2.getTransactionReceipt({ hash: l2TxHash }).catch(() => null),
+    isDestinationReceiptSuccessful: (receipt) => receipt.status === 'success',
+  });
 
-  if (!l1Receipt) throw new Error('No L1 receipt found');
-
-  // Extract L2 tx hash from logs
-  const l2TxHash = getL2TransactionHashFromLogs(l1Receipt.logs as ReadonlyArray<Log>);
-  if (!l2TxHash) {
-    throw createError('VERIFICATION', {
-      message: 'Failed to extract L2 transaction hash from L1 logs',
-      resource: 'deposits',
-      operation: 'deposits.wait',
-      context: { l1TxHash, logCount: l1Receipt.logs?.length ?? 0 },
-    });
+  if (!result.destinationReceipt || !result.destinationTxHash) {
+    throw new Error('No L1 receipt found');
   }
-
-  // Wait for L2 execution
-  let l2Receipt = await l2.waitForTransactionReceipt({ hash: l2TxHash }).catch(() => null);
-
-  // double-check in case the provider’s wait returned null but the receipt exists now
-  if (!l2Receipt) {
-    const maybe = await l2.getTransactionReceipt({ hash: l2TxHash }).catch(() => null);
-    if (!maybe) {
-      throw createError('VERIFICATION', {
-        message: 'L2 transaction was not found after waiting for its execution',
-        resource: 'deposits',
-        operation: 'deposits.wait',
-        context: { l1TxHash, l2TxHash, where: 'l2.waitForTransactionReceipt' },
-      });
-    }
-    l2Receipt = maybe;
-  }
-
-  if (l2Receipt.status !== 'success') {
-    throw createError('VERIFICATION', {
-      message: 'L2 transaction execution failed',
-      resource: 'deposits',
-      operation: 'deposits.wait',
-      context: { l1TxHash, l2TxHash, status: l2Receipt.status },
-    });
-  }
-
-  return { l2Receipt, l2TxHash };
+  return {
+    l2Receipt: result.destinationReceipt,
+    l2TxHash: result.destinationTxHash,
+  };
 }
