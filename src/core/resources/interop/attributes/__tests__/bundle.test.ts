@@ -35,6 +35,12 @@ describe('interop/attributes/bundle', () => {
       expect(bundle.useFixedFee(false)).toBe('0xuseFixedFee:[false]');
     });
 
+    it('creates interopBundleSalt attribute', () => {
+      const bundle = createBundleAttributes(mockCodec);
+      const salt = `0x${'11'.repeat(32)}` as Hex;
+      expect(bundle.interopBundleSalt(salt)).toBe(`0xinteropBundleSalt:["${salt}"]`);
+    });
+
     it('passes correct function names to codec', () => {
       const calls: { fn: string; args: readonly unknown[] }[] = [];
       const trackingCodec: AttributesCodec = {
@@ -48,14 +54,17 @@ describe('interop/attributes/bundle', () => {
       bundle.executionAddress(ADDR_A);
       bundle.unbundlerAddress(ADDR_B);
       bundle.useFixedFee(true);
+      bundle.interopBundleSalt(`0x${'22'.repeat(32)}` as Hex);
 
-      expect(calls).toHaveLength(3);
+      expect(calls).toHaveLength(4);
       expect(calls[0].fn).toBe('executionAddress');
       expect(calls[0].args).toEqual([ADDR_A]);
       expect(calls[1].fn).toBe('unbundlerAddress');
       expect(calls[1].args).toEqual([ADDR_B]);
       expect(calls[2].fn).toBe('useFixedFee');
       expect(calls[2].args).toEqual([true]);
+      expect(calls[3].fn).toBe('interopBundleSalt');
+      expect(calls[3].args).toEqual([`0x${'22'.repeat(32)}`]);
     });
   });
 });

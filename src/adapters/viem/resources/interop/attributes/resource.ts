@@ -10,8 +10,13 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { InteropAttributes } from '../../../../../core/resources/interop/plan';
 import { assertNever } from '../../../../../core/utils';
+import { generateBundleSalt } from '../../../../../core/internal/cross-chain/salt';
 
-export function getInteropAttributes(params: InteropParams, ctx: BuildCtx): InteropAttributes {
+export function getInteropAttributes(
+  params: InteropParams,
+  ctx: BuildCtx,
+  bundleSalt = generateBundleSalt(),
+): InteropAttributes {
   const bundleAttributes: Hex[] = [];
   if (params.execution?.only) {
     bundleAttributes.push(ctx.attributes.bundle.executionAddress(params.execution.only));
@@ -20,6 +25,7 @@ export function getInteropAttributes(params: InteropParams, ctx: BuildCtx): Inte
     bundleAttributes.push(ctx.attributes.bundle.unbundlerAddress(params.unbundling.by));
   }
   bundleAttributes.push(ctx.attributes.bundle.useFixedFee(params.fee?.useFixed ?? false));
+  bundleAttributes.push(ctx.attributes.bundle.interopBundleSalt(bundleSalt));
 
   const callAttributes = params.actions.map((action) => {
     switch (action.type) {
