@@ -2,6 +2,7 @@ import type { Abi, TransactionReceipt } from 'viem';
 import type { ViemClient } from '../../../client';
 import type { InteropFinalizationInfo } from '../../../../../core/types/flows/interop';
 import type { FinalizeReadiness } from '../../../../../core/types/flows/withdrawals';
+import type { FinalizationEstimate } from '../../../../../core/types/flows/withdrawals';
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import { IL1InteropHandlerABI, IL1NullifierABI } from '../../../../../core/abi';
 import {
@@ -34,6 +35,7 @@ export interface WithdrawalBundleFinalizationServices {
   ): Promise<InteropFinalizationInfo>;
   readBundleState(bundleHash: Hex): Promise<BundleLifecycleState>;
   simulateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizeReadiness>;
+  estimateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizationEstimate>;
   executeBundle(
     info: InteropFinalizationInfo,
   ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
@@ -200,6 +202,48 @@ export function createWithdrawalBundleFinalizationServices(
       } catch (error) {
         return classifyReadinessFromRevert(error);
       }
+    },
+
+    async estimateExecuteBundle(info) {
+      const handlerAddress = await resolveHandler();
+      const gasLimit = await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.estimate,
+        () =>
+          client.l1.estimateContractGas({
+            address: handlerAddress,
+            abi: IL1InteropHandlerABI as Abi,
+            functionName: 'executeBundle',
+            args: [info.encodedData, info.proof],
+            account: client.account,
+          }),
+        {
+          ctx: {
+            where: 'estimateContractGas(executeBundle)',
+            handlerAddress,
+            bundleHash: info.bundleHash,
+          },
+          message: 'Failed to estimate gas for L1InteropHandler.executeBundle.',
+        },
+      );
+
+      try {
+        const fees = await client.l1.estimateFeesPerGas();
+        if (fees.maxFeePerGas != null) {
+          return {
+            gasLimit,
+            maxFeePerGas: fees.maxFeePerGas,
+            maxPriorityFeePerGas: fees.maxPriorityFeePerGas ?? 0n,
+          };
+        }
+      } catch {
+        // Fall back to the legacy gas price below.
+      }
+      return {
+        gasLimit,
+        maxFeePerGas: await client.l1.getGasPrice(),
+        maxPriorityFeePerGas: 0n,
+      };
     },
 
     async executeBundle(info) {

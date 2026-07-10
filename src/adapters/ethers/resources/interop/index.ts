@@ -99,8 +99,10 @@ export interface InteropResource {
     txOverrides?: TxGasOverrides,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 
+  /** @deprecated Use `interop.status`, `wait`, and `finalize` instead. */
   getInteropRoot(dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex>;
 
+  /** @deprecated Bundles are verified and executed atomically by `interop.finalize`. */
   verifyBundle(
     dstChain: ChainRef,
     h: InteropWaitable | InteropFinalizationInfo,

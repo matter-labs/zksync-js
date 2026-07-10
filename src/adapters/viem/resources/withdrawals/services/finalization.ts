@@ -1,377 +1,111 @@
-// src/adapters/viem/resources/withdrawals/services/finalization.ts
-
-import type { Address, Hex } from '../../../../../core/types/primitives';
+import type { TransactionReceipt } from 'viem';
 import type { ViemClient } from '../../../client';
-import {
-  type FinalizeReadiness,
-  type FinalizeDepositParams,
-  type WithdrawalKey,
-  type FinalizationEstimate,
+import type { InteropFinalizationInfo } from '../../../../../core/types/flows/interop';
+import type {
+  FinalizationEstimate,
+  FinalizeDepositParams,
+  FinalizeReadiness,
+  WithdrawalKey,
 } from '../../../../../core/types/flows/withdrawals';
-
-import { IL1NullifierABI } from '../../../../../core/abi.ts';
-import { L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
-import { findL1MessageSentLog } from '../../../../../core/utils/events';
-import { messengerLogIndex } from '../../../../../core/resources/withdrawals/logs';
-import { createErrorHandlers } from '../../../errors/error-ops';
-import { classifyReadinessFromRevert } from '../../../errors/revert';
-import { OP_WITHDRAWALS } from '../../../../../core/types';
+import type { Address, Hex } from '../../../../../core/types/primitives';
 import { createError } from '../../../../../core/errors/factory';
-import { toZKsyncError } from '../../../errors/error-ops';
+import { OP_WITHDRAWALS } from '../../../../../core/types/errors';
+import {
+  getBundleEncodedData,
+  WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
+} from '../../../../../core/internal/cross-chain/bundle-lifecycle';
+import { createWithdrawalBundleFinalizationServices } from './bundle-finalization';
 
-import type { Abi, TransactionReceipt } from 'viem';
-import { decodeAbiParameters } from 'viem';
+const ZERO_TX_HASH = `0x${'00'.repeat(32)}` as Hex;
 
-// error handling
-const { wrapAs } = createErrorHandlers('withdrawals');
-
-// TODO: remove later
-const IL1NullifierMini = [
-  {
-    type: 'function',
-    name: 'isWithdrawalFinalized',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'chainId', type: 'uint256' },
-      { name: 'l2BatchNumber', type: 'uint256' },
-      { name: 'l2MessageIndex', type: 'uint256' },
-    ],
-    outputs: [{ type: 'bool' }],
-  },
-] as const;
-
+/** @deprecated Use `sdk.withdrawals.status`, `wait`, and `finalize` instead. */
 export interface FinalizationServices {
-  /**
-   * Build finalizeDeposit params.
-   */
   fetchFinalizeDepositParams(
     l2TxHash: Hex,
   ): Promise<{ params: FinalizeDepositParams; nullifier: Address }>;
-
-  /**
-   * Read the Nullifier mapping to check finalization status.
-   */
   isWithdrawalFinalized(key: WithdrawalKey): Promise<boolean>;
-
-  /**
-   * Simulate finalizeDeposit on L1 Nullifier to check readiness.
-   */
   simulateFinalizeReadiness(params: FinalizeDepositParams): Promise<FinalizeReadiness>;
-
-  /**
-   * Estimate gas & fees for finalizeDeposit on L1 Nullifier.
-   */
   estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate>;
-
-  /**
-   * Call finalizeDeposit on L1 Nullifier.
-   */
   finalizeDeposit(
     params: FinalizeDepositParams,
   ): Promise<{ hash: string; wait: () => Promise<TransactionReceipt> }>;
 }
 
-export function createFinalizationServices(client: ViemClient): FinalizationServices {
+function requireBundleHash(input: { bundleHash?: Hex }, operation: string): Hex {
+  if (input.bundleHash) return input.bundleHash;
+  throw createError('STATE', {
+    resource: 'withdrawal-finalization',
+    operation,
+    message:
+      'Deprecated withdrawal finalization input is missing bundleHash. Use sdk.withdrawals.finalize(l2TxHash) or fetch fresh finalization params first.',
+    context: { migration: 'sdk.withdrawals.finalize' },
+  });
+}
+
+async function toBundleInfo(
+  client: ViemClient,
+  params: FinalizeDepositParams,
+): Promise<InteropFinalizationInfo> {
+  const bundleHash = requireBundleHash(params, OP_WITHDRAWALS.finalize.readiness.simulate);
   return {
-    async fetchFinalizeDepositParams(l2TxHash: Hex) {
-      // Fetch parsed L2 receipt (with L2->L1 logs)
-      const parsed = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.receipt,
-        () => client.zks.getReceiptWithL2ToL1(l2TxHash),
-        {
-          ctx: { where: 'getReceiptWithL2ToL1', l2TxHash },
-          message: 'Failed to fetch L2 receipt (with L2→L1 logs).',
-        },
-      );
-      if (!parsed) {
-        throw createError('STATE', {
-          resource: 'withdrawals',
-          operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
-          message: 'L2 receipt not found.',
-          context: { l2TxHash },
-        });
-      }
+    l2SrcTxHash: ZERO_TX_HASH,
+    bundleHash,
+    dstChainId: BigInt(await client.l1.getChainId()),
+    encodedData: getBundleEncodedData(params.message, WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS),
+    proof: {
+      chainId: params.chainId,
+      l1BatchNumber: params.l2BatchNumber,
+      l2MessageIndex: params.l2MessageIndex,
+      message: {
+        txNumberInBatch: params.l2TxNumberInBatch,
+        sender: params.l2Sender,
+        data: params.message,
+      },
+      proof: params.merkleProof,
+    },
+  };
+}
 
-      // Find L1MessageSent event and decode message bytes
-      const ev = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.findMessage,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        () => Promise.resolve(findL1MessageSentLog(parsed as any, { index: 0 })),
-        {
-          ctx: { l2TxHash, index: 0 },
-          message: 'Failed to locate L1MessageSent event in L2 receipt.',
-        },
-      );
-
-      const message = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.decodeMessage,
-        () => {
-          const [decoded] = decodeAbiParameters([{ type: 'bytes' }], ev.data);
-          return decoded;
-        },
-        {
-          ctx: { where: 'decode L1MessageSent', data: ev.data },
-          message: 'Failed to decode withdrawal message.',
-        },
-      );
-
-      // Fetch raw receipt again
-      const raw = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-        () => client.zks.getReceiptWithL2ToL1(l2TxHash),
-        {
-          ctx: { where: 'getReceiptWithL2ToL1 (raw)', l2TxHash },
-          message: 'Failed to fetch raw L2 receipt.',
-        },
-      );
-      if (!raw) {
-        throw createError('STATE', {
-          resource: 'withdrawals',
-          operation: OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-          message: 'Raw L2 receipt not found.',
-          context: { l2TxHash },
-        });
-      }
-
-      const idx = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
-        () =>
-          Promise.resolve(messengerLogIndex(raw, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
-        {
-          ctx: { where: 'derive messenger log index', l2TxHash, receipt: raw },
-          message: 'Failed to derive messenger log index.',
-        },
-      );
-
-      // Fetch L2->L1 log proof
-      const proof = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.proof,
-        () => client.zks.getL2ToL1LogProof(l2TxHash, idx),
-        {
-          ctx: { where: 'get L2→L1 log proof', l2TxHash, messengerLogIndex: idx },
-          message: 'Failed to fetch L2→L1 log proof.',
-        },
-      );
-
-      const chainId = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.network,
-        () => client.l2.getChainId(),
-        { ctx: { where: 'l2.getChainId' }, message: 'Failed to read L2 chain id.' },
-      );
-
-      // TODO: fix me
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const txIndex = Number((parsed as any).transactionIndex ?? 0);
-
-      const params: FinalizeDepositParams = {
-        chainId: BigInt(chainId),
-        l2BatchNumber: proof.batchNumber,
-        l2MessageIndex: proof.id,
-        l2Sender: parsed.to,
-        l2TxNumberInBatch: txIndex,
-        message,
-        merkleProof: proof.proof,
-      };
-
+/**
+ * @deprecated Use `sdk.withdrawals.status`, `wait`, and `finalize`. This wrapper is
+ * retained for one minor release and delegates to `L1InteropHandler.executeBundle`.
+ */
+export function createFinalizationServices(client: ViemClient): FinalizationServices {
+  const bundle = createWithdrawalBundleFinalizationServices(client);
+  return {
+    async fetchFinalizeDepositParams(l2TxHash) {
+      const info = await bundle.fetchBundleFinalizationInfo(l2TxHash);
       const { l1Nullifier } = await client.ensureAddresses();
+      return {
+        nullifier: l1Nullifier,
+        params: {
+          bundleHash: info.bundleHash,
+          chainId: info.proof.chainId,
+          l2BatchNumber: info.proof.l1BatchNumber,
+          l2MessageIndex: info.proof.l2MessageIndex,
+          l2Sender: info.proof.message.sender,
+          l2TxNumberInBatch: info.proof.message.txNumberInBatch,
+          message: info.proof.message.data,
+          merkleProof: info.proof.proof,
+        },
+      };
+    },
 
-      return { params, nullifier: l1Nullifier };
+    async isWithdrawalFinalized(key) {
+      const bundleHash = requireBundleHash(key, OP_WITHDRAWALS.finalize.isFinalized);
+      return (await bundle.readBundleState(bundleHash)) === 'FULLY_EXECUTED';
     },
 
     async simulateFinalizeReadiness(params) {
-      const { l1Nullifier } = await client.ensureAddresses();
-
-      // First, check if the withdrawal is already finalized
-      const done = await (async () => {
-        try {
-          const result = await wrapAs(
-            'RPC',
-            OP_WITHDRAWALS.finalize.readiness.isFinalized,
-            () =>
-              client.l1.readContract({
-                address: l1Nullifier,
-                abi: IL1NullifierMini,
-                functionName: 'isWithdrawalFinalized',
-                args: [params.chainId, params.l2BatchNumber, params.l2MessageIndex],
-              }),
-            {
-              ctx: { where: 'isWithdrawalFinalized', params },
-              message: 'Failed to read finalization status.',
-            },
-          );
-
-          return result;
-        } catch {
-          // If this read fails, treat as "not finalized" and fall through
-          return false;
-        }
-      })();
-
-      if (done) return { kind: 'FINALIZED' };
-
-      // Try simulating finalizeDeposit on the same L1 Nullifier
-      try {
-        await client.l1.simulateContract({
-          address: l1Nullifier,
-          abi: IL1NullifierABI as Abi,
-          functionName: 'finalizeDeposit',
-          args: [params],
-          account: client.account,
-        });
-        return { kind: 'READY' };
-      } catch (e) {
-        return classifyReadinessFromRevert(e);
-      }
+      return bundle.simulateExecuteBundle(await toBundleInfo(client, params));
     },
 
-    async isWithdrawalFinalized(key: WithdrawalKey) {
-      const { l1Nullifier } = await client.ensureAddresses();
-
-      return await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.isFinalized,
-        () =>
-          client.l1.readContract({
-            address: l1Nullifier,
-            abi: IL1NullifierMini,
-            functionName: 'isWithdrawalFinalized',
-            args: [key.chainIdL2, key.l2BatchNumber, key.l2MessageIndex],
-          }),
-        {
-          ctx: { where: 'isWithdrawalFinalized', key },
-          message: 'Failed to read finalization status.',
-        },
-      );
+    async estimateFinalization(params) {
+      return bundle.estimateExecuteBundle(await toBundleInfo(client, params));
     },
 
-    async estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate> {
-      const { l1Nullifier } = await client.ensureAddresses();
-      // Estimate gas for finalizeDeposit on the L1 Nullifier
-      const gasLimit = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.estimate,
-        () =>
-          client.l1.estimateContractGas({
-            address: l1Nullifier,
-            abi: IL1NullifierABI as Abi,
-            functionName: 'finalizeDeposit',
-            args: [params],
-            account: client.account,
-          }),
-        {
-          ctx: {
-            where: 'estimateContractGas(finalizeDeposit)',
-            chainIdL2: params.chainId,
-            l2BatchNumber: params.l2BatchNumber,
-            l2MessageIndex: params.l2MessageIndex,
-            l1Nullifier,
-          },
-          message: 'Failed to estimate gas for finalizeDeposit.',
-        },
-      );
-
-      // Estimate per-gas fees (with EIP-1559 + legacy fallback)
-      let maxFeePerGas: bigint;
-      let maxPriorityFeePerGas: bigint;
-
-      try {
-        const fee = await wrapAs(
-          'RPC',
-          OP_WITHDRAWALS.finalize.estimate,
-          () => client.l1.estimateFeesPerGas(),
-          {
-            ctx: { where: 'estimateFeesPerGas' },
-            message: 'Failed to estimate EIP-1559 fees.',
-          },
-        );
-
-        maxFeePerGas =
-          fee.maxFeePerGas ??
-          (() => {
-            throw createError('RPC', {
-              resource: 'withdrawals',
-              operation: OP_WITHDRAWALS.finalize.estimate,
-              message: 'Provider did not return maxFeePerGas.',
-              context: { fee },
-            });
-          })();
-        maxPriorityFeePerGas = fee.maxPriorityFeePerGas ?? 0n;
-      } catch {
-        const gasPrice = await wrapAs(
-          'RPC',
-          OP_WITHDRAWALS.finalize.estimate,
-          () => client.l1.getGasPrice(),
-          {
-            ctx: { where: 'getGasPrice' },
-            message: 'Failed to read gas price for finalizeDeposit.',
-          },
-        );
-
-        maxFeePerGas = gasPrice;
-        maxPriorityFeePerGas = 0n;
-      }
-
-      return {
-        gasLimit,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      };
-    },
-
-    async finalizeDeposit(params: FinalizeDepositParams) {
-      const { l1Nullifier } = await client.ensureAddresses();
-      try {
-        const hash = await client.l1Wallet.writeContract({
-          address: l1Nullifier,
-          abi: IL1NullifierABI as Abi,
-          functionName: 'finalizeDeposit',
-          args: [params],
-          account: client.account,
-        });
-
-        return {
-          hash,
-          wait: async () => {
-            try {
-              return await client.l1.waitForTransactionReceipt({ hash });
-            } catch (e) {
-              throw toZKsyncError(
-                'EXECUTION',
-                {
-                  resource: 'withdrawals',
-                  operation: OP_WITHDRAWALS.finalize.wait,
-                  message: 'Failed while waiting for finalizeDeposit transaction.',
-                  context: { txHash: hash },
-                },
-                e,
-              );
-            }
-          },
-        };
-      } catch (e) {
-        throw toZKsyncError(
-          'EXECUTION',
-          {
-            resource: 'withdrawals',
-            operation: OP_WITHDRAWALS.finalize.send,
-            message: 'Failed to send finalizeDeposit transaction.',
-            context: {
-              chainIdL2: params.chainId,
-              l2BatchNumber: params.l2BatchNumber,
-              l2MessageIndex: params.l2MessageIndex,
-              l1Nullifier,
-            },
-          },
-          e,
-        );
-      }
+    async finalizeDeposit(params) {
+      return bundle.executeBundle(await toBundleInfo(client, params));
     },
   };
 }

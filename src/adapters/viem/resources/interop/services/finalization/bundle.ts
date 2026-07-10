@@ -170,6 +170,7 @@ export async function executeBundle(
   }
 }
 
+/** @deprecated Use atomic `executeBundle` through `interop.finalize`. */
 export async function verifyBundle(
   client: ViemClient,
   dstProvider: PublicClient,

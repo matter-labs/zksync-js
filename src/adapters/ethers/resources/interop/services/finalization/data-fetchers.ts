@@ -122,6 +122,7 @@ export async function getLogs(
   );
 }
 
+/** @deprecated Root polling is internal to the interop lifecycle. */
 export async function getInteropRoot(
   provider: AbstractProvider,
   rootChainId: bigint,

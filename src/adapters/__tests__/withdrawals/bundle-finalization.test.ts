@@ -2,6 +2,8 @@ import { AbiCoder, Interface } from 'ethers';
 import { describe, expect, it } from 'bun:test';
 import { createWithdrawalBundleFinalizationServices as createEthersServices } from '../../ethers/resources/withdrawals/services/bundle-finalization';
 import { createWithdrawalBundleFinalizationServices as createViemServices } from '../../viem/resources/withdrawals/services/bundle-finalization';
+import { createFinalizationServices as createEthersLegacyServices } from '../../ethers/resources/withdrawals/services/finalization';
+import { createFinalizationServices as createViemLegacyServices } from '../../viem/resources/withdrawals/services/finalization';
 import { createAdapterHarness, describeForAdapters } from '../adapter-harness';
 import { IInteropCenterABI, IL1InteropHandlerABI, IL1NullifierABI } from '../../../core/abi';
 import {
@@ -98,6 +100,10 @@ const SERVICES = {
   ethers: createEthersServices,
   viem: createViemServices,
 } as const;
+const LEGACY_SERVICES = {
+  ethers: createEthersLegacyServices,
+  viem: createViemLegacyServices,
+} as const;
 
 describeForAdapters('adapters/withdrawals/L1 bundle finalization', (kind, factory) => {
   it('resolves L1InteropHandler and maps bundleStatus', async () => {
@@ -136,6 +142,11 @@ describeForAdapters('adapters/withdrawals/L1 bundle finalization', (kind, factor
     expect(info.proof.message.sender).toBe(L2_INTEROP_CENTER_ADDRESS);
     expect(info.proof.message.txNumberInBatch).toBe(2);
     expect(proofTarget).toBe('messageRoot');
+
+    const legacy = LEGACY_SERVICES[kind](harness.client as never);
+    const { params } = await legacy.fetchFinalizeDepositParams(SOURCE_TX_HASH);
+    expect(params.bundleHash).toBe(BUNDLE_HASH);
+    expect(params.message).toBe('0x01deadbeef');
   });
 
   it('classifies a paused executeBundle simulation as temporarily not ready', async () => {
@@ -215,6 +226,34 @@ describeForAdapters('adapters/withdrawals/L1 bundle finalization', (kind, factor
     }
     expect(receipt).toBeDefined();
   });
+
+  it('gives legacy keys without bundleHash a clear deprecation error', async () => {
+    const harness = factory();
+    const services = LEGACY_SERVICES[kind](harness.client as never);
+
+    await expect(
+      services.isWithdrawalFinalized({
+        chainIdL2: 324n,
+        l2BatchNumber: 10n,
+        l2MessageIndex: 3n,
+      }),
+    ).rejects.toThrow(/missing bundleHash.*sdk\.withdrawals\.finalize/i);
+  });
+
+  it('redirects a bundle-aware legacy key to bundleStatus', async () => {
+    const harness = factory();
+    seedHandler(harness, 2);
+    const services = LEGACY_SERVICES[kind](harness.client as never);
+
+    expect(
+      await services.isWithdrawalFinalized({
+        bundleHash: BUNDLE_HASH,
+        chainIdL2: 324n,
+        l2BatchNumber: 10n,
+        l2MessageIndex: 3n,
+      }),
+    ).toBe(true);
+  });
 });
 
 describe('withdrawal L1 bundle driver construction', () => {
@@ -222,6 +261,7 @@ describe('withdrawal L1 bundle driver construction', () => {
     const harness = createAdapterHarness('ethers');
     const services = createEthersServices(harness.client);
     expect(Object.keys(services).sort()).toEqual([
+      'estimateExecuteBundle',
       'executeBundle',
       'fetchBundleFinalizationInfo',
       'readBundleState',

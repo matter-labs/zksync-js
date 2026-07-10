@@ -44,6 +44,8 @@ export interface WithdrawHandle<Tx>
 export type WithdrawalWaitable = Hex | { l2TxHash?: Hex; l1TxHash?: Hex } | WithdrawHandle<unknown>;
 
 export interface FinalizeDepositParams {
+  /** @deprecated Bundle finalization is internal to `withdrawals.finalize`; retained for compatibility. */
+  bundleHash?: Hex;
   chainId: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;
@@ -54,6 +56,8 @@ export interface FinalizeDepositParams {
 }
 
 export type WithdrawalKey = {
+  /** Bundle hash used by the unified L1 interop handler. */
+  bundleHash?: Hex;
   chainIdL2: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;

@@ -2,6 +2,7 @@ import { Contract, type TransactionReceipt, type TransactionResponse } from 'eth
 import type { EthersClient } from '../../../client';
 import type { InteropFinalizationInfo } from '../../../../../core/types/flows/interop';
 import type { FinalizeReadiness } from '../../../../../core/types/flows/withdrawals';
+import type { FinalizationEstimate } from '../../../../../core/types/flows/withdrawals';
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import { IL1InteropHandlerABI, IL1NullifierABI } from '../../../../../core/abi';
 import {
@@ -34,6 +35,7 @@ export interface WithdrawalBundleFinalizationServices {
   ): Promise<InteropFinalizationInfo>;
   readBundleState(bundleHash: Hex): Promise<BundleLifecycleState>;
   simulateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizeReadiness>;
+  estimateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizationEstimate>;
   executeBundle(
     info: InteropFinalizationInfo,
   ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
@@ -186,6 +188,43 @@ export function createWithdrawalBundleFinalizationServices(
       } catch (error) {
         return classifyReadinessFromRevert(error);
       }
+    },
+
+    async estimateExecuteBundle(info) {
+      const handlerAddress = await resolveHandler();
+      const handler = new Contract(handlerAddress, IL1InteropHandlerABI, client.getL1Signer());
+      const gasLimit = await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.estimate,
+        () => handler.executeBundle.estimateGas(info.encodedData, info.proof),
+        {
+          ctx: { where: 'estimateGas(executeBundle)', handlerAddress, bundleHash: info.bundleHash },
+          message: 'Failed to estimate gas for L1InteropHandler.executeBundle.',
+        },
+      );
+      const feeData = await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.estimate,
+        () => client.l1.getFeeData(),
+        {
+          ctx: { where: 'l1.getFeeData' },
+          message: 'Failed to estimate fee data for executeBundle.',
+        },
+      );
+      const maxFeePerGas = feeData.maxFeePerGas ?? feeData.gasPrice;
+      if (maxFeePerGas == null) {
+        throw createError('RPC', {
+          resource: 'withdrawals',
+          operation: OP_WITHDRAWALS.finalize.estimate,
+          message: 'Provider did not return gas price or EIP-1559 fields.',
+          context: { feeData },
+        });
+      }
+      return {
+        gasLimit,
+        maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? 0n,
+      };
     },
 
     async executeBundle(info) {

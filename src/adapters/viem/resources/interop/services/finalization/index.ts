@@ -32,6 +32,7 @@ export interface InteropFinalizationServices {
   ): Promise<InteropFinalizationResult>;
 }
 
+/** @deprecated Use the `sdk.interop` intent resource methods instead. */
 export function createInteropFinalizationServices(client: ViemClient): InteropFinalizationServices {
   return {
     status(dstProvider, input, opts) {
