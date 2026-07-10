@@ -151,10 +151,13 @@ export function decodeSendBundle(data: string): SendBundleDecoded {
 }
 
 export function parseSendBundleTx(tx: any): SendBundleDecoded {
-  const decoded = decodeSendBundle(tx.data as string);
+  const data =
+    (tx.data as string | undefined) ??
+    InteropCenter.encodeFunctionData('sendBundle', tx.args as unknown[]);
+  const decoded = decodeSendBundle(data);
   return {
     ...decoded,
-    to: (tx.to as string | undefined)?.toLowerCase(),
+    to: ((tx.to ?? tx.address) as string | undefined)?.toLowerCase(),
     value: BigInt((tx.value as bigint | undefined) ?? 0n),
   };
 }
