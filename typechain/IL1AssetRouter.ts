@@ -54,6 +54,9 @@ export interface IL1AssetRouterInterface extends Interface {
       | 'assetHandlerAddress'
       | 'bridgeRecoverFailedTransfer(uint256,address,bytes32,bytes)'
       | 'bridgeRecoverFailedTransfer(uint256,address,bytes32,bytes,bytes32,uint256,uint256,uint16,bytes32[])'
+      | 'l1InteropHandler'
+      | 'receiveMessage'
+      | 'setL1InteropHandler'
       | 'bridgehubConfirmL2Transaction'
       | 'bridgehubDeposit'
       | 'bridgehubDepositBaseToken'
@@ -108,6 +111,12 @@ export interface IL1AssetRouterInterface extends Interface {
       BytesLike[],
     ],
   ): string;
+  encodeFunctionData(functionFragment: 'l1InteropHandler', values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: 'receiveMessage',
+    values: [BytesLike, BytesLike, BytesLike],
+  ): string;
+  encodeFunctionData(functionFragment: 'setL1InteropHandler', values: [AddressLike]): string;
   encodeFunctionData(
     functionFragment: 'bridgehubConfirmL2Transaction',
     values: [BigNumberish, BytesLike, BytesLike],
@@ -177,6 +186,9 @@ export interface IL1AssetRouterInterface extends Interface {
     functionFragment: 'bridgeRecoverFailedTransfer(uint256,address,bytes32,bytes,bytes32,uint256,uint256,uint16,bytes32[])',
     data: BytesLike,
   ): Result;
+  decodeFunctionResult(functionFragment: 'l1InteropHandler', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'receiveMessage', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'setL1InteropHandler', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'bridgehubConfirmL2Transaction', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'bridgehubDeposit', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'bridgehubDepositBaseToken', data: BytesLike): Result;
@@ -492,6 +504,16 @@ export interface IL1AssetRouter extends BaseContract {
     'nonpayable'
   >;
 
+  l1InteropHandler: TypedContractMethod<[], [string], 'view'>;
+
+  receiveMessage: TypedContractMethod<
+    [arg0: BytesLike, sender: BytesLike, payload: BytesLike],
+    [string],
+    'payable'
+  >;
+
+  setL1InteropHandler: TypedContractMethod<[_l1InteropHandler: AddressLike], [void], 'nonpayable'>;
+
   bridgehubConfirmL2Transaction: TypedContractMethod<
     [_chainId: BigNumberish, _txDataHash: BytesLike, _txHash: BytesLike],
     [void],
@@ -623,6 +645,17 @@ export interface IL1AssetRouter extends BaseContract {
     [void],
     'nonpayable'
   >;
+  getFunction(nameOrSignature: 'l1InteropHandler'): TypedContractMethod<[], [string], 'view'>;
+  getFunction(
+    nameOrSignature: 'receiveMessage',
+  ): TypedContractMethod<
+    [arg0: BytesLike, sender: BytesLike, payload: BytesLike],
+    [string],
+    'payable'
+  >;
+  getFunction(
+    nameOrSignature: 'setL1InteropHandler',
+  ): TypedContractMethod<[_l1InteropHandler: AddressLike], [void], 'nonpayable'>;
   getFunction(
     nameOrSignature: 'bridgehubConfirmL2Transaction',
   ): TypedContractMethod<

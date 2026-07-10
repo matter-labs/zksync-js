@@ -56,6 +56,8 @@ export interface IL1NullifierInterface extends Interface {
     nameOrSignature:
       | 'BRIDGE_HUB'
       | 'bridgeRecoverFailedTransfer'
+      | 'l1InteropHandler'
+      | 'setL1InteropHandler'
       | 'bridgehubConfirmL2TransactionForwarded'
       | 'chainBalance'
       | 'claimFailedDeposit'
@@ -90,6 +92,8 @@ export interface IL1NullifierInterface extends Interface {
       BytesLike[],
     ],
   ): string;
+  encodeFunctionData(functionFragment: 'l1InteropHandler', values?: undefined): string;
+  encodeFunctionData(functionFragment: 'setL1InteropHandler', values: [AddressLike]): string;
   encodeFunctionData(
     functionFragment: 'bridgehubConfirmL2TransactionForwarded',
     values: [BigNumberish, BytesLike, BytesLike],
@@ -151,6 +155,8 @@ export interface IL1NullifierInterface extends Interface {
 
   decodeFunctionResult(functionFragment: 'BRIDGE_HUB', data: BytesLike): Result;
   decodeFunctionResult(functionFragment: 'bridgeRecoverFailedTransfer', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'l1InteropHandler', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'setL1InteropHandler', data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: 'bridgehubConfirmL2TransactionForwarded',
     data: BytesLike,
@@ -250,6 +256,10 @@ export interface IL1Nullifier extends BaseContract {
     [void],
     'nonpayable'
   >;
+
+  l1InteropHandler: TypedContractMethod<[], [string], 'view'>;
+
+  setL1InteropHandler: TypedContractMethod<[_l1InteropHandler: AddressLike], [void], 'nonpayable'>;
 
   bridgehubConfirmL2TransactionForwarded: TypedContractMethod<
     [_chainId: BigNumberish, _txDataHash: BytesLike, _txHash: BytesLike],
@@ -367,6 +377,10 @@ export interface IL1Nullifier extends BaseContract {
     [void],
     'nonpayable'
   >;
+  getFunction(nameOrSignature: 'l1InteropHandler'): TypedContractMethod<[], [string], 'view'>;
+  getFunction(
+    nameOrSignature: 'setL1InteropHandler',
+  ): TypedContractMethod<[_l1InteropHandler: AddressLike], [void], 'nonpayable'>;
   getFunction(
     nameOrSignature: 'bridgehubConfirmL2TransactionForwarded',
   ): TypedContractMethod<

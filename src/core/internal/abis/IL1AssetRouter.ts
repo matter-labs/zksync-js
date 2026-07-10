@@ -385,6 +385,61 @@ const IL1AssetRouterABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'l1InteropHandler',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'bytes32',
+        name: '',
+        type: 'bytes32',
+      },
+      {
+        internalType: 'bytes',
+        name: 'sender',
+        type: 'bytes',
+      },
+      {
+        internalType: 'bytes',
+        name: 'payload',
+        type: 'bytes',
+      },
+    ],
+    name: 'receiveMessage',
+    outputs: [
+      {
+        internalType: 'bytes4',
+        name: '',
+        type: 'bytes4',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: '_l1InteropHandler',
+        type: 'address',
+      },
+    ],
+    name: 'setL1InteropHandler',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint256',

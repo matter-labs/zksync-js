@@ -5,6 +5,7 @@ export { IAssetRouterBase__factory } from './IAssetRouterBase__factory';
 export { IBridgehub__factory } from './IBridgehub__factory';
 export { IERC20__factory } from './IERC20__factory';
 export { IL1AssetRouter__factory } from './IL1AssetRouter__factory';
+export { IL1InteropHandler__factory } from './IL1InteropHandler__factory';
 export { IL1NativeTokenVault__factory } from './IL1NativeTokenVault__factory';
 export { IL1Nullifier__factory } from './IL1Nullifier__factory';
 export { IL2AssetRouter__factory } from './IL2AssetRouter__factory';

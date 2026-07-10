@@ -91,6 +91,32 @@ const IL1NullifierABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'l1InteropHandler',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: '_l1InteropHandler',
+        type: 'address',
+      },
+    ],
+    name: 'setL1InteropHandler',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint256',
