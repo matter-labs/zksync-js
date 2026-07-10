@@ -1,19 +1,16 @@
 import type { PublicClient } from 'viem';
-import type {
-  InteropStatus,
-  InteropWaitable,
-  InteropPhase,
-} from '../../../../../../core/types/flows/interop';
-import type { Log } from '../../../../../../core/types/transactions';
+import type { InteropStatus, InteropWaitable } from '../../../../../../core/types/flows/interop';
 import type { ViemClient } from '../../../../client';
 import {
+  inspectBundleLifecycle,
+  mapBundleStateToInteropPhase,
   resolveIdsFromWaitable,
   parseBundleSentFromReceipt,
-} from '../../../../../../core/resources/interop/finalization';
+} from '../../../../../../core/internal/cross-chain/bundle-lifecycle';
 import { getTopics } from './topics';
 import { decodeInteropBundleSent } from './decoders';
 import { getTxReceipt } from './data-fetchers';
-import { getBundleStatus } from './bundle';
+import { findBundleDestinationTxHash, readBundleStatus } from './bundle';
 import type { LogsQueryOptions } from './data-fetchers';
 
 export async function getStatus(
@@ -24,41 +21,28 @@ export async function getStatus(
 ): Promise<InteropStatus> {
   const { topics } = getTopics();
   const baseIds = resolveIdsFromWaitable(input);
-
-  const enrichedIds = await (async () => {
-    if (baseIds.bundleHash) return baseIds;
-    if (!baseIds.l2SrcTxHash) return baseIds;
-
-    const { interopCenter } = await client.ensureAddresses();
-    const receipt = await getTxReceipt(client.l2, baseIds.l2SrcTxHash);
-    if (!receipt) return baseIds;
-
-    const { bundleHash } = parseBundleSentFromReceipt({
-      receipt: { logs: receipt.logs as Log[] },
-      interopCenter,
-      interopBundleSentTopic: topics.interopBundleSent,
-      decodeInteropBundleSent: (log) => decodeInteropBundleSent(log),
-    });
-
-    return { ...baseIds, bundleHash };
-  })();
-
-  if (!enrichedIds.bundleHash) {
-    const phase: InteropPhase = enrichedIds.l2SrcTxHash ? 'SENT' : 'UNKNOWN';
-    return {
-      phase,
-      l2SrcTxHash: enrichedIds.l2SrcTxHash,
-      bundleHash: enrichedIds.bundleHash,
-      dstExecTxHash: enrichedIds.dstExecTxHash,
-    };
-  }
-
-  const dstInfo = await getBundleStatus(client, dstProvider, topics, enrichedIds.bundleHash, opts);
+  const { interopCenter } = await client.ensureAddresses();
+  const inspection = await inspectBundleLifecycle({
+    sourceTxHash: baseIds.l2SrcTxHash,
+    bundleHash: baseIds.bundleHash,
+    destinationTxHash: baseIds.dstExecTxHash,
+    getSourceReceipt: (sourceTxHash) => getTxReceipt(client.l2, sourceTxHash),
+    parseBundleSent: (receipt) =>
+      parseBundleSentFromReceipt({
+        receipt,
+        interopCenter,
+        interopBundleSentTopic: topics.interopBundleSent,
+        decodeInteropBundleSent,
+      }),
+    readBundleStatus: (bundleHash) => readBundleStatus(client, dstProvider, bundleHash),
+    findDestinationTxHash: (bundleHash, state) =>
+      findBundleDestinationTxHash(client, dstProvider, topics, bundleHash, state, opts),
+  });
 
   return {
-    phase: dstInfo.phase,
-    l2SrcTxHash: enrichedIds.l2SrcTxHash,
-    bundleHash: enrichedIds.bundleHash,
-    dstExecTxHash: dstInfo.dstExecTxHash ?? enrichedIds.dstExecTxHash,
+    phase: mapBundleStateToInteropPhase(inspection.state, Boolean(inspection.sourceTxHash)),
+    l2SrcTxHash: inspection.sourceTxHash,
+    bundleHash: inspection.bundleHash,
+    dstExecTxHash: inspection.destinationTxHash,
   };
 }

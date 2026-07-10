@@ -10,7 +10,8 @@ import {
   setL2TokenRegistration,
   setInteropProtocolFee,
 } from '../adapter-harness.ts';
-import { L2_INTEROP_CENTER_ADDRESS } from '../../../core/constants.ts';
+import { L2_INTEROP_CENTER_ADDRESS, L2_INTEROP_HANDLER_ADDRESS } from '../../../core/constants.ts';
+import { IInteropHandlerABI } from '../../../core/abi.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
 
 type AdapterKind = 'ethers' | 'viem';
@@ -73,6 +74,27 @@ describeForAdapters('adapters/interop/resource', (kind, factory) => {
     const status = await interop.status(harness.l2 as any, TX_HASH);
     expect(status.phase).toBe('SENT');
     expect(status.l2SrcTxHash).toBe(TX_HASH);
+  });
+
+  it('status reads bundleStatus from the destination handler', async () => {
+    const harness = factory();
+    const interop = createResource(kind, harness);
+    const bundleHash = `0x${'bb'.repeat(32)}` as Hex;
+    harness.registry.set(
+      L2_INTEROP_HANDLER_ADDRESS,
+      new Interface(IInteropHandlerABI as any),
+      'bundleStatus',
+      1,
+      [bundleHash],
+    );
+
+    const status = await interop.status(
+      harness.l2 as any,
+      { l2SrcTxHash: TX_HASH, bundleHash } as any,
+    );
+
+    expect(status.phase).toBe('VERIFIED');
+    expect(status.bundleHash).toBe(bundleHash);
   });
 
   it('create fetches nonce from pending transaction count by default', async () => {

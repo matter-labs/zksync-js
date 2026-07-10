@@ -45,6 +45,8 @@
     "./types/flows/interop": null,
     "./core/types/flows/interop": null,
     "./core/resources/interop/*": null,
+    "./core/internal/cross-chain": null,
+    "./core/internal/cross-chain/*": null,
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

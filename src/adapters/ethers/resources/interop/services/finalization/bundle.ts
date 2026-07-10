@@ -17,6 +17,11 @@ import { getTopics } from './topics';
 import type { InteropPhase } from '../../../../../../core/types/flows/interop';
 import type { InteropTopics } from '../../../../../../core/resources/interop/events';
 import { getLogs, type LogsQueryOptions } from './data-fetchers';
+import {
+  decodeBundleStatus,
+  mapBundleStateToInteropPhase,
+  type BundleLifecycleState,
+} from '../../../../../../core/internal/cross-chain/bundle-lifecycle';
 
 const { wrap } = createErrorHandlers('interop');
 
@@ -27,30 +32,50 @@ export async function getBundleStatus(
   bundleHash: Hex,
   opts?: LogsQueryOptions,
 ): Promise<{ phase: InteropPhase; dstExecTxHash?: Hex }> {
+  const state = decodeBundleStatus(await readBundleStatus(client, dstProvider, bundleHash));
+  const dstExecTxHash = await findBundleDestinationTxHash(
+    client,
+    dstProvider,
+    topics,
+    bundleHash,
+    state,
+    opts,
+  );
+  return { phase: mapBundleStateToInteropPhase(state), dstExecTxHash };
+}
+
+export async function readBundleStatus(
+  client: EthersClient,
+  dstProvider: AbstractProvider,
+  bundleHash: Hex,
+): Promise<bigint> {
   const { interopHandler } = await client.ensureAddresses();
-  // Single call: filter only by bundleHash (topic1), then classify via topic0 locally.
+  const handler = new Contract(interopHandler, IInteropHandlerAbi, dstProvider);
+  return wrap(
+    OP_INTEROP.svc.status.derive,
+    async () => BigInt(await handler.bundleStatus(bundleHash)),
+    {
+      ctx: { interopHandler, bundleHash },
+      message: 'Failed to read bundle status from the destination interop handler.',
+    },
+  );
+}
+
+export async function findBundleDestinationTxHash(
+  client: EthersClient,
+  dstProvider: AbstractProvider,
+  topics: InteropTopics,
+  bundleHash: Hex,
+  state: BundleLifecycleState,
+  opts?: LogsQueryOptions,
+): Promise<Hex | undefined> {
+  if (state !== 'FULLY_EXECUTED' && state !== 'UNBUNDLED') return undefined;
+
+  const { interopHandler } = await client.ensureAddresses();
   const bundleLogs = await getLogs(dstProvider, interopHandler, [null, bundleHash], opts);
-
-  const findLastByTopic = (eventTopic: Hex) =>
-    bundleLogs.findLast((log) => log.topics[0].toLowerCase() === eventTopic.toLowerCase());
-
-  const lifecycleChecks: Array<{ phase: InteropPhase; topic: Hex; includeTxHash?: boolean }> = [
-    { phase: 'UNBUNDLED', topic: topics.bundleUnbundled, includeTxHash: true },
-    { phase: 'EXECUTED', topic: topics.bundleExecuted, includeTxHash: true },
-    { phase: 'VERIFIED', topic: topics.bundleVerified },
-  ];
-
-  for (const check of lifecycleChecks) {
-    const match = findLastByTopic(check.topic);
-    if (!match) continue;
-
-    if (check.includeTxHash) {
-      return { phase: check.phase, dstExecTxHash: match.transactionHash };
-    }
-    return { phase: check.phase };
-  }
-
-  return { phase: 'SENT' };
+  const eventTopic = state === 'FULLY_EXECUTED' ? topics.bundleExecuted : topics.bundleUnbundled;
+  return bundleLogs.findLast((log) => log.topics[0]?.toLowerCase() === eventTopic.toLowerCase())
+    ?.transactionHash;
 }
 
 export async function executeBundle(
