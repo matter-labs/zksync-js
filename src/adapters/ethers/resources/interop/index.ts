@@ -38,6 +38,7 @@ import { verifyBundle as verifyBundleOnChain } from './services/finalization/bun
 import type { ChainRef, InteropConfig } from './types';
 import { resolveChainRef } from './resolvers';
 import { quoteStepsL2Fee } from './services/gas';
+import { executePlan } from '../../../../core/internal/cross-chain/execution';
 const { wrap, toResult } = createErrorHandlers('interop');
 
 // Interop Route map
@@ -249,69 +250,64 @@ export function createInteropResource(
           next = await srcProvider.getTransactionCount(from, blockTag);
         }
 
-        const stepHashes: Record<string, Hex> = {};
+        const execution = await executePlan({
+          steps: plan.steps,
+          initialNonce: next,
+          executeStep: async ({ step, nonce }) => {
+            step.tx.nonce = nonce;
 
-        for (const step of plan.steps) {
-          step.tx.nonce = next++;
+            if (!step.tx.chainId) {
+              step.tx.chainId = Number(ctx.chainId);
+            }
 
-          // lock in chainId so ethers doesn't guess
-          if (!step.tx.chainId) {
-            step.tx.chainId = Number(ctx.chainId);
-          }
+            if (!step.tx.gasLimit) {
+              try {
+                const est = await srcProvider.estimateGas({
+                  ...step.tx,
+                  from,
+                });
+                step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
+              } catch {
+                // Gas estimation is best-effort; keep the prepared value.
+              }
+            }
 
-          // best-effort gasLimit with buffer
-          if (!step.tx.gasLimit) {
+            let hash: Hex | undefined;
             try {
-              const est = await srcProvider.estimateGas({
-                ...step.tx,
-                from,
-              });
-              step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-            } catch {
-              // Intentionally empty: gas estimation is best-effort
-            }
-          }
+              const sent = await signer.sendTransaction(step.tx);
+              hash = sent.hash as Hex;
 
-          let hash: Hex | undefined;
-          try {
-            const sent = await signer.sendTransaction(step.tx);
-            hash = sent.hash as Hex;
-            stepHashes[step.key] = hash;
-
-            const rcpt = await sent.wait();
-            if (rcpt?.status === 0) {
-              throw createError('EXECUTION', {
-                resource: 'interop',
-                operation: 'interop.create.sendTransaction',
-                message: 'Interop transaction reverted on source L2.',
-                context: { step: step.key, txHash: hash },
-              });
-            }
-          } catch (e) {
-            if (isZKsyncError(e)) throw e;
-            throw toZKsyncError(
-              'EXECUTION',
-              {
-                resource: 'interop',
-                operation: 'interop.create.sendTransaction',
-                message: 'Failed to send or confirm an interop transaction step.',
-                context: {
-                  step: step.key,
-                  txHash: hash,
-                  nonce: Number(step.tx.nonce ?? -1),
+              const rcpt = await sent.wait();
+              if (rcpt?.status === 0) {
+                throw createError('EXECUTION', {
+                  resource: 'interop',
+                  operation: 'interop.create.sendTransaction',
+                  message: 'Interop transaction reverted on source L2.',
+                  context: { step: step.key, txHash: hash },
+                });
+              }
+              return hash;
+            } catch (e) {
+              if (isZKsyncError(e)) throw e;
+              throw toZKsyncError(
+                'EXECUTION',
+                {
+                  resource: 'interop',
+                  operation: 'interop.create.sendTransaction',
+                  message: 'Failed to send or confirm an interop transaction step.',
+                  context: { step: step.key, txHash: hash, nonce },
                 },
-              },
-              e,
-            );
-          }
-        }
+                e,
+              );
+            }
+          },
+        });
 
-        const last = Object.values(stepHashes).pop();
         return {
           kind: 'interop',
-          stepHashes,
+          stepHashes: execution.stepHashes,
           plan,
-          l2SrcTxHash: last ?? ('0x' as Hex),
+          l2SrcTxHash: execution.sourceTxHash ?? ('0x' as Hex),
         };
       },
       {

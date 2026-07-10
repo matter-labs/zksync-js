@@ -38,6 +38,7 @@ import type { ChainRef, InteropConfig } from './types';
 import type { TxGasOverrides } from '../../../../core/types/fees';
 import { resolveChainRef } from './resolvers';
 import { quoteStepsL2Fee } from './services/gas';
+import { executePlan } from '../../../../core/internal/cross-chain/execution';
 
 const { wrap, toResult } = createErrorHandlers('interop');
 
@@ -249,74 +250,70 @@ export function createInteropResource(
           next = await client.l2.getTransactionCount({ address: from, blockTag });
         }
 
-        const stepHashes: Record<string, Hex> = {};
+        const execution = await executePlan({
+          steps: plan.steps,
+          initialNonce: next,
+          executeStep: async ({ step, nonce }) => {
+            let gasLimit = step.tx.gas ?? step.tx.gasLimit;
+            if (!gasLimit) {
+              try {
+                const est = await client.l2.estimateGas({
+                  account: from,
+                  to: step.tx.to,
+                  data: step.tx.data,
+                  value: step.tx.value,
+                });
+                gasLimit = (est * 115n) / 100n;
+              } catch {
+                // Gas estimation is best-effort; keep the prepared value.
+              }
+            }
 
-        for (const step of plan.steps) {
-          // Best-effort gasLimit with buffer
-          let gasLimit = step.tx.gas ?? step.tx.gasLimit;
-          if (!gasLimit) {
+            let hash: Hex | undefined;
             try {
-              const est = await client.l2.estimateGas({
-                account: from,
+              hash = await l2Wallet.sendTransaction({
                 to: step.tx.to,
                 data: step.tx.data,
                 value: step.tx.value,
+                gas: gasLimit,
+                maxFeePerGas: step.tx.maxFeePerGas,
+                maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
+                nonce,
+                account: client.account,
+                chain: null,
               });
-              gasLimit = (est * 115n) / 100n;
-            } catch {
-              // Intentionally empty: gas estimation is best-effort
-            }
-          }
 
-          let hash: Hex | undefined;
-          try {
-            hash = await l2Wallet.sendTransaction({
-              to: step.tx.to,
-              data: step.tx.data,
-              value: step.tx.value,
-              gas: gasLimit,
-              maxFeePerGas: step.tx.maxFeePerGas,
-              maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-              nonce: next++,
-              account: client.account,
-              chain: null,
-            });
-            stepHashes[step.key] = hash;
-
-            const rcpt = await client.l2.waitForTransactionReceipt({ hash });
-            if (rcpt.status === 'reverted') {
-              throw createError('EXECUTION', {
-                resource: 'interop',
-                operation: 'interop.create.sendTransaction',
-                message: 'Interop transaction reverted on source L2.',
-                context: { step: step.key, txHash: hash },
-              });
-            }
-          } catch (e) {
-            if (isZKsyncError(e)) throw e;
-            throw toZKsyncError(
-              'EXECUTION',
-              {
-                resource: 'interop',
-                operation: 'interop.create.sendTransaction',
-                message: 'Failed to send or confirm an interop transaction step.',
-                context: {
-                  step: step.key,
-                  txHash: hash,
-                  nonce: next - 1,
+              const rcpt = await client.l2.waitForTransactionReceipt({ hash });
+              if (rcpt.status === 'reverted') {
+                throw createError('EXECUTION', {
+                  resource: 'interop',
+                  operation: 'interop.create.sendTransaction',
+                  message: 'Interop transaction reverted on source L2.',
+                  context: { step: step.key, txHash: hash },
+                });
+              }
+              return hash;
+            } catch (e) {
+              if (isZKsyncError(e)) throw e;
+              throw toZKsyncError(
+                'EXECUTION',
+                {
+                  resource: 'interop',
+                  operation: 'interop.create.sendTransaction',
+                  message: 'Failed to send or confirm an interop transaction step.',
+                  context: { step: step.key, txHash: hash, nonce },
                 },
-              },
-              e,
-            );
-          }
-        }
+                e,
+              );
+            }
+          },
+        });
 
-        const last = Object.values(stepHashes).pop();
         return {
           kind: 'interop',
-          stepHashes,
+          stepHashes: execution.stepHashes,
           plan,
-          l2SrcTxHash: last ?? ('0x' as Hex),
+          l2SrcTxHash: execution.sourceTxHash ?? ('0x' as Hex),
         };
       },
       {

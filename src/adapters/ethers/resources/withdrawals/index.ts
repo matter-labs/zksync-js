@@ -27,6 +27,7 @@ import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
+import { executePlan } from '../../../../core/internal/cross-chain/execution';
 
 // --------------------
 // Withdrawal Route map
@@ -189,7 +190,6 @@ export function createWithdrawalsResource(
       OP_WITHDRAWALS.create,
       async () => {
         const plan = await prepare(p);
-        const stepHashes: Record<string, Hex> = {};
 
         const managed = new NonceManager(client.getL2Signer());
         const from = await managed.getAddress();
@@ -201,59 +201,62 @@ export function createWithdrawalsResource(
           next = await client.l2.getTransactionCount(from, blockTag);
         }
 
-        for (const step of plan.steps) {
-          step.tx.nonce = next++;
+        const execution = await executePlan({
+          steps: plan.steps,
+          initialNonce: next,
+          executeStep: async ({ step, nonce }) => {
+            step.tx.nonce = nonce;
 
-          if (p.l2TxOverrides) {
-            const overrides = p.l2TxOverrides;
-            if (overrides.gasLimit != null) step.tx.gasLimit = overrides.gasLimit;
-            if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;
-            if (overrides.maxPriorityFeePerGas != null) {
-              step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
+            if (p.l2TxOverrides) {
+              const overrides = p.l2TxOverrides;
+              if (overrides.gasLimit != null) step.tx.gasLimit = overrides.gasLimit;
+              if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;
+              if (overrides.maxPriorityFeePerGas != null) {
+                step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
+              }
             }
-          }
 
-          if (!step.tx.gasLimit) {
+            if (!step.tx.gasLimit) {
+              try {
+                const est = await client.l2.estimateGas(step.tx);
+                step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
+              } catch {
+                // Gas estimation is best-effort; keep the prepared value.
+              }
+            }
+
+            let hash: Hex | undefined;
             try {
-              const est = await client.l2.estimateGas(step.tx);
-              step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-            } catch {
-              // ignore
+              const sent = await managed.sendTransaction(step.tx);
+              hash = sent.hash as Hex;
+
+              const rcpt = await sent.wait();
+              if (rcpt?.status === 0) {
+                throw createError('EXECUTION', {
+                  resource: 'withdrawals',
+                  operation: 'withdrawals.create.sendTransaction',
+                  message: 'Withdrawal transaction reverted on L2 during a step.',
+                  context: { step: step.key, txHash: hash, nonce },
+                });
+              }
+              return hash;
+            } catch (e) {
+              throw toZKsyncError(
+                'EXECUTION',
+                {
+                  resource: 'withdrawals',
+                  operation: 'withdrawals.create.sendTransaction',
+                  message: 'Failed to send or confirm a withdrawal transaction step.',
+                  context: { step: step.key, txHash: hash, nonce },
+                },
+                e,
+              );
             }
-          }
+          },
+        });
 
-          let hash: Hex | undefined;
-          try {
-            const sent = await managed.sendTransaction(step.tx);
-            hash = sent.hash as Hex;
-            stepHashes[step.key] = hash;
-
-            const rcpt = await sent.wait();
-            if (rcpt?.status === 0) {
-              throw createError('EXECUTION', {
-                resource: 'withdrawals',
-                operation: 'withdrawals.create.sendTransaction',
-                message: 'Withdrawal transaction reverted on L2 during a step.',
-                context: { step: step.key, txHash: hash, nonce: Number(step.tx.nonce ?? -1) },
-              });
-            }
-          } catch (e) {
-            throw toZKsyncError(
-              'EXECUTION',
-              {
-                resource: 'withdrawals',
-                operation: 'withdrawals.create.sendTransaction',
-                message: 'Failed to send or confirm a withdrawal transaction step.',
-                context: { step: step.key, txHash: hash, nonce: Number(step.tx.nonce ?? -1) },
-              },
-              e,
-            );
-          }
-        }
-
-        const keys = Object.keys(stepHashes);
-        const l2TxHash = stepHashes[keys[keys.length - 1]];
-        return { kind: 'withdrawal', l2TxHash, stepHashes, plan };
+        const l2TxHash = execution.sourceTxHash ?? ('0x' as Hex);
+        return { kind: 'withdrawal', l2TxHash, stepHashes: execution.stepHashes, plan };
       },
       {
         message: 'Internal error while creating withdrawal transactions.',
