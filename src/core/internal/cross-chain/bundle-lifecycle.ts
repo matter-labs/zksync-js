@@ -10,7 +10,7 @@ import type { Address, Hex } from '../../types/primitives';
 import type { Log, TxReceipt } from '../../types/transactions';
 import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../constants';
 import { createError } from '../../errors/factory';
-import { OP_INTEROP } from '../../types/errors';
+import { OP_INTEROP, OP_WITHDRAWALS } from '../../types/errors';
 import { sleep } from '../../utils';
 import { isL1MessageSentLog } from '../../utils/events';
 
@@ -33,6 +33,15 @@ export const INTEROP_BUNDLE_LIFECYCLE_ERRORS: BundleLifecycleErrors = {
   bundleDataOperation: OP_INTEROP.wait,
   timeoutOperation: OP_INTEROP.svc.wait.timeout,
   label: 'interop bundle',
+};
+
+export const WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS: BundleLifecycleErrors = {
+  resource: 'withdrawals',
+  sourceReceiptOperation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
+  parseReceiptOperation: OP_WITHDRAWALS.finalize.fetchParams.findMessage,
+  bundleDataOperation: OP_WITHDRAWALS.finalize.fetchParams.decodeMessage,
+  timeoutOperation: OP_WITHDRAWALS.wait,
+  label: 'withdrawal bundle',
 };
 
 export interface BundleReceiptInfo {
