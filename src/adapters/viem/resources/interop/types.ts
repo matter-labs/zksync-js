@@ -5,6 +5,6 @@ export type ChainRef = string | PublicClient;
 
 /** One-time configuration for the interop resource. */
 export interface InteropConfig {
-  /** Gateway chain — used to fetch GW chain ID for interop root polling. */
-  gwChain: ChainRef;
+  /** @deprecated Interop no longer uses a gateway. This value is accepted and ignored. */
+  gwChain?: ChainRef;
 }

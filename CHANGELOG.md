@@ -7,14 +7,16 @@
 * Deposits, withdrawals, and interop now share one internal cross-chain execution and completion lifecycle while retaining their existing intent-resource APIs.
 * Withdrawals are sent as uniquely salted L2-to-L1 bundles and finalized atomically through `L1InteropHandler.executeBundle`.
 * Interop finalization now verifies and executes bundles atomically through `executeBundle`.
+* Interop no longer requires a gateway provider or polls `InteropRootStorage`; readiness is checked by simulating `executeBundle` on the destination handler.
 
 ### Deprecated
 
-* `createFinalizationServices`, `createInteropFinalizationServices`, `verifyBundle`, and `getInteropRoot` remain compatibility wrappers for one minor release. Use the deposit, withdrawal, and interop intent resources instead.
+* `createFinalizationServices`, `createInteropFinalizationServices`, and `verifyBundle` remain compatibility wrappers for one minor release. `getInteropRoot` remains as a source-compatible entrypoint but reports that root polling was removed. Use the deposit, withdrawal, and interop intent resources instead.
 
 ### Breaking
 
 * Raw `IBaseToken`, `IL2AssetRouter`, and `IL1Nullifier` ABI exports no longer contain the removed standalone withdrawal and nullifier-finalization members. Intent-resource methods and handles are unchanged.
+* Raw `IInteropCenter` ABI exports now use the salt-based interface and no longer contain the obsolete nonce, balance-change forwarding, updater, or asset-tracker members.
 
 ## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-06-30)
 

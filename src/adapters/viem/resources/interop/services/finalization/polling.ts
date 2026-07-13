@@ -7,7 +7,6 @@ import type { ViemClient } from '../../../../client';
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { createError } from '../../../../../../core/errors/factory';
 import { isZKsyncError, OP_INTEROP } from '../../../../../../core/types/errors';
-import { ZERO_HASH } from '../../../../../../core/types/primitives';
 import {
   parseBundleReceiptInfo,
   resolveIdsFromWaitable,
@@ -15,7 +14,7 @@ import {
 } from '../../../../../../core/internal/cross-chain/bundle-lifecycle';
 import { ProofTarget } from '../../../../../../core/rpc/zks';
 import { decodeInteropBundleSent, decodeL1MessageData } from './decoders';
-import { getInteropRoot } from './data-fetchers';
+import { isBundleExecutable } from './bundle';
 import { getTopics } from './topics';
 
 const { wrap } = createErrorHandlers('interop');
@@ -27,16 +26,12 @@ function isProofNotReadyError(error: unknown): boolean {
   });
 }
 
-function shouldRetryRootFetch(error: unknown): boolean {
-  return isZKsyncError(error) && error.envelope.operation === OP_INTEROP.svc.status.getRoot;
-}
-
 export async function waitForFinalization(
   client: ViemClient,
   dstProvider: PublicClient,
-  gwProvider: PublicClient,
   input: InteropWaitable,
   opts?: { pollMs?: number; timeoutMs?: number },
+  requireExecutable = true,
 ): Promise<InteropFinalizationInfo> {
   const ids = resolveIdsFromWaitable(input);
   if (!ids.l2SrcTxHash) {
@@ -50,7 +45,6 @@ export async function waitForFinalization(
 
   const { topics } = getTopics();
   const { interopCenter } = await client.ensureAddresses();
-  const gatewayChainId = gwProvider.getChainId().then(BigInt);
 
   return waitForBundleLifecycle({
     sourceTxHash: ids.l2SrcTxHash,
@@ -77,28 +71,14 @@ export async function waitForFinalization(
     getProof: (txHash, logIndex) =>
       client.zks.getL2ToL1LogProof(txHash, logIndex, ProofTarget.MessageRoot),
     isProofNotReadyError,
-    destination: {
-      timeoutMessage: 'Timed out waiting for interop root to become available.',
-      timeoutContext: (proof) => ({
-        batchNumber: proof.gatewayBlockNumber,
-      }),
-      shouldRetryError: shouldRetryRootFetch,
-      isReady: async (proof) => {
-        if (proof.gatewayBlockNumber == null) {
-          throw createError('STATE', {
-            resource: 'interop',
-            operation: OP_INTEROP.svc.wait.timeout,
-            message: 'Proof missing gatewayBlockNumber required for interop finalization.',
-            context: { l2SrcTxHash: ids.l2SrcTxHash },
-          });
+    destination: requireExecutable
+      ? {
+          timeoutMessage: 'Timed out waiting for executeBundle to become ready on destination.',
+          timeoutContext: (proof) => ({
+            sourceBatchNumber: proof.batchNumber,
+          }),
+          isReady: (_proof, info) => isBundleExecutable(client, dstProvider, info),
         }
-        const root = await getInteropRoot(
-          dstProvider,
-          await gatewayChainId,
-          proof.gatewayBlockNumber,
-        );
-        return root !== ZERO_HASH;
-      },
-    },
+      : undefined,
   });
 }

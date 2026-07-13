@@ -220,7 +220,7 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     expect(out).toEqual({ id: 5n, batchNumber: 10n, proof: proof.proof, root: proof.root });
   });
 
-  it('normalizes gatewayBlockNumber when present', async () => {
+  it('retains legacy gatewayBlockNumber metadata when present', async () => {
     const proof = {
       index: '1',
       batchNumber: '2',

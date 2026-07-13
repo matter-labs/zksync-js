@@ -27,7 +27,6 @@ import {
 } from '../../../../examples/viem/interop/utils.ts';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
-const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = (process.env.PRIVATE_KEY ??
@@ -52,7 +51,7 @@ function makeInteropSetup() {
   });
 
   const client = createViemClient({ l1, l2: l2Src, l1Wallet });
-  const sdk = createViemSdk(client, { interop: { gwChain: GW_RPC } });
+  const sdk = createViemSdk(client);
 
   return { l1, l2Src, l2Dst, sdk, me };
 }

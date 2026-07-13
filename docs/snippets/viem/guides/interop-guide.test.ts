@@ -6,7 +6,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, createViemSdk } from '../../../../src/adapters/viem';
 
 const L1_RPC = 'http://localhost:8545';   // e.g. https://sepolia.infura.io/v3/XXX
-const GW_RPC = 'http://localhost:3052';   // gateway chain RPC
 const SRC_L2_RPC = 'http://localhost:3050'; // source L2 RPC
 const DST_L2_RPC = 'http://localhost:3051'; // destination L2 RPC
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
@@ -38,9 +37,7 @@ async function main() {
   });
 
   const client = createViemClient({ l1, l2: l2Src, l1Wallet });
-  const sdk = createViemSdk(client, {
-    interop: { gwChain: GW_RPC },
-  });
+  const sdk = createViemSdk(client);
 
   const params = {
     actions: [
@@ -121,7 +118,7 @@ async function _snippets() {
   const l2Dst = createPublicClient({ transport: http(DST_L2_RPC) });
   const l1Wallet = createWalletClient<Transport, Chain, Account>({ account, transport: http(L1_RPC) });
   const client = createViemClient({ l1, l2: l2Src, l1Wallet });
-  const sdk = createViemSdk(client, { interop: { gwChain: GW_RPC } });
+  const sdk = createViemSdk(client);
   const params = {
     actions: [
       { type: 'sendErc20' as const, token: TOKEN_SRC_ADDRESS as `0x${string}`, to: me, amount: 1_000_000n },

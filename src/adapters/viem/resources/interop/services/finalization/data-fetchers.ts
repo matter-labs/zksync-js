@@ -1,11 +1,9 @@
-import type { PublicClient, Abi } from 'viem';
+import type { PublicClient } from 'viem';
 import { numberToHex } from 'viem';
 import type { Address, Hex } from '../../../../../../core/types/primitives';
 import type { Log } from '../../../../../../core/types/transactions';
 import { createErrorHandlers } from '../../../../errors/error-ops';
 import { isReceiptNotFound, OP_INTEROP } from '../../../../../../core/types/errors';
-import { IInteropRootStorageABI } from '../../../../../../core/abi';
-import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../../../../core/constants';
 
 const { wrap } = createErrorHandlers('interop');
 const DEFAULT_BLOCKS_RANGE_SIZE = 10_000;
@@ -125,29 +123,6 @@ export async function getLogs(
     {
       ctx: { address, maxBlocksBack, logChunkSize: initialChunkSize },
       message: 'Failed to query destination bundle lifecycle logs.',
-    },
-  );
-}
-
-/** @deprecated Root polling is internal to the interop lifecycle. */
-export async function getInteropRoot(
-  provider: PublicClient,
-  rootChainId: bigint,
-  batchNumber: bigint,
-): Promise<Hex> {
-  return await wrap(
-    OP_INTEROP.svc.status.getRoot,
-    async () => {
-      return (await provider.readContract({
-        address: L2_INTEROP_ROOT_STORAGE_ADDRESS,
-        abi: IInteropRootStorageABI as Abi,
-        functionName: 'interopRoots',
-        args: [rootChainId, batchNumber],
-      })) as Hex;
-    },
-    {
-      ctx: { rootChainId, batchNumber },
-      message: 'Failed to get interop root from the destination chain.',
     },
   );
 }

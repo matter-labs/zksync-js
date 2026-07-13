@@ -18,7 +18,7 @@ import { createInteropResource, type InteropResource } from './resources/interop
 import type { InteropConfig } from './resources/interop/types';
 
 export interface ViemSdkOptions {
-  /** Configuration required for interop operations. */
+  /** @deprecated Interop no longer requires configuration. */
   interop?: InteropConfig;
 }
 

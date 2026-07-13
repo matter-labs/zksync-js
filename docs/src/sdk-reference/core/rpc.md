@@ -58,7 +58,7 @@ Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 | `batchNumber`        | bigint   | L1 batch number the log was included in.                                                          |
 | `proof`              | Hex[]    | Merkle proof elements.                                                                            |
 | `root`               | Hex      | Merkle root the proof anchors to.                                                                 |
-| `gatewayBlockNumber` | bigint?  | Gateway block number associated with this proof. Present when using `ProofTarget.MessageRoot`; used for cross-chain interop finalization. |
+| `gatewayBlockNumber` | bigint?  | Deprecated legacy RPC metadata. It is not used for interop readiness. |
 
 ```ts
 {{#include ../../../snippets/core/rpc.test.ts:proof-target}}

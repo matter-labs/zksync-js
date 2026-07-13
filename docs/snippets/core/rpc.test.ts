@@ -44,6 +44,7 @@ type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
+  /** @deprecated Legacy RPC metadata; not used for interop readiness. */
   gatewayBlockNumber?: bigint;
 };
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   IBaseTokenABI,
+  IInteropCenterABI,
   IInteropHandlerABI,
   IInteropHandlerBaseABI,
   IL1NullifierABI,
@@ -45,5 +46,14 @@ describe('unified withdrawal ABI surface', () => {
     expect(functionNames(IInteropHandlerABI)).toContain('executeBundle');
     expect(functionNames(IInteropHandlerABI)).not.toContain('L1_CHAIN_ID');
     expect(functionNames(IInteropHandlerABI)).not.toContain('initL2');
+  });
+
+  it('uses unique bundle salts instead of the obsolete interop nonce model', () => {
+    expect(functionNames(IInteropCenterABI)).toContain('isInteropBundleSaltUsed');
+    expect(functionNames(IInteropCenterABI)).not.toContain('interopBundleNonce');
+    const sentEvent = IInteropCenterABI.find(
+      (item) => item.type === 'event' && item.name === 'InteropBundleSent',
+    );
+    expect(JSON.stringify(sentEvent)).toContain('"name":"salt"');
   });
 });

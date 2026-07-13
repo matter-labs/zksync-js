@@ -26,9 +26,7 @@ const l1Wallet = createWalletClient<Transport, Chain, Account>({
 });
 
 const client = createViemClient({ l1, l2: l2Src, l1Wallet });
-sdk = createViemSdk(client, {
-  interop: { gwChain: process.env.GW_RPC! }, // required for interop
-});
+sdk = createViemSdk(client);
 // sdk.interop → InteropResource
 // ANCHOR_END: init-sdk
   });

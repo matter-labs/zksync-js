@@ -10,7 +10,7 @@ Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 token
 * **Typical flow:** `create → wait → finalize`
 * **Inspection flow:** `quote → prepare → create → status → wait → finalize`
 * **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
-* **SDK config:** Requires `interop: { gwChain }` — see [Import](#import)
+* **SDK config:** No interop-specific configuration is required.
 
 ## Import
 
@@ -21,8 +21,7 @@ Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 token
 ```
 
 > [!INFO]
-> The `gwChain` option is **required** for interop. It can be a RPC URL string or a live `PublicClient`.
-> It is used internally by `wait()` to determine destination proof readiness.
+> `wait()` uses the source proof and destination `executeBundle` simulation to determine readiness.
 
 ## Quick Start
 
@@ -234,10 +233,8 @@ Result-style `finalize`. Accepts the same `txOverrides` parameter.
 
 ## Notes & Pitfalls
 
-* **`gwChain` is required:** Forgetting it causes a `STATE` error on the first interop call.
 * **`dstChain` first:** All interop methods take the destination chain as the **first** argument — unlike deposits/withdrawals.
 * **Finalization is on destination:** `finalize()` sends a transaction on the **destination L2**, not on L1. Use `txOverrides` to set a custom gas limit when the receiver contract consumes significant gas.
 * **`wait()` can take minutes:** It polls until the L2→L1 proof and destination handler are ready. Use `timeoutMs` to bound long waits.
 * **ERC-20 approvals:** If `approvalsNeeded` is non-empty, `create()` automatically sends approval transactions first.
-* **ERC-20 tokens must be migrated to Gateway:** The SDK does **not** migrate tokens automatically. If the ERC-20 token has not been migrated to the Gateway chain, `create()` will throw an error. Migrate the token first before using it in an interop transfer.
 * **Multiple actions:** Actions are atomic — all succeed or the bundle fails. Partial unbundling is not exposed by the intent resource.

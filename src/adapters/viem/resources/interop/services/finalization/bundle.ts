@@ -4,6 +4,7 @@ import type { InteropFinalizationInfo } from '../../../../../../core/types/flows
 import type { TxGasOverrides } from '../../../../../../core/types/fees';
 import type { ViemClient } from '../../../../client';
 import { createErrorHandlers, toZKsyncError } from '../../../../errors/error-ops';
+import { decodeRevert } from '../../../../errors/revert';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { createError } from '../../../../../../core/errors/factory';
 import { isZKsyncError } from '../../../../../../core/types/errors';
@@ -80,6 +81,47 @@ export async function findBundleDestinationTxHash(
   return bundleLogs.findLast(
     (log: Log) => log.topics[0]?.toLowerCase() === eventTopic.toLowerCase(),
   )?.transactionHash;
+}
+
+export async function isBundleExecutable(
+  client: ViemClient,
+  dstProvider: PublicClient,
+  info: InteropFinalizationInfo,
+): Promise<boolean> {
+  const state = decodeBundleStatus(await readBundleStatus(client, dstProvider, info.bundleHash));
+  if (state === 'FULLY_EXECUTED') return true;
+  if (state === 'UNBUNDLED') {
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.svc.wait.poll,
+      message: 'Interop bundle was unbundled and cannot be executed atomically.',
+      context: { bundleHash: info.bundleHash },
+    });
+  }
+
+  const { interopHandler } = await client.ensureAddresses();
+  try {
+    await dstProvider.simulateContract({
+      address: interopHandler,
+      abi: IInteropHandlerAbi,
+      functionName: 'executeBundle',
+      args: [info.encodedData, info.proof] as never,
+      account: client.account,
+    });
+    return true;
+  } catch (error) {
+    if (decodeRevert(error)?.name === 'MessageNotIncluded') return false;
+    throw toZKsyncError(
+      'STATE',
+      {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.poll,
+        message: 'Destination handler rejected executeBundle readiness simulation.',
+        context: { bundleHash: info.bundleHash, interopHandler },
+      },
+      error,
+    );
+  }
 }
 
 export async function executeBundle(

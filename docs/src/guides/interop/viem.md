@@ -12,15 +12,14 @@ Interop is a **three-step process**:
 
 - A funded **source L2** account (gas + action value + interop fee).
 - A funded **destination L2** account for the finalization transaction.
-- RPC URLs: `L1_RPC_URL`, `GW_RPC_URL`, `SRC_L2_RPC_URL`, `DST_L2_RPC_URL`.
+- RPC URLs: `L1_RPC_URL`, `SRC_L2_RPC_URL`, `DST_L2_RPC_URL`.
 - Installed: `@matterlabs/zksync-js` + `viem`.
-- SDK initialized with `interop: { gwChain }` (see [Setup](#setup)).
 
 ---
 
 ## Setup
 
-Interop requires the SDK to know the **gateway chain** RPC, used internally by `wait()` to determine destination proof readiness.
+Interop uses the source and destination providers directly. No additional gateway configuration is required.
 
 ```ts
 {{#include ../../../snippets/viem/guides/interop-guide.test.ts:imports}}
@@ -45,9 +44,6 @@ Interop requires the SDK to know the **gateway chain** RPC, used internally by `
 | `call`        | `to`, `data`, `value?`             | Execute arbitrary contract call         |
 
 > ERC-20 actions may require an L2 `approve()` on the source chain. **`quote()`** surfaces required approvals.
-
-> [!WARNING]
-> The ERC-20 token must already be **migrated to the Gateway** chain before it can be used in an interop transfer. The SDK does not perform this migration automatically — if the token is not migrated, `create()` will throw an error.
 
 ---
 
@@ -139,7 +135,6 @@ This is useful for **UI flows** or **services** where you want explicit control 
 
 ## Troubleshooting
 
-- **`Interop is not configured`:** Pass `interop: { gwChain: GW_RPC }` when creating the SDK.
 - **Stuck at `SENT`:** The L2→L1 proof may not be generated yet; `wait()` polls automatically.
 - **`FAILED` phase:** Inspect `status.dstExecTxHash` for the destination revert; check the action calldata and value.
 - **Finalize reverts:** Ensure the destination L2 account has enough gas. The bundle may have already been executed — check `status()` first.

@@ -137,9 +137,7 @@ const client = createEthersClient({
   signer: new Wallet(process.env.PRIVATE_KEY!, l1),
 });
 
-sdk = createEthersSdk(client, {
-  interop: { gwChain: process.env.GW_RPC! }, // required for interop
-});
+sdk = createEthersSdk(client);
 // sdk.interop → InteropResource
 // ANCHOR_END: init-sdk
   });

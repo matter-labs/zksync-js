@@ -3,9 +3,11 @@ import { Interface } from 'ethers';
 
 import { createInteropResource as createEthersInteropResource } from '../../ethers/resources/interop/index.ts';
 import { createInteropResource as createViemInteropResource } from '../../viem/resources/interop/index.ts';
+import { isBundleExecutable as isEthersBundleExecutable } from '../../ethers/resources/interop/services/finalization/bundle.ts';
+import { isBundleExecutable as isViemBundleExecutable } from '../../viem/resources/interop/services/finalization/bundle.ts';
 import { describeForAdapters, ADAPTER_TEST_ADDRESSES } from '../adapter-harness.ts';
-import { L2_INTEROP_ROOT_STORAGE_ADDRESS } from '../../../core/constants.ts';
-import { IInteropRootStorageABI } from '../../../core/abi.ts';
+import { L2_INTEROP_HANDLER_ADDRESS } from '../../../core/constants.ts';
+import { IInteropErrorsABI, IInteropHandlerABI } from '../../../core/abi.ts';
 import type { Hex } from '../../../core/types/primitives.ts';
 import type { InteropFinalizationInfo } from '../../../core/types/flows/interop.ts';
 
@@ -20,8 +22,6 @@ const BUNDLE_HASH = `0x${'cc'.repeat(32)}` as Hex;
 const ENCODED_DATA = `0x${'dd'.repeat(64)}` as Hex;
 const SRC_TX_HASH = `0x${'aa'.repeat(32)}` as Hex;
 const VERIFY_TX_HASH = `0x${'bb'.repeat(32)}` as Hex;
-const INTEROP_ROOT = `0x${'ee'.repeat(32)}` as Hex;
-
 const ROOT_CHAIN_ID = 324n;
 const BATCH_NUMBER = 5n;
 
@@ -43,7 +43,8 @@ const FINALIZATION_INFO: InteropFinalizationInfo = {
   },
 };
 
-const IInteropRootStorage = new Interface(IInteropRootStorageABI as any);
+const IInteropHandler = new Interface(IInteropHandlerABI as any);
+const IInteropErrors = new Interface(IInteropErrorsABI as any);
 
 function createResource(kind: AdapterKind, harness: any) {
   if (kind === 'viem' && typeof harness.client.account === 'string') {
@@ -53,7 +54,7 @@ function createResource(kind: AdapterKind, harness: any) {
     harness.l2Wallet.account = normalized;
   }
 
-  return RESOURCES[kind](harness.client, { gwChain: harness.l2 as any });
+  return RESOURCES[kind](harness.client);
 }
 
 /** Patches the viem dstProvider's transport so writeContract can send a transaction. */
@@ -95,20 +96,77 @@ function mockViemTransport(
 // ---------------------------------------------------------------------------
 
 describeForAdapters('adapters/interop/getInteropRoot', (kind, factory) => {
-  it('returns the interop root from the destination chain', async () => {
+  it('returns a clear deprecation error without reading a root contract', async () => {
     const harness = factory();
     const interop = createResource(kind, harness);
 
-    harness.registry.set(
-      L2_INTEROP_ROOT_STORAGE_ADDRESS,
-      IInteropRootStorage,
-      'interopRoots',
-      INTEROP_ROOT,
-      [ROOT_CHAIN_ID, BATCH_NUMBER],
-    );
+    await expect(
+      interop.getInteropRoot(harness.l2 as any, ROOT_CHAIN_ID, BATCH_NUMBER),
+    ).rejects.toThrow(/no longer uses gateway root polling/i);
+  });
+});
 
-    const result = await interop.getInteropRoot(harness.l2 as any, ROOT_CHAIN_ID, BATCH_NUMBER);
-    expect(result).toBe(INTEROP_ROOT);
+// ---------------------------------------------------------------------------
+// executeBundle readiness
+// ---------------------------------------------------------------------------
+
+describeForAdapters('adapters/interop/executeBundle readiness', (kind, factory) => {
+  it('simulates executeBundle directly on the destination handler', async () => {
+    const harness = factory();
+    harness.registry.set(L2_INTEROP_HANDLER_ADDRESS, IInteropHandler, 'bundleStatus', 0, [
+      BUNDLE_HASH,
+    ]);
+
+    let simulated = false;
+    if (kind === 'ethers') {
+      const call = (harness.l2 as any).call.bind(harness.l2);
+      (harness.l2 as any).call = async (tx: { to?: string; data?: string }) => {
+        if (tx.data?.startsWith(IInteropHandler.getFunction('executeBundle')!.selector)) {
+          simulated = true;
+          return '0x';
+        }
+        return call(tx);
+      };
+      expect(
+        await isEthersBundleExecutable(harness.client, harness.l2 as any, FINALIZATION_INFO),
+      ).toBe(true);
+    } else {
+      harness.setSimulateResponse((args) => {
+        simulated = (args as { functionName?: string }).functionName === 'executeBundle';
+        return { request: args };
+      }, 'l2');
+      expect(
+        await isViemBundleExecutable(harness.client, harness.l2 as any, FINALIZATION_INFO),
+      ).toBe(true);
+    }
+
+    expect(simulated).toBe(true);
+  });
+
+  it('retries when the destination reports MessageNotIncluded', async () => {
+    const harness = factory();
+    harness.registry.set(L2_INTEROP_HANDLER_ADDRESS, IInteropHandler, 'bundleStatus', 0, [
+      BUNDLE_HASH,
+    ]);
+    const revertData = IInteropErrors.encodeErrorResult('MessageNotIncluded');
+    const error = Object.assign(new Error('execution reverted'), { data: revertData });
+
+    if (kind === 'ethers') {
+      const call = (harness.l2 as any).call.bind(harness.l2);
+      (harness.l2 as any).call = async (tx: { to?: string; data?: string }) => {
+        if (tx.data?.startsWith(IInteropHandler.getFunction('executeBundle')!.selector))
+          throw error;
+        return call(tx);
+      };
+      expect(
+        await isEthersBundleExecutable(harness.client, harness.l2 as any, FINALIZATION_INFO),
+      ).toBe(false);
+    } else {
+      harness.setSimulateError(error, 'l2');
+      expect(
+        await isViemBundleExecutable(harness.client, harness.l2 as any, FINALIZATION_INFO),
+      ).toBe(false);
+    }
   });
 });
 

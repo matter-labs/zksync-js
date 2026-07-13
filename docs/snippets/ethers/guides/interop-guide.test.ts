@@ -5,7 +5,6 @@ import { JsonRpcProvider, Wallet } from 'ethers';
 import { createEthersClient, createEthersSdk } from '../../../../src/adapters/ethers';
 
 const L1_RPC = 'http://localhost:8545';   // e.g. https://sepolia.infura.io/v3/XXX
-const GW_RPC = 'http://localhost:3052';   // gateway chain RPC
 const SRC_L2_RPC = 'http://localhost:3050'; // source L2 RPC
 const DST_L2_RPC = 'http://localhost:3051'; // destination L2 RPC
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
@@ -30,9 +29,7 @@ async function main() {
 
   const signer = new Wallet(PRIVATE_KEY);
   const client = createEthersClient({ l1, l2: l2Src, signer });
-  const sdk = createEthersSdk(client, {
-    interop: { gwChain: GW_RPC },
-  });
+  const sdk = createEthersSdk(client);
 
   const me = (await signer.getAddress()) as `0x${string}`;
   const params = {
@@ -112,7 +109,7 @@ async function _snippets() {
   const l2Dst = new JsonRpcProvider(DST_L2_RPC);
   const signer = new Wallet(PRIVATE_KEY);
   const client = createEthersClient({ l1, l2: l2Src, signer });
-  const sdk = createEthersSdk(client, { interop: { gwChain: GW_RPC } });
+  const sdk = createEthersSdk(client);
   const me = (await signer.getAddress()) as `0x${string}`;
   const params = {
     actions: [

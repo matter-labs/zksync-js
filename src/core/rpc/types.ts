@@ -30,6 +30,7 @@ export type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
+  /** @deprecated Legacy RPC metadata. The cross-chain lifecycle does not use a gateway. */
   gatewayBlockNumber?: bigint;
 };
 

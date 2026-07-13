@@ -18,7 +18,7 @@ import { isBigint, isNumber } from '../utils';
 // The root that the returned merkle proof anchors to.
 export enum ProofTarget {
   // Proof anchored to the SL L1 batch aggregated root.
-  // The proof covers the full gateway batch range and includes the local-root extension,
+  // The proof covers the full settlement batch range and includes the local-root extension,
   // making it suitable for L1 verification.
   L1BatchRoot = 'l1BatchRoot',
   // Proof anchored to the SL block-level message root.
@@ -76,7 +76,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
     const raw = (p ?? {}) as Record<string, unknown>;
     const idRaw = raw?.id ?? raw?.index;
     const bnRaw = raw?.batch_number ?? raw?.batchNumber;
-    const gwBlockNumberRaw = raw?.gatewayBlockNumber;
+    const legacyGatewayBlockNumberRaw = raw?.gatewayBlockNumber;
     if (idRaw == null || bnRaw == null) {
       throw createError('RPC', {
         resource: 'zksrpc' as Resource,
@@ -108,7 +108,8 @@ export function normalizeProof(p: unknown): ProofNormalized {
       batchNumber: toBig(bnRaw),
       proof: toHexArray(raw?.proof),
       root: raw.root as Hex,
-      gatewayBlockNumber: gwBlockNumberRaw != null ? toBig(gwBlockNumberRaw) : undefined,
+      gatewayBlockNumber:
+        legacyGatewayBlockNumberRaw != null ? toBig(legacyGatewayBlockNumberRaw) : undefined,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;

@@ -81,6 +81,7 @@ function createBundleReceipt() {
         executionAddress: '0x',
         unbundlerAddress: '0x',
         useFixedFee: false,
+        salt: ZERO_HASH,
       },
     },
   ]);

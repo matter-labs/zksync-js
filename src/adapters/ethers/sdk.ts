@@ -10,7 +10,7 @@ import { createContractsResource } from './resources/contracts/index';
 import type { InteropConfig } from './resources/interop/types';
 
 export interface EthersSdkOptions {
-  /** Configuration required for interop operations. */
+  /** @deprecated Interop no longer requires configuration. */
   interop?: InteropConfig;
 }
 

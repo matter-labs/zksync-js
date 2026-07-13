@@ -37,7 +37,6 @@ const PROOF: ProofNormalized = {
   batchNumber: 6n,
   proof: [`0x${'55'.repeat(32)}`],
   root: `0x${'66'.repeat(32)}`,
-  gatewayBlockNumber: 10n,
 };
 
 function createClock() {

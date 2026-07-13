@@ -9,6 +9,7 @@ import type { InteropFinalizationInfo } from '../../../../../../core/types/flows
 import type { TxGasOverrides } from '../../../../../../core/types/fees';
 import type { EthersClient } from '../../../../client';
 import { createErrorHandlers, toZKsyncError } from '../../../../errors/error-ops';
+import { decodeRevert } from '../../../../errors/revert';
 import { OP_INTEROP } from '../../../../../../core/types';
 import { createError } from '../../../../../../core/errors/factory';
 import { isZKsyncError } from '../../../../../../core/types/errors';
@@ -76,6 +77,46 @@ export async function findBundleDestinationTxHash(
   const eventTopic = state === 'FULLY_EXECUTED' ? topics.bundleExecuted : topics.bundleUnbundled;
   return bundleLogs.findLast((log) => log.topics[0]?.toLowerCase() === eventTopic.toLowerCase())
     ?.transactionHash;
+}
+
+export async function isBundleExecutable(
+  client: EthersClient,
+  dstProvider: AbstractProvider,
+  info: InteropFinalizationInfo,
+): Promise<boolean> {
+  const state = decodeBundleStatus(await readBundleStatus(client, dstProvider, info.bundleHash));
+  if (state === 'FULLY_EXECUTED') return true;
+  if (state === 'UNBUNDLED') {
+    throw createError('STATE', {
+      resource: 'interop',
+      operation: OP_INTEROP.svc.wait.poll,
+      message: 'Interop bundle was unbundled and cannot be executed atomically.',
+      context: { bundleHash: info.bundleHash },
+    });
+  }
+
+  const signer = await wrap(OP_INTEROP.svc.wait.poll, () => client.signerFor(dstProvider), {
+    message: 'Failed to resolve destination signer for bundle readiness simulation.',
+  });
+  const { interopHandler } = await client.ensureAddresses();
+  const handler = new Contract(interopHandler, IInteropHandlerAbi, signer);
+
+  try {
+    await handler.executeBundle.staticCall(info.encodedData, info.proof);
+    return true;
+  } catch (error) {
+    if (decodeRevert(error)?.name === 'MessageNotIncluded') return false;
+    throw toZKsyncError(
+      'STATE',
+      {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.wait.poll,
+        message: 'Destination handler rejected executeBundle readiness simulation.',
+        context: { bundleHash: info.bundleHash, interopHandler },
+      },
+      error,
+    );
+  }
 }
 
 export async function executeBundle(

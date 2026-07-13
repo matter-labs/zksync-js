@@ -22,7 +22,6 @@
  *
  * Optional env (defaults match the standard local multi-chain setup):
  *   L1_RPC           – http://127.0.0.1:8545
- *   GW_RPC           – http://127.0.0.1:3052
  *   SRC_L2_RPC       – http://127.0.0.1:3050
  *   DST_L2_RPC       – http://127.0.0.1:3051
  */
@@ -35,7 +34,6 @@ import { IERC20ABI } from '../src/core/abi';
 import { getErc20TokenAddress, getGreetingTokenAddress } from '../examples/ethers/interop/utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
-const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 
@@ -60,12 +58,10 @@ async function main() {
 
   const sdkSrc = createEthersSdk(
     createEthersClient({ l1, l2: l2Src, signer: new Wallet(PRIVATE_KEY, l1) }),
-    { interop: { gwChain: GW_RPC } },
   );
 
   const sdkDst = createEthersSdk(
     createEthersClient({ l1, l2: l2Dst, signer: new Wallet(PRIVATE_KEY, l1) }),
-    { interop: { gwChain: GW_RPC } },
   );
 
   // 1. Deposit ETH from L1 to L2 src.

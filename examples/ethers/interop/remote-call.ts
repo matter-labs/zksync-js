@@ -3,7 +3,6 @@ import { createEthersClient, createEthersSdk } from '../../../src/adapters/ether
 import { getGreetingTokenAddress } from './utils';
 
 const L1_RPC = process.env.L1_RPC ?? 'http://127.0.0.1:8545';
-const GW_RPC = process.env.GW_RPC ?? 'http://127.0.0.1:3052';
 const SRC_L2_RPC = process.env.SRC_L2_RPC ?? 'http://127.0.0.1:3050';
 const DST_L2_RPC = process.env.DST_L2_RPC ?? 'http://127.0.0.1:3051';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -23,9 +22,7 @@ async function main() {
     l2: l2Source,
     signer,
   });
-  const sdk = createEthersSdk(client, {
-    interop: { gwChain: GW_RPC },
-  });
+  const sdk = createEthersSdk(client);
   const dstSigner = new Wallet(PRIVATE_KEY, l2Destination);
 
   // ---- Deploy Greeter on destination ----

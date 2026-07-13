@@ -40,9 +40,7 @@ function createResource(kind: AdapterKind, harness: any) {
     harness.l2Wallet.account = normalized;
   }
 
-  return RESOURCES[kind](harness.client, {
-    gwChain: harness.l2 as any,
-  });
+  return RESOURCES[kind](harness.client);
 }
 
 describeForAdapters('adapters/interop/resource', (kind, factory) => {

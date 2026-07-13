@@ -104,7 +104,7 @@ const IInteropCenterABI = [
   },
   {
     type: 'function',
-    name: 'forwardTransactionOnGatewayWithBalanceChange',
+    name: 'forwardTransactionOnGateway',
     inputs: [
       {
         name: '_chainId',
@@ -120,48 +120,6 @@ const IInteropCenterABI = [
         name: '_expirationTimestamp',
         type: 'uint64',
         internalType: 'uint64',
-      },
-      {
-        name: '_balanceChange',
-        type: 'tuple',
-        internalType: 'struct BalanceChange',
-        components: [
-          {
-            name: 'version',
-            type: 'bytes1',
-            internalType: 'bytes1',
-          },
-          {
-            name: 'originToken',
-            type: 'address',
-            internalType: 'address',
-          },
-          {
-            name: 'baseTokenAssetId',
-            type: 'bytes32',
-            internalType: 'bytes32',
-          },
-          {
-            name: 'baseTokenAmount',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'assetId',
-            type: 'bytes32',
-            internalType: 'bytes32',
-          },
-          {
-            name: 'amount',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-          {
-            name: 'tokenOriginChainId',
-            type: 'uint256',
-            internalType: 'uint256',
-          },
-        ],
       },
     ],
     outputs: [],
@@ -205,19 +163,24 @@ const IInteropCenterABI = [
   },
   {
     type: 'function',
-    name: 'interopBundleNonce',
+    name: 'isInteropBundleSaltUsed',
     inputs: [
       {
-        name: 'sender',
+        name: 'user',
         type: 'address',
         internalType: 'address',
+      },
+      {
+        name: 'salt',
+        type: 'bytes32',
+        internalType: 'bytes32',
       },
     ],
     outputs: [
       {
         name: '',
-        type: 'uint256',
-        internalType: 'uint256',
+        type: 'bool',
+        internalType: 'bool',
       },
     ],
     stateMutability: 'view',
@@ -292,6 +255,11 @@ const IInteropCenterABI = [
             name: 'useFixedFee',
             type: 'bool',
             internalType: 'bool',
+          },
+          {
+            name: 'salt',
+            type: 'bytes32',
+            internalType: 'bytes32',
           },
         ],
       },
@@ -368,24 +336,6 @@ const IInteropCenterABI = [
     type: 'function',
     name: 'unpause',
     inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'updateL2',
-    inputs: [
-      {
-        name: '_l1ChainId',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: '_owner',
-        type: 'address',
-        internalType: 'address',
-      },
-    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -531,6 +481,11 @@ const IInteropCenterABI = [
                 type: 'bool',
                 internalType: 'bool',
               },
+              {
+                name: 'salt',
+                type: 'bytes32',
+                internalType: 'bytes32',
+              },
             ],
           },
         ],
@@ -569,25 +524,6 @@ const IInteropCenterABI = [
       },
       {
         name: 'newAssetRouter',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'NewAssetTracker',
-    inputs: [
-      {
-        name: 'oldAssetTracker',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-      {
-        name: 'newAssetTracker',
         type: 'address',
         indexed: true,
         internalType: 'address',

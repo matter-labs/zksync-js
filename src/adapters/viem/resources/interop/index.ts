@@ -32,8 +32,9 @@ import {
   createInteropFinalizationServices,
   type InteropFinalizationServices,
 } from './services/finalization';
-import { getInteropRoot, type LogsQueryOptions } from './services/finalization/data-fetchers';
+import type { LogsQueryOptions } from './services/finalization/data-fetchers';
 import { verifyBundle as verifyBundleOnChain } from './services/finalization/bundle';
+import { waitForFinalization } from './services/finalization/polling';
 import type { ChainRef, InteropConfig } from './types';
 import type { TxGasOverrides } from '../../../../core/types/fees';
 import { resolveChainRef } from './resolvers';
@@ -102,7 +103,7 @@ export interface InteropResource {
     txOverrides?: TxGasOverrides,
   ): Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error: unknown }>;
 
-  /** @deprecated Use `interop.status`, `wait`, and `finalize` instead. */
+  /** @deprecated Retained for source compatibility; always rejects because root polling was removed. */
   getInteropRoot(dstChain: ChainRef, rootChainId: bigint, batchNumber: bigint): Promise<Hex>;
 
   /** @deprecated Bundles are verified and executed atomically by `interop.finalize`. */
@@ -114,29 +115,11 @@ export interface InteropResource {
 
 export function createInteropResource(
   client: ViemClient,
-  config?: InteropConfig,
+  _config?: InteropConfig,
   tokens?: TokensResource,
   contracts?: ContractsResource,
   attributes?: AttributesResource,
 ): InteropResource {
-  // Lazy provider resolution — validated on first interop method call.
-  let gwProviderCache: PublicClient | undefined;
-
-  function requireConfig(): InteropConfig {
-    if (!config)
-      throw createError('STATE', {
-        resource: 'interop',
-        operation: 'interop.init',
-        message: 'Interop is not configured. Pass gwChain in createViemSdk options.',
-      });
-    return config;
-  }
-
-  function getGwProvider(): PublicClient {
-    if (!gwProviderCache) gwProviderCache = resolveChainRef(requireConfig().gwChain);
-    return gwProviderCache;
-  }
-
   const svc: InteropFinalizationServices = createInteropFinalizationServices(client);
   const tokensResource = tokens ?? createTokensResource(client);
   const contractsResource = contracts ?? createContractsResource(client);
@@ -340,13 +323,13 @@ export function createInteropResource(
       ctx: { where: 'interop.status' },
     });
 
-  // wait → block until source finalization + destination root availability
+  // wait → block until the source proof is executable by the destination handler
   const wait = (
     dstChain: ChainRef,
     h: InteropWaitable,
     opts?: { pollMs?: number; timeoutMs?: number },
   ): Promise<InteropFinalizationInfo> =>
-    wrap(OP_INTEROP.wait, () => svc.wait(resolveChainRef(dstChain), getGwProvider(), h, opts), {
+    wrap(OP_INTEROP.wait, () => svc.wait(resolveChainRef(dstChain), h, opts), {
       message: 'Internal error while waiting for interop finalization.',
       ctx: { where: 'interop.wait' },
     });
@@ -372,7 +355,7 @@ export function createInteropResource(
           return svc.finalize(dstProvider, h, opts, txOverrides);
         }
 
-        const info = await svc.wait(dstProvider, getGwProvider(), h);
+        const info = await svc.wait(dstProvider, h);
         return svc.finalize(dstProvider, info, opts, txOverrides);
       },
       {
@@ -392,17 +375,18 @@ export function createInteropResource(
     );
 
   const interopGetRoot = (
-    dstChain: ChainRef,
+    _dstChain: ChainRef,
     rootChainId: bigint,
     batchNumber: bigint,
   ): Promise<Hex> =>
-    wrap(
-      OP_INTEROP.svc.status.getRoot,
-      () => getInteropRoot(resolveChainRef(dstChain), rootChainId, batchNumber),
-      {
-        message: 'Failed to get interop root from the destination chain.',
-        ctx: { where: 'interop.getInteropRoot' },
-      },
+    Promise.reject(
+      createError('STATE', {
+        resource: 'interop',
+        operation: OP_INTEROP.svc.status.getRoot,
+        message:
+          'getInteropRoot is deprecated and unavailable because interop no longer uses gateway root polling. Use interop.wait or interop.finalize.',
+        context: { rootChainId, batchNumber },
+      }),
     );
 
   const verifyBundle = (
@@ -415,7 +399,7 @@ export function createInteropResource(
         const dstProvider = resolveChainRef(dstChain);
         const info = isInteropFinalizationInfoBase(h)
           ? h
-          : await svc.wait(dstProvider, getGwProvider(), h);
+          : await waitForFinalization(client, dstProvider, h, undefined, false);
         const result = await verifyBundleOnChain(client, dstProvider, info);
         await result.wait();
         return { bundleHash: info.bundleHash, dstExecTxHash: result.hash };
