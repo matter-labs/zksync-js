@@ -50,32 +50,26 @@ export interface InteropAttributes {
   callAttributes: Hex[][];
 }
 
+export interface InteropAtomicSend {
+  flowId: Hex;
+  deadline: bigint;
+  lowNullifierIndex: bigint;
+}
+
 // InteropStarter data for indirect route (encoded bridge payloads)
 export interface InteropStarterData {
   assetRouterPayload?: Hex;
 }
 
 export function preflightDirect(params: InteropParams, ctx: InteropBuildCtx): void {
+  void ctx;
   if (!params.actions?.length) {
     throw new Error('route "direct" requires at least one action.');
   }
 
-  const baseMatch = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
-  if (!baseMatch) {
-    throw new Error('route "direct" requires matching base tokens between source and destination.');
-  }
-
   for (const action of params.actions) {
     switch (action.type) {
-      case 'sendNative':
-        if (action.amount < 0n) {
-          throw new Error('sendNative.amount must be >= 0.');
-        }
-        break;
       case 'call':
-        if (action.value != null && action.value < 0n) {
-          throw new Error('call.value must be >= 0 when provided.');
-        }
         break;
       default:
         throw new Error(
@@ -96,8 +90,6 @@ export function buildDirectBundle(
     const to = ctx.codec.formatAddress(action.to);
     const callAttributes = attrs.callAttributes[index] ?? [];
     switch (action.type) {
-      case 'sendNative':
-        return [to, '0x' as Hex, callAttributes];
       case 'call':
         return [to, action.data ?? ('0x' as Hex), callAttributes];
       default:
@@ -119,40 +111,24 @@ export function buildDirectBundle(
 }
 
 export function preflightIndirect(params: InteropParams, ctx: InteropBuildCtx): void {
+  void ctx;
   if (!params.actions?.length) {
     throw new Error('route "indirect" requires at least one action.');
   }
 
   const hasErc20 = params.actions.some((a) => a.type === 'sendErc20');
-  const baseMatches = ctx.baseTokens.src.toLowerCase() === ctx.baseTokens.dst.toLowerCase();
-
-  if (!hasErc20 && baseMatches) {
-    throw new Error(
-      'route "indirect" requires ERC-20 actions or mismatched base tokens; use the direct route instead.',
-    );
+  if (!hasErc20) {
+    throw new Error('route "indirect" requires at least one ERC-20 action.');
   }
 
   for (const action of params.actions) {
     switch (action.type) {
-      case 'sendNative':
-        if (action.amount < 0n) {
-          throw new Error('sendNative.amount must be >= 0.');
-        }
-        break;
       case 'sendErc20':
-        if (action.amount < 0n) {
-          throw new Error('sendErc20.amount must be >= 0.');
+        if (action.amount <= 0n) {
+          throw new Error('sendErc20.amount must be greater than zero.');
         }
         break;
       case 'call':
-        if (action.value != null) {
-          if (action.value < 0n) {
-            throw new Error('call.value must be >= 0 when provided.');
-          }
-          if (action.value > 0n && !baseMatches) {
-            throw new Error('indirect route does not support call.value when base tokens differ.');
-          }
-        }
         break;
       default:
         assertNever(action);
@@ -192,18 +168,16 @@ export function buildIndirectBundle(
   const starters: InteropStarter[] = params.actions.map((action, index) => {
     const callAttributes = attrs.callAttributes[index] ?? [];
 
-    // sendErc20 and sendNative with different base tokens go via L2 asset router
+    // ERC-20 transfers go via the L2 asset router.
     if (starterData[index]?.assetRouterPayload) {
       const l2AssetRouter = ctx.codec.formatAddress(ctx.l2AssetRouter);
       return [l2AssetRouter, starterData[index].assetRouterPayload, callAttributes];
     }
 
-    // sendNative with matching base tokens or call/other actions go direct
+    // Arbitrary zero-value calls remain direct within a mixed indirect bundle.
     const directTo = ctx.codec.formatAddress(action.to);
 
     switch (action.type) {
-      case 'sendNative':
-        return [directTo, '0x' as Hex, callAttributes];
       case 'call':
         return [directTo, action.data ?? ('0x' as Hex), callAttributes];
       case 'sendErc20':

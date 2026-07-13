@@ -40,10 +40,11 @@ describe('unified withdrawal ABI surface', () => {
     expect(functionNames(IL1NullifierABI)).toContain('l1InteropHandler');
   });
 
-  it('retains IInteropHandlerABI as the common-handler compatibility alias', () => {
+  it('retains IInteropHandlerABI as the status-only common-handler alias', () => {
     expect(IInteropHandlerABI).toBe(IInteropHandlerBaseABI);
     expect(functionNames(IInteropHandlerABI)).toContain('bundleStatus');
-    expect(functionNames(IInteropHandlerABI)).toContain('executeBundle');
+    expect(functionNames(IInteropHandlerABI)).not.toContain('verifyBundle');
+    expect(functionNames(IInteropHandlerABI)).not.toContain('unbundleBundle');
     expect(functionNames(IInteropHandlerABI)).not.toContain('L1_CHAIN_ID');
     expect(functionNames(IInteropHandlerABI)).not.toContain('initL2');
   });

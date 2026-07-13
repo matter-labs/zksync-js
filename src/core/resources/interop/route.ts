@@ -11,14 +11,10 @@ export interface InteropCtx {
   baseTokenDst: Address;
 }
 
-// Sums action-level native value (sendNative + call.value)
-export function sumActionMsgValue(actions: readonly InteropAction[]): bigint {
-  let sum = 0n;
-  for (const a of actions) {
-    if (a.type === 'sendNative') sum += a.amount;
-    else if (a.type === 'call' && a.value) sum += a.value;
-  }
-  return sum;
+// Native-value legs remain disabled until timeout recovery is production-ready.
+export function sumActionMsgValue(_actions: readonly InteropAction[]): bigint {
+  void _actions;
+  return 0n;
 }
 
 // Sums ERC-20 amounts (for bridge planning & approvals)
@@ -34,10 +30,7 @@ export function pickInteropRoute(args: {
   ctx: InteropCtx;
 }): InteropRoute {
   const hasErc20 = args.actions.some((a) => a.type === 'sendErc20');
-  const baseMatches = args.ctx.baseTokenSrc.toLowerCase() === args.ctx.baseTokenDst.toLowerCase();
-
-  // ERC-20 present → indirect. Base mismatch for value → indirect. Else direct.
+  // ERC-20 burns require the asset-router path. Recoverable zero-value calls are direct.
   if (hasErc20) return 'indirect';
-  if (!baseMatches) return 'indirect';
   return 'direct';
 }

@@ -1,147 +1,56 @@
-# Interop (ethers)
+# Atomic interop (ethers)
 
-A fast path to execute **cross-chain actions** between ZKsync L2 chains using the **ethers** adapter.
+`sdk.interop` creates one atomic source leg from one ZKsync chain to another. One SDK instance owns one source leg. There is no gateway configuration or gateway lifecycle.
 
-Interop is a **three-step process**:
+> [!WARNING]
+> Atomic sends are experimental while proof-backed completion and refund tooling remains external. Set `enableExperimentalAtomicSend: true` to use `prepare` or `create`.
 
-1. **Create** the bundle on the source L2.
-2. **Wait** until the bundle proof is available on the destination.
-3. **Finalize** to verify and execute every action atomically on the destination L2.
+## Supported actions
 
-## Prerequisites
+| Action | Availability | Requirement |
+| --- | --- | --- |
+| ERC-20 transfer | Enabled | Source-chain allowances must cover the exact bundle payload. |
+| Arbitrary call | Enabled with recovery | The destination contract must implement the declared `IAtomicRecoverable` recovery behavior. |
+| Native transfer/value | Disabled | Timeout recovery is not yet guaranteed for an ordinary recipient. |
 
-- A funded **source L2** account (gas + action value + interop fee).
-- A funded **destination L2** account for the finalization transaction.
-- RPC URLs: `L1_RPC_URL`, `SRC_L2_RPC_URL`, `DST_L2_RPC_URL`.
-- Installed: `@matterlabs/zksync-js` + `ethers`.
+Every leg needs an absolute `uint64` settlement-layer deadline. The configured L1 is the settlement layer unless `settlementLayerChainId` is supplied and matches it.
 
----
-
-## Setup
-
-Interop uses the source and destination providers directly. No additional gateway configuration is required.
+## One leg
 
 ```ts
 {{#include ../../../snippets/ethers/guides/interop-guide.test.ts:imports}}
 ```
 
----
-
-## Parameters (quick reference)
-
-| Param         | Required | Meaning                                               |
-| ------------- | -------- | ----------------------------------------------------- |
-| `actions`     | Yes      | Ordered list of actions to execute on destination     |
-| `execution`   | No       | Restrict execution to a specific address              |
-| `fee`         | No       | `{ useFixed: true }` to use fixed ZK fee instead of dynamic base-token fee |
-| `txOverrides` | No       | Gas overrides for the source L2 transaction           |
-
-### Action types
-
-| Type          | Fields                             | Effect on destination                   |
-| ------------- | ---------------------------------- | --------------------------------------- |
-| `sendErc20`   | `token`, `to`, `amount`            | Transfer ERC-20 tokens to `to`          |
-| `call`        | `to`, `data`, `value?`             | Execute arbitrary contract call         |
-
-> ERC-20 actions may require an L2 `approve()` on the source chain. **`quote()`** surfaces required approvals.
-
----
-
-## Fast path (one-shot)
+Create the SDK with the experimental send gate, derive a deadline from the latest L1 block, and build the leg parameters:
 
 ```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:imports}}
-
 {{#include ../../../snippets/ethers/guides/interop-guide.test.ts:main}}
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
 ```
 
-- `create()` sends the interop bundle on **source L2**.
-- `wait()` blocks until the bundle proof is available on destination.
-- `finalize()` atomically verifies and executes the bundle on **destination L2**.
+The intent keeps the generated salt, exact preview payload, bundle hash, and flow preimage stable between `quote`, `prepare`, and `create`. Calling `create(dstChain, params)` directly is also supported; it creates a single-leg flow and handles required approvals internally.
 
-## Inspect & customize (quote → prepare → create)
+## Multiple legs
 
-**1. Quote (no side-effects)**
-Preview fees, approvals, and route before sending anything.
+Each participant independently calls `approve` and `previewLeg` through an SDK connected to their own source chain. Exchange the serializable `{ bundleHash, sourceChainId }` commitments, agree on one deadline and settlement layer, then derive the same canonical flow:
 
 ```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:quote}}
+{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:multi-leg}}
 ```
 
-**2. Prepare (build txs, don't send)**
-Get `TransactionRequest[]` for signing or custom gas management.
+`defineFlow` sorts the paired commitments by bundle hash, rejects duplicate hashes, and computes the protocol `flowId`. Each participant binds only their local draft and independently calls `quote`, `prepare`, and `create` with that intent.
+
+## Status
+
+`status(dstChain, intentOrHandle)` is a non-blocking observation. It reads the source `LegState` and destination `bundleStatus`; it does not claim that a proof, executor, or refund transaction is ready.
+
+`wait`, `finalize`, and `refund` are intentionally absent until the SDK has a production proof source and documented external execution path. `verifyBundle`, root polling, and unbundling are not part of the atomic intent API.
+
+## Result style
+
+`tryQuote`, `tryPrepare`, and `tryCreate` return `{ ok, value }` or `{ ok, error }`:
 
 ```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:prepare}}
+{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:try-create}}
 ```
 
-**3. Create (send)**
-Executes all required source-chain steps and waits for receipts.
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:create}}
-```
-
-## Track progress (status vs wait)
-
-**Non-blocking snapshot**
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:status}}
-```
-
-**Block until ready for finalization**
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:wait}}
-```
-
-## Atomic finalization (required step)
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:finalize}}
-```
-
-> [!INFO]
-> You can also pass the `handle` (or raw `l2SrcTxHash`) directly to `finalize()`.
-> It will call `wait()` internally before calling `executeBundle` on the destination. Partial unbundling is not exposed by the intent API.
-
-## Error handling patterns
-
-**Exceptions**
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:try-catch-create}}
-```
-
-**No-throw style**
-
-Every method has a `try*` variant (e.g. `tryQuote`, `tryCreate`, `tryWait`, `tryFinalize`).
-These never throw—so you don't need a `try/catch`. Instead they return:
-
-- `{ ok: true, value: ... }` on success
-- `{ ok: false, error: ... }` on failure
-
-This is useful for **UI flows** or **services** where you want explicit control over errors.
-
-```ts
-{{#include ../../../snippets/ethers/guides/interop-guide.test.ts:tryCreate}}
-```
-
-## Troubleshooting
-
-- **Stuck at `SENT`:** The L2→L1 proof may not be generated yet; `wait()` polls automatically.
-- **`FAILED` phase:** Inspect `status.dstExecTxHash` for the destination revert; check the action calldata and value.
-- **Finalize reverts:** Ensure the destination L2 account has enough gas. The bundle may have already been executed — check `status()` first.
-
----
-
-## See also
-
-- [Status vs Wait](../../overview/status-vs-wait.md)
-- [Interop SDK Reference (ethers)](../../sdk-reference/ethers/interop.md)
+See [Interop SDK Reference (ethers)](../../sdk-reference/ethers/interop.md) for exact signatures and status phases.

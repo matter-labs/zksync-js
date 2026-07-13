@@ -1,240 +1,125 @@
-# Interop
+# Atomic interop
 
-Cross-chain execution between ZKsync L2 chains: send native tokens, ERC-20 tokens, or arbitrary contract calls from a source L2 to a destination L2 using the **viem adapter**.
+Atomic L2-to-L2 source-leg planning and submission through the viem adapter.
 
----
+## At a glance
 
-## At a Glance
+* Resource: `sdk.interop`
+* Lifecycle: `quote -> prepare -> create -> status`
+* Input: `InteropParams | AtomicInteropIntent`
+* Result variants: `tryQuote`, `tryPrepare`, `tryCreate`
+* Send gate: `interop.enableExperimentalAtomicSend: true` for `prepare` and `create`
+* Completion: external; the SDK does not expose `wait`, `finalize`, or `refund`
+* Gateway: none
 
-* **Resource:** `sdk.interop`
-* **Typical flow:** `create → wait → finalize`
-* **Inspection flow:** `quote → prepare → create → status → wait → finalize`
-* **Error style:** Throwing methods (`quote`, `prepare`, `create`, `status`, `wait`, `finalize`) + safe variants (`tryQuote`, `tryPrepare`, `tryCreate`, `tryWait`, `tryFinalize`)
-* **SDK config:** No interop-specific configuration is required.
-
-## Import
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:imports}}
-
-{{#include ../../../snippets/viem/reference/interop.test.ts:init-sdk}}
-```
-
-> [!INFO]
-> `wait()` uses the source proof and destination `executeBundle` simulation to determine readiness.
-
-## Quick Start
-
-Send **0.001 ETH** from source L2 to destination L2:
+## Configuration
 
 ```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:quick-start}}
-```
-
-> [!TIP]
-> For UX that never throws, use the `try*` variants and branch on `ok`.
-
----
-
-## Method Reference
-
-### `quote(dstChain, params) → Promise<InteropQuote>`
-
-Estimate the operation (route, approvals, fee). Does **not** send transactions.
-
-**Parameters**
-
-| Name                  | Type              | Required | Description                                                          |
-| --------------------- | ----------------- | -------- | -------------------------------------------------------------------- |
-| `dstChain`            | `ChainRef`        | ✅        | Destination chain — URL string or `PublicClient`.                    |
-| `params.actions`      | `InteropAction[]` | ✅        | Ordered list of actions to execute on the destination chain.         |
-| `params.execution`    | `{ only: Address }` | ❌      | Restrict who can execute the bundle on destination.                  |
-| `params.fee`          | `{ useFixed: boolean }` | ❌  | Use fixed ZK fee (`true`) instead of dynamic base-token fee.         |
-| `params.txOverrides`  | `TxOverrides`     | ❌        | Gas overrides for the source L2 transaction.                         |
-
-**Returns:** `InteropQuote`
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:quote}}
-```
-
-> [!TIP]
-> If `approvalsNeeded` is non-empty (ERC-20 actions), `create()` will include approval steps automatically.
-
-### `tryQuote(dstChain, params) → Promise<{ ok: true; value: InteropQuote } | { ok: false; error }>`
-
-Result-style `quote`.
-
-### `prepare(dstChain, params) → Promise<InteropPlan<TransactionRequest>>`
-
-Build the plan (ordered steps + unsigned transactions) without sending.
-
-**Returns:** `InteropPlan`
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:prepare}}
-```
-
-### `tryPrepare(dstChain, params) → Promise<{ ok: true; value: InteropPlan } | { ok: false; error }>`
-
-Result-style `prepare`.
-
-### `create(dstChain, params) → Promise<InteropHandle<TransactionRequest>>`
-
-Prepares and **executes** all required source-chain steps.
-Waits for each step receipt before returning.
-
-**Returns:** `InteropHandle`
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:handle}}
-```
-
-> [!WARNING]
-> If any step reverts, `create()` throws a typed error.
-> Prefer `tryCreate()` to avoid exceptions.
-
-### `tryCreate(dstChain, params) → Promise<{ ok: true; value: InteropHandle } | { ok: false; error }>`
-
-Result-style `create`.
-
-### `status(dstChain, waitable, opts?) → Promise<InteropStatus>`
-
-Non-blocking lifecycle inspection. Returns the current phase.
-Accepts either an `InteropHandle` or a raw source L2 tx hash.
-
-**Phases**
-
-| Phase       | Meaning                                              |
-| ----------- | ---------------------------------------------------- |
-| `SENT`      | Bundle sent on source chain                          |
-| `VERIFIED`  | Bundle verified, ready for execution on destination  |
-| `EXECUTED`  | All actions executed on destination                  |
-| `UNBUNDLED` | Actions selectively executed or cancelled            |
-| `FAILED`    | Execution reverted or invalid                        |
-| `UNKNOWN`   | Status cannot be determined                          |
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:status}}
-```
-
-### `wait(dstChain, waitable, opts?) → Promise<InteropFinalizationInfo>`
-
-Block until the bundle proof is available on the destination chain.
-Returns the `InteropFinalizationInfo` needed to call `finalize()`.
-
-* `opts.pollMs` — polling interval in ms (default: 5000)
-* `opts.timeoutMs` — max wait time in ms (throws on timeout)
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:wait}}
-```
-
-### `tryWait(dstChain, waitable, opts?) → Promise<{ ok: true; value: InteropFinalizationInfo } | { ok: false; error }>`
-
-Result-style `wait`.
-
-### `finalize(dstChain, h, opts?, txOverrides?) → Promise<InteropFinalizationResult>`
-
-Verify and execute the complete bundle atomically on the **destination chain**. Accepts either:
-- `InteropFinalizationInfo` (returned by `wait()`) — executes immediately
-- `InteropHandle` or raw tx hash — calls `wait()` internally first
-
-**Parameters**
-
-| Name          | Type               | Required | Description                                                        |
-| ------------- | ------------------ | -------- | ------------------------------------------------------------------ |
-| `dstChain`    | `ChainRef`         | ✅        | Destination chain — URL string or `PublicClient`.                  |
-| `h`           | `InteropFinalizationInfo \| InteropWaitable` | ✅ | Finalization info or a waitable handle/hash.    |
-| `opts`        | `LogsQueryOptions` | ❌        | Options for log queries used to check bundle status.               |
-| `txOverrides` | `TxGasOverrides`   | ❌        | Gas overrides for the `executeBundle` transaction on destination.  |
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:finalize}}
-```
-
-To override gas on the destination `executeBundle` transaction:
-
-```ts
-await sdk.interop.finalize(l2Destination, finalizationInfo, undefined, {
-  gasLimit: 5_000_000n,
-  maxFeePerGas: 200_000_000n,
+const sdk = createViemSdk(client, {
+  interop: {
+    enableExperimentalAtomicSend: true,
+    indexProvider: async ({ flowId, bundleHash, commitValue }) => {
+      // Return the current predecessor leaf index, or null to use the bounded on-chain walk.
+      return null;
+    },
+  },
 });
 ```
 
-> [!INFO]
-> `finalize()` sends a transaction on the **destination L2**, not on L1.
-> Use `txOverrides` if the destination chain requires a manual gas limit (e.g. when the interop handler calls a receiver contract that may consume significant gas).
+The optional `AtomicInteropIndexProvider` is useful once the source commitment tree exceeds the SDK's 256-leaf linked-list fallback. Provider results are validated on-chain before use.
 
-### `tryFinalize(dstChain, h, opts?, txOverrides?) → Promise<{ ok: true; value: InteropFinalizationResult } | { ok: false; error }>`
+## Inputs
 
-Result-style `finalize`. Accepts the same `txOverrides` parameter.
+### `InteropParams`
 
----
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `actions` | `InteropAction[]` | Yes | Ordered destination actions. |
+| `deadline` | `bigint` | Yes | Absolute `uint64` settlement-layer timestamp. |
+| `settlementLayerChainId` | `bigint` | No | Defaults to and must match the configured L1. |
+| `execution.only` | `Address` | No | Restricts the destination executor. |
+| `fee.useFixed` | `boolean` | No | Selects the fixed protocol fee mode. |
+| `txOverrides` | `TxOverrides` | No | Source transaction overrides. |
 
-## End-to-End Examples
-
-### ERC-20 Transfer
-
-```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:e2e-erc20}}
-```
-
-### Remote Contract Call
+Enabled actions:
 
 ```ts
-{{#include ../../../snippets/viem/reference/interop.test.ts:e2e-call}}
+type InteropAction =
+  | { type: 'sendErc20'; token: Address; to: Address; amount: bigint }
+  | {
+      type: 'call';
+      to: Address;
+      data: Hex;
+      recovery: { protocol: 'IAtomicRecoverable' };
+    };
 ```
 
----
+The recovery field is a caller declaration; the target contract must actually implement the compatible recovery protocol. Native value is rejected.
 
-## Types (Overview)
+## Lifecycle methods
 
-### Interop Params
+### `quote(dstChain, input): Promise<InteropQuote>`
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:params-type}}
-```
+Returns route, allowance requirements, action totals, protocol fee, deadline, settlement layer, and an optional L2 fee estimate. Passing an intent also returns its `bundleHash` and `flowId`. This method has no side effects and does not require the experimental gate.
 
-### Interop Quote
+`tryQuote` returns the same value in the SDK result envelope.
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:quote-type}}
-```
+### `prepare(dstChain, input): Promise<InteropPlan<ViemTransactionRequest>>`
 
-### Interop Plan
+Builds the atomic `sendBundle` plan without sending it. The plan retains the complete intent, exact payload, flow preimage, bundle hash, and current IMT predecessor index.
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:plan-type}}
-```
+Hash-affecting ERC-20 allowances must already exist. Use `approve` before `prepare` or `previewLeg`. Requires the experimental gate.
 
-### Interop Handle
+`tryPrepare` returns the same value in the SDK result envelope.
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:handle-type}}
-```
+### `create(dstChain, input): Promise<InteropHandle<ViemTransactionRequest>>`
 
-### Interop Status
+Executes source prerequisites, rechecks allowances, resolves the IMT predecessor, simulates `sendBundle`, and retries once if the predecessor became stale. It validates the emitted bundle against the previewed hash before returning its source transaction metadata and encoded bundle.
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:status-type}}
-```
+With raw `InteropParams`, `create` generates and binds a single-leg flow. With an `AtomicInteropIntent`, it preserves the agreed salt and multi-leg flow. Requires the experimental gate.
 
-### Interop Finalization
+`tryCreate` returns the same value in the SDK result envelope.
 
-```ts
-{{#include ../../../snippets/ethers/reference/interop.test.ts:finalization-type}}
-```
+### `status(dstChain, intentOrHandle): Promise<InteropStatus>`
 
-> [!TIP]
-> Prefer the `try*` variants to avoid exceptions and work with structured result objects.
+Accepts an `AtomicInteropIntent` or `InteropHandle`; raw transaction hashes are not accepted. It reads source `LegState` and destination `bundleStatus` without polling or reporting proof readiness.
 
----
+| Phase | Meaning |
+| --- | --- |
+| `UNSET` | No source commitment and no destination bundle. |
+| `COMMITTED` | The source leg is committed. |
+| `VERIFIED` | The destination handler reports the bundle verified. |
+| `EXECUTED` | The destination handler reports full execution. |
+| `UNBUNDLED` | The destination protocol reports an externally unbundled bundle. |
+| `REFUNDABLE` | The source manager reports the leg revertable. |
+| `REFUNDED` | The source manager reports the leg reverted. |
+| `INCONSISTENT` | Destination execution state coexists with unset/refund source state. |
+| `UNKNOWN` | A contract returned an unknown enum value. |
 
-## Notes & Pitfalls
+## Coordination methods
 
-* **`dstChain` first:** All interop methods take the destination chain as the **first** argument — unlike deposits/withdrawals.
-* **Finalization is on destination:** `finalize()` sends a transaction on the **destination L2**, not on L1. Use `txOverrides` to set a custom gas limit when the receiver contract consumes significant gas.
-* **`wait()` can take minutes:** It polls until the L2→L1 proof and destination handler are ready. Use `timeoutMs` to bound long waits.
-* **ERC-20 approvals:** If `approvalsNeeded` is non-empty, `create()` automatically sends approval transactions first.
-* **Multiple actions:** Actions are atomic — all succeed or the bundle fails. Partial unbundling is not exposed by the intent resource.
+### `approve(dstChain, params): Promise<InteropApprovalResult>`
+
+Creates the source token in the native token vault when needed and establishes exact ERC-20 allowances. It returns the requirements and transaction hashes.
+
+### `previewLeg(dstChain, params): Promise<AtomicInteropLegDraft>`
+
+Generates a secure random salt, constructs the exact serializable payload, calls `previewBundleHash`, and returns the local draft plus `{ bundleHash, sourceChainId }` commitment. Hash-affecting allowances must already exist.
+
+### `defineFlow({ legs, deadline, settlementLayerChainId? }): AtomicInteropFlow`
+
+Sorts commitment pairs by bundle hash, rejects duplicate hashes or mixed settlement layers, preserves each source-chain pairing, and computes the canonical protocol `flowId`.
+
+### `bindFlow(draft, flow): AtomicInteropIntent`
+
+Validates that the local draft is a member of the agreed flow and that deadline, settlement layer, bundle hash, and source chain all match.
+
+### `getSettlementDeadline({ afterSeconds }): Promise<bigint>`
+
+Returns `latestL1Block.timestamp + afterSeconds`, validated as a positive `uint64` deadline.
+
+## Retained data
+
+`AtomicInteropIntent`, `InteropPlan`, and `InteropHandle` retain the exact draft, flow, payload, bundle hash, and source transaction metadata required by future proof-backed completion/refund APIs. They are serializable except for the adapter-specific unsigned transactions in a plan.
+
+There are no compatibility wrappers for the removed public-message flow: `verifyBundle`, `getInteropRoot`, unbundling, gateway configuration, and legacy interop proof/finalization types are gone.

@@ -310,12 +310,12 @@ export const OP_INTEROP = {
   tryPrepare: 'interop.tryPrepare',
   create: 'interop.create',
   tryCreate: 'interop.tryCreate',
+  approve: 'interop.approve',
+  previewLeg: 'interop.previewLeg',
+  defineFlow: 'interop.defineFlow',
+  bindFlow: 'interop.bindFlow',
+  getSettlementDeadline: 'interop.getSettlementDeadline',
   status: 'interop.status',
-  wait: 'interop.wait',
-  tryWait: 'interop.tryWait',
-  finalize: 'interop.finalize',
-  tryFinalize: 'interop.tryFinalize',
-  verify: 'interop.verify',
   context: {
     chainTypeManager: 'interop.chainTypeManager',
     protocolVersion: 'interop.protocolVersion',
@@ -340,15 +340,14 @@ export const OP_INTEROP = {
   // status service (logs & derivation)
   svc: {
     status: {
-      sourceReceipt: 'interop.svc.status:sourceReceipt',
+      sourceState: 'interop.svc.status:sourceState',
+      destinationState: 'interop.svc.status:destinationState',
       parseSentLog: 'interop.svc.status:parseSentLog',
-      dstLogs: 'interop.svc.status:dstLogs',
-      derive: 'interop.svc.status:derive',
-      getRoot: 'interop.svc.status:getRoot',
     },
-    wait: {
-      poll: 'interop.svc.wait:poll',
-      timeout: 'interop.svc.wait:timeout',
+    atomic: {
+      preview: 'interop.svc.atomic:preview',
+      predecessor: 'interop.svc.atomic:predecessor',
+      simulateSend: 'interop.svc.atomic:simulateSend',
     },
     fees: {
       zkInteropFee: 'interop.svc.fees:zkInteropFee',

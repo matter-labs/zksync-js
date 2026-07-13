@@ -5,7 +5,6 @@ import type { AttributesCodec } from '../types';
 import type { Address, Hex } from '../../../../types/primitives';
 
 const ADDR_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
-const ADDR_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
 
 describe('interop/attributes/bundle', () => {
   describe('createBundleAttributes', () => {
@@ -20,13 +19,6 @@ describe('interop/attributes/bundle', () => {
       const result = bundle.executionAddress(ADDR_A);
 
       expect(result).toBe(`0xexecutionAddress:["${ADDR_A}"]`);
-    });
-
-    it('creates unbundlerAddress attribute', () => {
-      const bundle = createBundleAttributes(mockCodec);
-      const result = bundle.unbundlerAddress(ADDR_B);
-
-      expect(result).toBe(`0xunbundlerAddress:["${ADDR_B}"]`);
     });
 
     it('creates useFixedFee attribute', () => {
@@ -52,19 +44,19 @@ describe('interop/attributes/bundle', () => {
 
       const bundle = createBundleAttributes(trackingCodec);
       bundle.executionAddress(ADDR_A);
-      bundle.unbundlerAddress(ADDR_B);
       bundle.useFixedFee(true);
       bundle.interopBundleSalt(`0x${'22'.repeat(32)}` as Hex);
+      bundle.atomicBundle(`0x${'33'.repeat(32)}` as Hex, 123n, 4n);
 
       expect(calls).toHaveLength(4);
       expect(calls[0].fn).toBe('executionAddress');
       expect(calls[0].args).toEqual([ADDR_A]);
-      expect(calls[1].fn).toBe('unbundlerAddress');
-      expect(calls[1].args).toEqual([ADDR_B]);
-      expect(calls[2].fn).toBe('useFixedFee');
-      expect(calls[2].args).toEqual([true]);
-      expect(calls[3].fn).toBe('interopBundleSalt');
-      expect(calls[3].args).toEqual([`0x${'22'.repeat(32)}`]);
+      expect(calls[1].fn).toBe('useFixedFee');
+      expect(calls[1].args).toEqual([true]);
+      expect(calls[2].fn).toBe('interopBundleSalt');
+      expect(calls[2].args).toEqual([`0x${'22'.repeat(32)}`]);
+      expect(calls[3].fn).toBe('atomicBundle');
+      expect(calls[3].args).toEqual([`0x${'33'.repeat(32)}`, 123n, 4n]);
     });
   });
 });

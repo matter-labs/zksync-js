@@ -268,6 +268,30 @@ const IInteropErrorsABI = [
     name: 'ZKTokenNotAvailable',
     inputs: [],
   },
+  {
+    type: 'error',
+    name: 'IMTLowLeafIndexOutOfBounds',
+    inputs: [
+      { name: 'lowLeafIndex', type: 'uint256' },
+      { name: 'leafCount', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'IMTLowLeafNextTooSmall',
+    inputs: [
+      { name: 'lowNextValue', type: 'uint256' },
+      { name: 'newValue', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'IMTLowLeafValueTooLarge',
+    inputs: [
+      { name: 'lowValue', type: 'uint256' },
+      { name: 'newValue', type: 'uint256' },
+    ],
+  },
 ] as const;
 
 export default IInteropErrorsABI;

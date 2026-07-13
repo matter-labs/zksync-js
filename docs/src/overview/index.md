@@ -39,11 +39,13 @@ Supports ETH, Custom Base Token, and ERC-20.
 
 ### Interop (L2 → L2)
 
-Supports native token, ERC-20, and arbitrary contract calls.
+Supports atomic ERC-20 legs and recoverable arbitrary contract calls.
 
-* **Create on source L2:** Bundle and send cross-chain actions in a single transaction.
-* **Wait for proof:** Poll until the bundle proof is available on the destination chain.
-* **Finalize on destination L2:** Verify and execute all bundled actions atomically.
+* **Coordinate:** Preview independently owned legs and agree on one canonical flow.
+* **Create on source L2:** Commit each source leg through the atomic `sendBundle` interface.
+* **Inspect:** Read source leg and destination bundle states without claiming proof readiness.
+
+Atomic interop completion and refunds remain external until production proof tooling is available. Native-value legs are disabled, and there is no gateway configuration.
 
 ### ZKsync RPC Extensions
 

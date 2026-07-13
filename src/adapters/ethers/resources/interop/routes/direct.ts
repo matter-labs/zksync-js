@@ -21,21 +21,20 @@ export function routeDirect(): InteropRouteStrategy {
         codec: interopCodec,
       });
 
-      // InteropHandler calls the `receiveMessage` function of the target address on the destination chain.
-      // Verify each destination address is a contract.
+      // Timeout recovery requires an on-chain target that honors IAtomicRecoverable.
       for (const action of params.actions) {
         const code = await ctx.dstProvider.getCode(action.to);
         if (!code || code === '0x') {
           throw createError('VALIDATION', {
             resource: 'interop',
             operation: OP_INTEROP.routes.direct.preflight,
-            message: `Destination address ${action.to} is not a contract on the destination chain. The receiver must be a contract that implements the IERC7786Recipient interface (receiveMessage).`,
+            message: `Destination address ${action.to} is not a contract on the destination chain. Atomic arbitrary calls require an IAtomicRecoverable target.`,
             context: { to: action.to, action: action.type },
           });
         }
       }
     },
-    async build(params: InteropParams, ctx: BuildCtx) {
+    async build(params: InteropParams, ctx: BuildCtx, options) {
       const steps: Array<{
         key: string;
         kind: string;
@@ -43,7 +42,7 @@ export function routeDirect(): InteropRouteStrategy {
         tx: TransactionRequest;
       }> = [];
 
-      const attrs = getInteropAttributes(params, ctx);
+      const attrs = getInteropAttributes(params, ctx, options.bundleSalt, options.atomic);
       const feeInfo = await buildFeeInfo(params, ctx, params.actions.length);
       const built = buildDirectBundle(
         params,
@@ -80,6 +79,7 @@ export function routeDirect(): InteropRouteStrategy {
       });
 
       return {
+        bundle: built,
         steps,
         approvals: built.approvals,
         quoteExtras: built.quoteExtras,

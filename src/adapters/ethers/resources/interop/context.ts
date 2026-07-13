@@ -9,7 +9,7 @@ import { type TxGasOverrides, toGasOverrides } from '../../../../core/types/fees
 import type { TokensResource } from '../../../../core/types/flows/token';
 import type { AttributesResource } from '../../../../core/resources/interop/attributes/resource';
 import type { ContractsResource } from '../contracts';
-import { IInteropHandlerABI, IInteropCenterABI } from '../../../../core/abi';
+import { IInteropCenterABI } from '../../../../core/abi';
 import { assertProtocolVersion } from '../../../../core/resources/interop/protocol';
 
 async function assertInteropProtocolVersion(
@@ -37,13 +37,11 @@ export interface BuildCtx extends CommonCtx {
   dstProvider: AbstractProvider;
   chainId: bigint;
   interopCenter: Address;
-  interopHandler: Address;
-  l2MessageVerification: Address;
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
 
   baseTokens: { src: Address; dst: Address; matches: boolean };
-  ifaces: { interopCenter: Interface; interopHandler: Interface };
+  ifaces: { interopCenter: Interface };
   attributes: AttributesResource;
   gasOverrides?: TxGasOverrides;
 }
@@ -60,14 +58,8 @@ export async function commonCtx(
   const chainId = (await client.l2.getNetwork()).chainId;
   const dstChainId = (await dstProvider.getNetwork()).chainId;
 
-  const {
-    bridgehub,
-    l2AssetRouter,
-    l2NativeTokenVault,
-    interopCenter,
-    interopHandler,
-    l2MessageVerification,
-  } = await contracts.addresses();
+  const { bridgehub, l2AssetRouter, l2NativeTokenVault, interopCenter } =
+    await contracts.addresses();
 
   await assertInteropProtocolVersion(client, chainId, dstChainId);
 
@@ -77,7 +69,6 @@ export async function commonCtx(
   ]);
 
   const interopCenterIface = new Interface(IInteropCenterABI);
-  const interopHandlerIface = new Interface(IInteropHandlerABI);
   const baseMatches = srcBaseToken.toLowerCase() === dstBaseToken.toLowerCase();
 
   return {
@@ -91,12 +82,10 @@ export async function commonCtx(
     dstChainId,
     dstProvider,
     interopCenter,
-    interopHandler,
-    l2MessageVerification,
     l2AssetRouter,
     l2NativeTokenVault,
     baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },
-    ifaces: { interopCenter: interopCenterIface, interopHandler: interopHandlerIface },
+    ifaces: { interopCenter: interopCenterIface },
     attributes,
     gasOverrides: params.txOverrides ? toGasOverrides(params.txOverrides) : undefined,
   } satisfies BuildCtx;

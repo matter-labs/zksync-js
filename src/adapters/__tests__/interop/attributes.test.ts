@@ -23,8 +23,8 @@ describe('interop bundle attributes', () => {
       const ctx = { attributes } as never;
       const result =
         kind === 'ethers'
-          ? getEthersInteropAttributes({ actions: [] }, ctx, SALT)
-          : getViemInteropAttributes({ actions: [] }, ctx, SALT);
+          ? getEthersInteropAttributes({ actions: [], deadline: 10n }, ctx, SALT)
+          : getViemInteropAttributes({ actions: [], deadline: 10n }, ctx, SALT);
 
       expect(result.bundleAttributes).toHaveLength(2);
       const [decodedSalt] = iface.decodeFunctionData(
@@ -32,6 +32,27 @@ describe('interop bundle attributes', () => {
         result.bundleAttributes[1],
       );
       expect(decodedSalt).toBe(SALT);
+    });
+
+    it(`${kind} appends atomic metadata out-of-band from the bundle hash`, () => {
+      const attributes =
+        kind === 'ethers' ? createEthersAttributesResource() : createViemAttributesResource();
+      const ctx = { attributes } as never;
+      const atomic = {
+        flowId: `0x${'24'.repeat(32)}` as Hex,
+        deadline: 100n,
+        lowNullifierIndex: 3n,
+      };
+      const result =
+        kind === 'ethers'
+          ? getEthersInteropAttributes({ actions: [], deadline: 100n }, ctx, SALT, atomic)
+          : getViemInteropAttributes({ actions: [], deadline: 100n }, ctx, SALT, atomic);
+      expect(result.bundleAttributes).toHaveLength(3);
+      expect(iface.decodeFunctionData('atomicBundle', result.bundleAttributes[2])).toEqual([
+        atomic.flowId,
+        100n,
+        3n,
+      ]);
     });
   }
 });

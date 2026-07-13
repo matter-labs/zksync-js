@@ -52,6 +52,7 @@ export function buildEnsureTokenSteps(
 export async function buildApproveSteps(
   approvals: ApprovalNeed[],
   ctx: BuildCtx,
+  options: { exact?: boolean } = {},
 ): Promise<Array<{ key: string; kind: string; description: string; tx: TransactionRequest }>> {
   const steps: Array<{ key: string; kind: string; description: string; tx: TransactionRequest }> =
     [];
@@ -60,7 +61,7 @@ export async function buildApproveSteps(
     const erc20 = new Contract(approval.token, IERC20ABI, ctx.client.l2);
     const currentAllowance = (await erc20.allowance(ctx.sender, approval.spender)) as bigint;
 
-    if (currentAllowance < approval.amount) {
+    if (options.exact ? currentAllowance !== approval.amount : currentAllowance < approval.amount) {
       steps.push({
         key: `approve:${approval.token}:${approval.spender}`,
         kind: 'approve',

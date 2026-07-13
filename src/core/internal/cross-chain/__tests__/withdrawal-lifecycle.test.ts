@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import type { InteropFinalizationInfo } from '../../../types/flows/interop';
+import type { BundleFinalizationInfo } from '../types';
 import type { Hex } from '../../../types/primitives';
 import {
   finalizeWithdrawalBundleLifecycle,
@@ -26,7 +26,7 @@ const INFO = {
     },
     proof: [`0x${'55'.repeat(32)}`],
   },
-} as InteropFinalizationInfo;
+} as BundleFinalizationInfo;
 
 describe('withdrawal intent bundle lifecycle', () => {
   it.each([

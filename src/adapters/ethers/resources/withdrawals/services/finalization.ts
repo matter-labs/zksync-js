@@ -1,6 +1,6 @@
 import type { TransactionReceipt } from 'ethers';
 import type { EthersClient } from '../../../client';
-import type { InteropFinalizationInfo } from '../../../../../core/types/flows/interop';
+import type { BundleFinalizationInfo } from '../../../../../core/internal/cross-chain/types';
 import type {
   FinalizationEstimate,
   FinalizeDepositParams,
@@ -45,7 +45,7 @@ function requireBundleHash(input: { bundleHash?: Hex }, operation: string): Hex 
 async function toBundleInfo(
   client: EthersClient,
   params: FinalizeDepositParams,
-): Promise<InteropFinalizationInfo> {
+): Promise<BundleFinalizationInfo> {
   const bundleHash = requireBundleHash(params, OP_WITHDRAWALS.finalize.readiness.simulate);
   const { chainId } = await client.l1.getNetwork();
   return {

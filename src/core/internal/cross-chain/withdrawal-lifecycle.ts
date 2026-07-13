@@ -1,9 +1,9 @@
-import type { InteropFinalizationInfo } from '../../types/flows/interop';
 import type { FinalizeReadiness, WithdrawalStatus } from '../../types/flows/withdrawals';
 import type { Hex } from '../../types/primitives';
 import { createError } from '../../errors/factory';
 import { OP_WITHDRAWALS } from '../../types/errors';
 import { pollUntil, type BundleLifecycleState } from './bundle-lifecycle';
+import type { BundleFinalizationInfo } from './types';
 
 export interface WithdrawalExecutionState {
   txHash: Hex;
@@ -13,16 +13,16 @@ export interface WithdrawalExecutionState {
 export interface InspectWithdrawalBundleLifecycleInput {
   l2TxHash: Hex;
   isSourceIncluded(): Promise<boolean>;
-  getFinalizationInfo(): Promise<InteropFinalizationInfo>;
+  getFinalizationInfo(): Promise<BundleFinalizationInfo>;
   readBundleState(bundleHash: Hex): Promise<BundleLifecycleState>;
-  simulate(info: InteropFinalizationInfo): Promise<FinalizeReadiness>;
+  simulate(info: BundleFinalizationInfo): Promise<FinalizeReadiness>;
   getExecutionState?(): Promise<WithdrawalExecutionState | undefined>;
 }
 
 function statusWithInfo(
   phase: WithdrawalStatus['phase'],
   l2TxHash: Hex,
-  info: InteropFinalizationInfo,
+  info: BundleFinalizationInfo,
   execution?: WithdrawalExecutionState,
 ): WithdrawalStatus {
   return {
@@ -45,7 +45,7 @@ export async function inspectWithdrawalBundleLifecycle(
     return { phase: 'L2_PENDING', l2TxHash: input.l2TxHash };
   }
 
-  let info: InteropFinalizationInfo;
+  let info: BundleFinalizationInfo;
   try {
     info = await input.getFinalizationInfo();
   } catch {
@@ -90,14 +90,14 @@ export async function inspectWithdrawalBundleLifecycle(
 }
 
 export interface FinalizeWithdrawalBundleLifecycleInput<Receipt> {
-  getFinalizationInfo(): Promise<InteropFinalizationInfo>;
+  getFinalizationInfo(): Promise<BundleFinalizationInfo>;
   readBundleState(bundleHash: Hex): Promise<BundleLifecycleState>;
-  simulate(info: InteropFinalizationInfo): Promise<FinalizeReadiness>;
-  execute(info: InteropFinalizationInfo): Promise<{ hash: Hex; wait(): Promise<Receipt> }>;
+  simulate(info: BundleFinalizationInfo): Promise<FinalizeReadiness>;
+  execute(info: BundleFinalizationInfo): Promise<{ hash: Hex; wait(): Promise<Receipt> }>;
 }
 
 export interface FinalizeWithdrawalBundleLifecycleResult<Receipt> {
-  info: InteropFinalizationInfo;
+  info: BundleFinalizationInfo;
   execution?: { hash: Hex; receipt: Receipt };
 }
 

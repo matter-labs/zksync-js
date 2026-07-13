@@ -13,10 +13,10 @@ export { createTokensResource } from './resources/tokens';
 export { createContractsResource } from './resources/contracts';
 export type { ContractsResource, ContractInstances } from './resources/contracts';
 export { createInteropResource } from './resources/interop';
-export { createInteropFinalizationServices } from './resources/interop';
-export type { InteropResource, InteropFinalizationServices } from './resources/interop';
+export type { InteropResource } from './resources/interop';
 export type { ViemTransactionRequest } from './resources/interop/routes/types';
 export type { InteropConfig, ChainRef } from './resources/interop/types';
+export type * from '../../core/types/flows/interop';
 
 export * from './errors/error-ops';
 export * from './errors/revert';

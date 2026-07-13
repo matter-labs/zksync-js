@@ -179,6 +179,9 @@ function makeEthersL1(state: EthersL1State) {
     async getNetwork() {
       return { chainId: 324n };
     },
+    async getBlock(_tag: string) {
+      return { number: 1, timestamp: 1_800_000_000 };
+    },
   };
 }
 
@@ -229,6 +232,12 @@ function makeEthersL2(state: EthersL2State) {
     async getCode(_address: string) {
       return '0x01';
     },
+    async getBlock(_tag: string) {
+      return { number: 1, timestamp: 1_800_000_000 };
+    },
+    async getTransactionCount(_address: string, _tag: string) {
+      return 0;
+    },
   };
 }
 
@@ -278,6 +287,13 @@ function makeViemClient(state: ViemClientState): PublicClient {
 
   return {
     transport: { type: 'mock', value: {} },
+    async call(args: { to: Address; data: `0x${string}` }) {
+      const data = state.registry.getEncoded(args.to, args.data);
+      if (!data) {
+        throw new Error(`viem mock: no mapping for ${lower(args.to)}|${args.data.slice(0, 10)}`);
+      }
+      return { data } as any;
+    },
     async readContract(args: { address: Address; functionName: string; args?: unknown[] }) {
       const value = state.registry.getValue(args.address, args.functionName, args.args ?? []);
       if (value === undefined) {
@@ -370,6 +386,18 @@ function makeViemClient(state: ViemClientState): PublicClient {
       if (state.code) return state.code;
       // Default to deployed bytecode sentinel
       return key ? '0x01' : '0x';
+    },
+    async getBlock() {
+      return { number: 1n, timestamp: 1_800_000_000n } as any;
+    },
+    async getTransactionCount() {
+      return 0;
+    },
+    async getTransactionReceipt() {
+      return null;
+    },
+    async waitForTransactionReceipt() {
+      return { status: 'success', logs: [] } as any;
     },
   } as unknown as PublicClient;
 }

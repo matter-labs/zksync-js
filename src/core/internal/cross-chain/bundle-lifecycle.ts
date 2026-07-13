@@ -1,39 +1,25 @@
 import type { ProofNormalized, ReceiptWithL2ToL1 } from '../../rpc/types';
-import type {
-  InteropFinalizationInfo,
-  InteropMessageProof,
-  InteropPhase,
-  InteropWaitable,
-} from '../../types/flows/interop';
 import type { Resource } from '../../types/errors';
 import type { Address, Hex } from '../../types/primitives';
-import type { Log, TxReceipt } from '../../types/transactions';
+import type { Log } from '../../types/transactions';
 import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../constants';
 import { createError } from '../../errors/factory';
-import { OP_INTEROP, OP_WITHDRAWALS } from '../../types/errors';
+import { OP_WITHDRAWALS } from '../../types/errors';
 import { sleep } from '../../utils';
 import { isL1MessageSentLog } from '../../utils/events';
+import type { BundleFinalizationInfo, BundleMessageProof } from './types';
 
 export const DEFAULT_POLL_MS = 1_000;
 export const DEFAULT_TIMEOUT_MS = 300_000;
 
 export interface BundleLifecycleErrors {
-  resource: Extract<Resource, 'interop' | 'withdrawals'>;
+  resource: Extract<Resource, 'withdrawals'>;
   sourceReceiptOperation: string;
   parseReceiptOperation: string;
   bundleDataOperation: string;
   timeoutOperation: string;
   label: string;
 }
-
-export const INTEROP_BUNDLE_LIFECYCLE_ERRORS: BundleLifecycleErrors = {
-  resource: 'interop',
-  sourceReceiptOperation: OP_INTEROP.svc.status.sourceReceipt,
-  parseReceiptOperation: OP_INTEROP.svc.status.parseSentLog,
-  bundleDataOperation: OP_INTEROP.wait,
-  timeoutOperation: OP_INTEROP.svc.wait.timeout,
-  label: 'interop bundle',
-};
 
 export const WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS: BundleLifecycleErrors = {
   resource: 'withdrawals',
@@ -52,68 +38,6 @@ export interface BundleReceiptInfo {
   l2ToL1LogIndex: number;
   txNumberInBatch: number;
   rawReceipt: ReceiptWithL2ToL1;
-}
-
-interface ResolvedInteropIds {
-  l2SrcTxHash?: Hex;
-  bundleHash?: Hex;
-  dstExecTxHash?: Hex;
-}
-
-export function resolveIdsFromWaitable(input: InteropWaitable): ResolvedInteropIds {
-  if (typeof input === 'string') return { l2SrcTxHash: input };
-
-  return {
-    l2SrcTxHash: input.l2SrcTxHash,
-    bundleHash: input.bundleHash,
-    dstExecTxHash: input.dstExecTxHash,
-  };
-}
-
-export interface ParseBundleSentInput {
-  receipt: TxReceipt;
-  interopCenter: Address;
-  interopBundleSentTopic: Hex;
-  decodeInteropBundleSent: (log: { data: Hex; topics: Hex[] }) => {
-    bundleHash: Hex;
-    sourceChainId: bigint;
-    destinationChainId: bigint;
-  };
-  errors?: BundleLifecycleErrors;
-}
-
-export function parseBundleSentFromReceipt(input: ParseBundleSentInput): {
-  bundleHash: Hex;
-  dstChainId: bigint;
-} {
-  const {
-    receipt,
-    interopCenter,
-    interopBundleSentTopic,
-    decodeInteropBundleSent,
-    errors = INTEROP_BUNDLE_LIFECYCLE_ERRORS,
-  } = input;
-  const bundleSentLog = receipt.logs.find(
-    (log) =>
-      log.address.toLowerCase() === interopCenter.toLowerCase() &&
-      log.topics[0]?.toLowerCase() === interopBundleSentTopic.toLowerCase(),
-  );
-
-  if (!bundleSentLog) {
-    throw createError('STATE', {
-      resource: errors.resource,
-      operation: errors.parseReceiptOperation,
-      message: 'Failed to locate InteropBundleSent event in source receipt.',
-      context: { receipt, interopCenter },
-    });
-  }
-
-  const decoded = decodeInteropBundleSent({
-    data: bundleSentLog.data,
-    topics: bundleSentLog.topics,
-  });
-
-  return { bundleHash: decoded.bundleHash, dstChainId: decoded.destinationChainId };
 }
 
 export interface ParseBundleReceiptParams {
@@ -138,7 +62,7 @@ export function parseBundleReceiptInfo(params: ParseBundleReceiptParams): Bundle
     decodeInteropBundleSent,
     decodeL1MessageData,
     l2SrcTxHash,
-    errors = INTEROP_BUNDLE_LIFECYCLE_ERRORS,
+    errors = WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
   } = params;
   let l2ToL1LogIndex = -1;
   let l1MessageData: Hex | null = null;
@@ -208,7 +132,7 @@ export function parseBundleReceiptInfo(params: ParseBundleReceiptParams): Bundle
 
 export function getBundleEncodedData(
   messageData: Hex,
-  errors: BundleLifecycleErrors = INTEROP_BUNDLE_LIFECYCLE_ERRORS,
+  errors: BundleLifecycleErrors = WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
 ): Hex {
   const prefix = `0x${messageData.slice(2, 4)}`;
   if (prefix !== BUNDLE_IDENTIFIER) {
@@ -228,9 +152,9 @@ export function buildFinalizationInfo(
   bundleInfo: BundleReceiptInfo,
   proof: ProofNormalized,
   messageData: Hex,
-  errors: BundleLifecycleErrors = INTEROP_BUNDLE_LIFECYCLE_ERRORS,
-): InteropFinalizationInfo {
-  const messageProof: InteropMessageProof = {
+  errors: BundleLifecycleErrors = WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
+): BundleFinalizationInfo {
+  const messageProof: BundleMessageProof = {
     chainId: bundleInfo.sourceChainId,
     l1BatchNumber: proof.batchNumber,
     l2MessageIndex: proof.id,
@@ -255,7 +179,7 @@ export type BundleLifecycleState = 'UNRECEIVED' | 'VERIFIED' | 'FULLY_EXECUTED' 
 
 export function decodeBundleStatus(
   rawStatus: number | bigint,
-  errors: BundleLifecycleErrors = INTEROP_BUNDLE_LIFECYCLE_ERRORS,
+  errors: BundleLifecycleErrors = WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
 ): BundleLifecycleState {
   switch (Number(rawStatus)) {
     case 0:
@@ -276,70 +200,6 @@ export function decodeBundleStatus(
   }
 }
 
-export function mapBundleStateToInteropPhase(
-  state: BundleLifecycleState,
-  hasSourceTxHash = true,
-): InteropPhase {
-  switch (state) {
-    case 'UNRECEIVED':
-      return hasSourceTxHash ? 'SENT' : 'UNKNOWN';
-    case 'VERIFIED':
-      return 'VERIFIED';
-    case 'FULLY_EXECUTED':
-      return 'EXECUTED';
-    case 'UNBUNDLED':
-      return 'UNBUNDLED';
-  }
-}
-
-export interface InspectBundleLifecycleInput {
-  sourceTxHash?: Hex;
-  bundleHash?: Hex;
-  destinationTxHash?: Hex;
-  getSourceReceipt(sourceTxHash: Hex): Promise<TxReceipt | null>;
-  parseBundleSent(receipt: TxReceipt): { bundleHash: Hex };
-  readBundleStatus(bundleHash: Hex): Promise<number | bigint>;
-  findDestinationTxHash?(bundleHash: Hex, state: BundleLifecycleState): Promise<Hex | undefined>;
-  errors?: BundleLifecycleErrors;
-}
-
-export interface BundleLifecycleInspection {
-  sourceTxHash?: Hex;
-  bundleHash?: Hex;
-  destinationTxHash?: Hex;
-  state: BundleLifecycleState;
-}
-
-export async function inspectBundleLifecycle(
-  input: InspectBundleLifecycleInput,
-): Promise<BundleLifecycleInspection> {
-  let bundleHash = input.bundleHash;
-  if (!bundleHash && input.sourceTxHash) {
-    const receipt = await input.getSourceReceipt(input.sourceTxHash);
-    if (receipt) bundleHash = input.parseBundleSent(receipt).bundleHash;
-  }
-
-  const state = bundleHash
-    ? decodeBundleStatus(await input.readBundleStatus(bundleHash), input.errors)
-    : 'UNRECEIVED';
-  let destinationTxHash = input.destinationTxHash;
-  if (
-    !destinationTxHash &&
-    bundleHash &&
-    input.findDestinationTxHash &&
-    (state === 'FULLY_EXECUTED' || state === 'UNBUNDLED')
-  ) {
-    destinationTxHash = await input.findDestinationTxHash(bundleHash, state);
-  }
-
-  return {
-    sourceTxHash: input.sourceTxHash,
-    bundleHash,
-    destinationTxHash,
-    state,
-  };
-}
-
 export interface BundleLifecyclePollOptions {
   pollMs?: number;
   timeoutMs?: number;
@@ -354,7 +214,7 @@ export interface WaitForBundleLifecycleInput {
   getProof(sourceTxHash: Hex, logIndex: number): Promise<ProofNormalized>;
   isProofNotReadyError(error: unknown): boolean;
   destination?: {
-    isReady(proof: ProofNormalized, finalizationInfo: InteropFinalizationInfo): Promise<boolean>;
+    isReady(proof: ProofNormalized, finalizationInfo: BundleFinalizationInfo): Promise<boolean>;
     shouldRetryError?(error: unknown): boolean;
     timeoutMessage: string;
     timeoutContext?(proof: ProofNormalized): Record<string, unknown>;
@@ -403,8 +263,8 @@ export async function pollUntil<T>(input: PollUntilInput<T>): Promise<T | null> 
 
 export async function waitForBundleLifecycle(
   input: WaitForBundleLifecycleInput,
-): Promise<InteropFinalizationInfo> {
-  const errors = input.errors ?? INTEROP_BUNDLE_LIFECYCLE_ERRORS;
+): Promise<BundleFinalizationInfo> {
+  const errors = input.errors ?? WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS;
   const pollMs = input.options?.pollMs ?? DEFAULT_POLL_MS;
   const timeoutMs = input.options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const now = () => input.clock?.now() ?? Date.now();

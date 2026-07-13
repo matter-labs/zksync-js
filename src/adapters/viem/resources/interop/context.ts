@@ -35,8 +35,6 @@ export interface BuildCtx extends CommonCtx {
   dstPublicClient: PublicClient;
   chainId: bigint;
   interopCenter: Address;
-  interopHandler: Address;
-  l2MessageVerification: Address;
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
 
@@ -57,14 +55,8 @@ export async function commonCtx(
   const chainId = BigInt(await client.l2.getChainId());
   const dstChainId = BigInt(await dstPublicClient.getChainId());
 
-  const {
-    bridgehub,
-    l2AssetRouter,
-    l2NativeTokenVault,
-    interopCenter,
-    interopHandler,
-    l2MessageVerification,
-  } = await contracts.addresses();
+  const { bridgehub, l2AssetRouter, l2NativeTokenVault, interopCenter } =
+    await contracts.addresses();
 
   await assertInteropProtocolVersion(client, chainId, dstChainId);
 
@@ -86,8 +78,6 @@ export async function commonCtx(
     dstChainId,
     dstPublicClient,
     interopCenter,
-    interopHandler,
-    l2MessageVerification,
     l2AssetRouter,
     l2NativeTokenVault,
     baseTokens: { src: srcBaseToken, dst: dstBaseToken, matches: baseMatches },

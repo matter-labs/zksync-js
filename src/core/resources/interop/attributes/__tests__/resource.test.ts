@@ -37,7 +37,9 @@ describe('interop/attributes/resource', () => {
       const resource = createAttributesResource(mockCodec);
 
       expect(resource.bundle.executionAddress(ADDR_A)).toBe('0xenc:executionAddress');
-      expect(resource.bundle.unbundlerAddress(ADDR_A)).toBe('0xenc:unbundlerAddress');
+      expect(resource.bundle.atomicBundle(`0x${'11'.repeat(32)}` as Hex, 10n, 0n)).toBe(
+        '0xenc:atomicBundle',
+      );
     });
 
     it('uses the same codec instance for all sub-resources', () => {
@@ -61,13 +63,13 @@ describe('interop/attributes/resource', () => {
       resource.call.indirectCall(1n);
       resource.call.interopCallValue(2n);
       resource.bundle.executionAddress(ADDR_A);
-      resource.bundle.unbundlerAddress(ADDR_A);
+      resource.bundle.atomicBundle(`0x${'11'.repeat(32)}` as Hex, 10n, 0n);
 
       expect(encodeCalls).toEqual([
         'indirectCall',
         'interopCallValue',
         'executionAddress',
-        'unbundlerAddress',
+        'atomicBundle',
       ]);
     });
   });

@@ -4,8 +4,6 @@ import type { ProofNormalized, ReceiptWithL2ToL1 } from '../../../rpc/types';
 import type { Hex } from '../../../types/primitives';
 import {
   decodeBundleStatus,
-  inspectBundleLifecycle,
-  mapBundleStateToInteropPhase,
   waitForBundleLifecycle,
   type BundleReceiptInfo,
   type WaitForBundleLifecycleInput,
@@ -14,7 +12,6 @@ import {
 const SOURCE_TX_HASH = `0x${'11'.repeat(32)}` as Hex;
 const BUNDLE_HASH = `0x${'22'.repeat(32)}` as Hex;
 const OTHER_BUNDLE_HASH = `0x${'33'.repeat(32)}` as Hex;
-const DESTINATION_TX_HASH = `0x${'44'.repeat(32)}` as Hex;
 
 const RECEIPT = {
   blockNumber: 5,
@@ -208,54 +205,15 @@ describe('cross-chain bundle lifecycle', () => {
   });
 
   it.each([
-    [0, 'UNRECEIVED', 'SENT'],
-    [1, 'VERIFIED', 'VERIFIED'],
-    [2, 'FULLY_EXECUTED', 'EXECUTED'],
-    [3, 'UNBUNDLED', 'UNBUNDLED'],
-  ] as const)('maps handler status %s through the intent phase', (raw, state, phase) => {
+    [0, 'UNRECEIVED'],
+    [1, 'VERIFIED'],
+    [2, 'FULLY_EXECUTED'],
+    [3, 'UNBUNDLED'],
+  ] as const)('decodes withdrawal handler status %s', (raw, state) => {
     expect(decodeBundleStatus(raw)).toBe(state);
-    expect(mapBundleStateToInteropPhase(state)).toBe(phase);
   });
 
   it('rejects unknown handler status values', () => {
     expect(() => decodeBundleStatus(4)).toThrow(/unknown bundle status/);
-  });
-
-  it('derives the emitted bundle and looks up a final execution hash once', async () => {
-    let destinationLookupCalls = 0;
-    const inspection = await inspectBundleLifecycle({
-      sourceTxHash: SOURCE_TX_HASH,
-      getSourceReceipt: async () => ({ logs: [] }),
-      parseBundleSent: () => ({ bundleHash: BUNDLE_HASH }),
-      readBundleStatus: async () => 2,
-      findDestinationTxHash: async () => {
-        destinationLookupCalls += 1;
-        return DESTINATION_TX_HASH;
-      },
-    });
-
-    expect(inspection).toEqual({
-      sourceTxHash: SOURCE_TX_HASH,
-      bundleHash: BUNDLE_HASH,
-      destinationTxHash: DESTINATION_TX_HASH,
-      state: 'FULLY_EXECUTED',
-    });
-    expect(destinationLookupCalls).toBe(1);
-  });
-
-  it('does not query a handler until a bundle hash can be resolved', async () => {
-    let statusCalls = 0;
-    const inspection = await inspectBundleLifecycle({
-      sourceTxHash: SOURCE_TX_HASH,
-      getSourceReceipt: async () => null,
-      parseBundleSent: () => ({ bundleHash: BUNDLE_HASH }),
-      readBundleStatus: async () => {
-        statusCalls += 1;
-        return 0;
-      },
-    });
-
-    expect(inspection.state).toBe('UNRECEIVED');
-    expect(statusCalls).toBe(0);
   });
 });

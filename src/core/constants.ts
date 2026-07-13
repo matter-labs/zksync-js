@@ -37,9 +37,12 @@ export const L2_INTEROP_CENTER_ADDRESS: Address = '0x000000000000000000000000000
 /** The address of the L2 InteropHandler contract.*/
 export const L2_INTEROP_HANDLER_ADDRESS: Address = '0x000000000000000000000000000000000001000e';
 
-/** The address of the L2 InteropRootStorage contract. */
-export const L2_INTEROP_ROOT_STORAGE_ADDRESS: Address =
-  '0x0000000000000000000000000000000000010008';
+/** The address of the per-chain atomic interop commitment tree. */
+export const L2_INTEROP_COMMITMENT_TREE_ADDRESS: Address =
+  '0x0000000000000000000000000000000000010012';
+
+/** The address of the atomic interop flow manager. */
+export const L2_ATOMIC_FLOW_MANAGER_ADDRESS: Address = '0x0000000000000000000000000000000000010014';
 
 /** L2 Message Verification contract address. */
 export const L2_MESSAGE_VERIFICATION_ADDRESS: Address =

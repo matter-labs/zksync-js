@@ -13,7 +13,7 @@ import {
   L2_INTEROP_CENTER_ADDRESS,
   TOPIC_L1_MESSAGE_SENT_LEG,
 } from '../../../core/constants';
-import type { InteropFinalizationInfo } from '../../../core/types/flows/interop';
+import type { BundleFinalizationInfo } from '../../../core/internal/cross-chain/types';
 import type { Address, Hex } from '../../../core/types/primitives';
 import { ADAPTER_TEST_ADDRESSES } from '../adapter-harness';
 
@@ -24,7 +24,7 @@ const EXECUTION_TX_HASH = `0x${'33'.repeat(32)}` as Hex;
 const ZERO_HASH = `0x${'00'.repeat(32)}` as Hex;
 const PROOF_HASH = `0x${'44'.repeat(32)}` as Hex;
 
-const FINALIZATION_INFO: InteropFinalizationInfo = {
+const FINALIZATION_INFO: BundleFinalizationInfo = {
   l2SrcTxHash: SOURCE_TX_HASH,
   bundleHash: BUNDLE_HASH,
   dstChainId: 1n,

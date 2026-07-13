@@ -4,6 +4,16 @@ import type { InteropParams } from '../../../../../core/types/flows/interop';
 import type { BuildCtx } from '../context';
 import type { PlanStep, ApprovalNeed } from '../../../../../core/types/flows/base';
 import type { QuoteExtras, InteropFee } from '../../../../../core/types/flows/interop';
+import type {
+  InteropAtomicSend,
+  InteropBundleBuild,
+} from '../../../../../core/resources/interop/plan';
+import type { Hex } from '../../../../../core/types/primitives';
+
+export interface InteropRouteBuildOptions {
+  bundleSalt: Hex;
+  atomic?: InteropAtomicSend;
+}
 
 export interface InteropRouteStrategy {
   // Preflight checks. Throw with a descriptive message on invalid inputs.
@@ -13,10 +23,12 @@ export interface InteropRouteStrategy {
   build(
     params: InteropParams,
     ctx: BuildCtx,
+    options: InteropRouteBuildOptions,
   ): Promise<{
     steps: Array<PlanStep<TransactionRequest>>;
     approvals: ApprovalNeed[];
     quoteExtras: QuoteExtras;
     interopFee: InteropFee;
+    bundle: InteropBundleBuild;
   }>;
 }

@@ -4,17 +4,15 @@
 
 import type { Hex } from '../../../../../core/types/primitives';
 import type { InteropParams } from '../../../../../core/types/flows/interop';
-import type { BuildCtx } from '../context';
 import type { InteropStarterData } from '../../../../../core/resources/interop/plan';
 import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import { assertNever } from '../../../../../core/utils';
 
 /** Build interop starter data for all actions in the bundle. */
-export async function getStarterData(
+export function getStarterData(
   params: InteropParams,
-  ctx: BuildCtx,
   erc20AssetIds: Map<string, Hex>,
-): Promise<InteropStarterData[]> {
+): InteropStarterData[] {
   const starterData: InteropStarterData[] = [];
 
   for (const action of params.actions) {
@@ -34,20 +32,6 @@ export async function getStarterData(
         starterData.push({ assetRouterPayload });
         break;
       }
-      case 'sendNative':
-        if (!ctx.baseTokens.matches) {
-          const assetId = await ctx.tokens.baseTokenAssetId();
-          const transferData = encodeNativeTokenVaultTransferData(
-            action.amount,
-            action.to,
-            ctx.baseTokens.src,
-          );
-          const assetRouterPayload = encodeSecondBridgeDataV1(assetId, transferData) as Hex;
-          starterData.push({ assetRouterPayload });
-        } else {
-          starterData.push({});
-        }
-        break;
       case 'call':
         starterData.push({});
         break;

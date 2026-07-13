@@ -54,6 +54,7 @@ export function buildEnsureTokenSteps(
 export async function buildApproveSteps(
   approvals: ApprovalNeed[],
   ctx: BuildCtx,
+  options: { exact?: boolean } = {},
 ): Promise<Array<{ key: string; kind: string; description: string; tx: ViemTransactionRequest }>> {
   const steps: Array<{
     key: string;
@@ -70,7 +71,7 @@ export async function buildApproveSteps(
       args: [ctx.sender, approval.spender],
     })) as bigint;
 
-    if (currentAllowance < approval.amount) {
+    if (options.exact ? currentAllowance !== approval.amount : currentAllowance < approval.amount) {
       steps.push({
         key: `approve:${approval.token}:${approval.spender}`,
         kind: 'approve',

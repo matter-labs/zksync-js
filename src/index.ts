@@ -26,6 +26,7 @@ export type * from './core/types/errors';
 export type * from './core/types/flows/base';
 export type * from './core/types/flows/deposits';
 export type * from './core/types/flows/withdrawals';
+export type * from './core/types/flows/interop';
 export type * from './core/types/flows/route';
 export type * from './core/types/flows/token';
 export type * from './core/types/primitives';

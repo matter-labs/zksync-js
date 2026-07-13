@@ -1,10 +1,13 @@
 import type { AbstractProvider } from 'ethers';
+import type { AtomicInteropIndexProvider } from '../../../../core/types/flows/interop';
 
 /** String URL or live provider — used only in resource/SDK config. */
 export type ChainRef = string | AbstractProvider;
 
 /** One-time configuration for the interop resource. */
 export interface InteropConfig {
-  /** @deprecated Interop no longer uses a gateway. This value is accepted and ignored. */
-  gwChain?: ChainRef;
+  /** Required for state-changing atomic sends while completion/refund tooling is external. */
+  enableExperimentalAtomicSend?: boolean;
+  /** Optional indexer-backed predecessor resolver for large commitment trees. */
+  indexProvider?: AtomicInteropIndexProvider;
 }

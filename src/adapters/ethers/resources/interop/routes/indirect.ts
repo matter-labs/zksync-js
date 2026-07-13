@@ -27,7 +27,7 @@ export function routeIndirect(): InteropRouteStrategy {
         codec: interopCodec,
       });
     },
-    async build(params: InteropParams, ctx: BuildCtx) {
+    async build(params: InteropParams, ctx: BuildCtx, options) {
       const steps: Array<{
         key: string;
         kind: string;
@@ -40,8 +40,8 @@ export function routeIndirect(): InteropRouteStrategy {
         resolveErc20AssetIds(erc20Tokens, ctx),
         buildFeeInfo(params, ctx, params.actions.length),
       ]);
-      const attributes = getInteropAttributes(params, ctx);
-      const starterData = await getStarterData(params, ctx, erc20AssetIds);
+      const attributes = getInteropAttributes(params, ctx, options.bundleSalt, options.atomic);
+      const starterData = getStarterData(params, erc20AssetIds);
       const bundle = buildIndirectBundle(
         params,
         {
@@ -79,6 +79,7 @@ export function routeIndirect(): InteropRouteStrategy {
       });
 
       return {
+        bundle,
         steps,
         approvals: bundle.approvals,
         quoteExtras: bundle.quoteExtras,

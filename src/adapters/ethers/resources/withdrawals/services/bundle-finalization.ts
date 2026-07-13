@@ -1,6 +1,6 @@
 import { Contract, type TransactionReceipt, type TransactionResponse } from 'ethers';
 import type { EthersClient } from '../../../client';
-import type { InteropFinalizationInfo } from '../../../../../core/types/flows/interop';
+import type { BundleFinalizationInfo } from '../../../../../core/internal/cross-chain/types';
 import type { FinalizeReadiness } from '../../../../../core/types/flows/withdrawals';
 import type { FinalizationEstimate } from '../../../../../core/types/flows/withdrawals';
 import type { Address, Hex } from '../../../../../core/types/primitives';
@@ -18,26 +18,22 @@ import { createError } from '../../../../../core/errors/factory';
 import { isZKsyncError, OP_WITHDRAWALS } from '../../../../../core/types/errors';
 import { createErrorHandlers, toZKsyncError } from '../../../errors/error-ops';
 import { classifyReadinessFromRevert } from '../../../errors/revert';
-import {
-  decodeInteropBundleSent,
-  decodeL1MessageData,
-} from '../../interop/services/finalization/decoders';
-import { getTopics } from '../../interop/services/finalization/topics';
+import { createWithdrawalBundleCodec } from './bundle-codec';
 
 const { wrapAs } = createErrorHandlers('withdrawals');
 
 export interface WithdrawalBundleFinalizationServices {
   resolveHandler(): Promise<Address>;
-  fetchBundleFinalizationInfo(l2TxHash: Hex): Promise<InteropFinalizationInfo>;
+  fetchBundleFinalizationInfo(l2TxHash: Hex): Promise<BundleFinalizationInfo>;
   waitForBundleFinalization(
     l2TxHash: Hex,
     opts?: { pollMs?: number; timeoutMs?: number },
-  ): Promise<InteropFinalizationInfo>;
+  ): Promise<BundleFinalizationInfo>;
   readBundleState(bundleHash: Hex): Promise<BundleLifecycleState>;
-  simulateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizeReadiness>;
-  estimateExecuteBundle(info: InteropFinalizationInfo): Promise<FinalizationEstimate>;
+  simulateExecuteBundle(info: BundleFinalizationInfo): Promise<FinalizeReadiness>;
+  estimateExecuteBundle(info: BundleFinalizationInfo): Promise<FinalizationEstimate>;
   executeBundle(
-    info: InteropFinalizationInfo,
+    info: BundleFinalizationInfo,
   ): Promise<{ hash: Hex; wait: () => Promise<TransactionReceipt> }>;
 }
 
@@ -51,7 +47,7 @@ function isProofNotReadyError(error: unknown): boolean {
 export function createWithdrawalBundleFinalizationServices(
   client: EthersClient,
 ): WithdrawalBundleFinalizationServices {
-  const { topics, centerIface } = getTopics();
+  const codec = createWithdrawalBundleCodec();
 
   const getSourceReceipt = (l2TxHash: Hex) =>
     wrapAs(
@@ -92,15 +88,15 @@ export function createWithdrawalBundleFinalizationServices(
     return parseBundleReceiptInfo({
       rawReceipt,
       interopCenter,
-      interopBundleSentTopic: topics.interopBundleSent,
-      decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
-      decodeL1MessageData,
+      interopBundleSentTopic: codec.interopBundleSentTopic,
+      decodeInteropBundleSent: (log) => codec.decodeBundleSent(log),
+      decodeL1MessageData: (log) => codec.decodeL1MessageData(log),
       l2SrcTxHash: l2TxHash,
       errors: WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
     });
   };
 
-  const fetchBundleFinalizationInfo = async (l2TxHash: Hex): Promise<InteropFinalizationInfo> => {
+  const fetchBundleFinalizationInfo = async (l2TxHash: Hex): Promise<BundleFinalizationInfo> => {
     const bundleInfo = await parseReceipt(l2TxHash);
     const proof = await wrapAs(
       'RPC',
@@ -151,9 +147,9 @@ export function createWithdrawalBundleFinalizationServices(
           parseBundleReceiptInfo({
             rawReceipt,
             interopCenter,
-            interopBundleSentTopic: topics.interopBundleSent,
-            decodeInteropBundleSent: (log) => decodeInteropBundleSent(centerIface, log),
-            decodeL1MessageData,
+            interopBundleSentTopic: codec.interopBundleSentTopic,
+            decodeInteropBundleSent: (log) => codec.decodeBundleSent(log),
+            decodeL1MessageData: (log) => codec.decodeL1MessageData(log),
             l2SrcTxHash: l2TxHash,
             errors: WITHDRAWAL_BUNDLE_LIFECYCLE_ERRORS,
           }),

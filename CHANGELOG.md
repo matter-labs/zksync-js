@@ -2,21 +2,34 @@
 
 ## Unreleased
 
+### Added
+
+* Atomic interop leg coordination with `approve`, `previewLeg`, `defineFlow`, `bindFlow`, and settlement-layer deadline helpers.
+* Serializable atomic intents that retain the exact payload, secure salt, bundle commitment, canonical flow preimage, and source transaction metadata.
+* Optional validated `AtomicInteropIndexProvider` support with a bounded on-chain commitment-tree fallback.
+
 ### Changed
 
-* Deposits, withdrawals, and interop now share one internal cross-chain execution and completion lifecycle while retaining their existing intent-resource APIs.
+* Deposits, withdrawals, and interop share one internal source-plan executor while keeping resource-specific intent APIs.
 * Withdrawals are sent as uniquely salted L2-to-L1 bundles and finalized atomically through `L1InteropHandler.executeBundle`.
-* Interop finalization now verifies and executes bundles atomically through `executeBundle`.
-* Interop no longer requires a gateway provider or polls `InteropRootStorage`; readiness is checked by simulating `executeBundle` on the destination handler.
+* `sdk.interop` now models one atomic source leg per SDK instance and preserves `quote -> prepare -> create -> status` for single-leg and coordinated multi-leg flows.
+* Atomic interop `prepare` and `create` require `enableExperimentalAtomicSend: true` until production completion and refund tooling is available.
 
 ### Deprecated
 
-* `createFinalizationServices`, `createInteropFinalizationServices`, and `verifyBundle` remain compatibility wrappers for one minor release. `getInteropRoot` remains as a source-compatible entrypoint but reports that root polling was removed. Use the deposit, withdrawal, and interop intent resources instead.
+* Withdrawal-only `createFinalizationServices` remains a compatibility wrapper for one minor release. Use `sdk.withdrawals.status`, `wait`, and `finalize` instead.
+
+### Removed
+
+* Removed the former interop `wait`, `finalize`, verification, root-polling, unbundling, public-message proof, and gateway configuration paths without compatibility wrappers.
+* Removed native atomic interop sends until timeout recovery is proven for ordinary recipients. Arbitrary calls now require an explicit `IAtomicRecoverable` declaration.
+* Removed obsolete interop examples, environment setup, and live E2E suites. Live atomic interop E2Es are deferred until an upgraded multi-chain environment is available.
 
 ### Breaking
 
+* The public `sdk.interop` methods, params, handles, status phases, and exported interop types now describe atomic intents exclusively. Existing interop consumers must migrate; deposits and withdrawals are unaffected.
 * Raw `IBaseToken`, `IL2AssetRouter`, and `IL1Nullifier` ABI exports no longer contain the removed standalone withdrawal and nullifier-finalization members. Intent-resource methods and handles are unchanged.
-* Raw `IInteropCenter` ABI exports now use the salt-based interface and no longer contain the obsolete nonce, balance-change forwarding, updater, or asset-tracker members.
+* Raw interop ABI exports are narrowed to the atomic send, commitment-manager/tree, event, and status interfaces used by the SDK.
 
 ## [0.0.19](https://github.com/matter-labs/zksync-js/compare/v0.0.18...v0.0.19) (2026-06-30)
 
