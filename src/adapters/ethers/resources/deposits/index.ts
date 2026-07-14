@@ -15,7 +15,7 @@ import {
   waitForL2ExecutionFromL1Tx,
 } from './services/verification.ts';
 
-import { Contract, type TransactionRequest, type TransactionReceipt, NonceManager } from 'ethers';
+import { Contract, type TransactionRequest, type TransactionReceipt } from 'ethers';
 import { IERC20ABI } from '../../../../core/abi.ts';
 
 import { commonCtx } from './context';
@@ -28,7 +28,7 @@ import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
-import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import { executeSourcePlan } from '../../../../core/internal/cross-chain/execution';
 import {
   inspectPriorityLifecycle,
   mapPriorityStateToDepositPhase,
@@ -38,6 +38,7 @@ import { isZKsyncError, isReceiptNotFound, OP_DEPOSITS } from '../../../../core/
 import { createError } from '../../../../core/errors/factory.ts';
 import { resolveCreateDepositL1GasLimit } from '../../../../core/resources/deposits/gas.ts';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops.ts';
+import { createEthersTransactionDriver } from '../../internal/source-execution';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -190,21 +191,17 @@ export function createDepositsResource(
         const { chainId } = await client.l2.getNetwork();
         const chainIdL2 = BigInt(chainId);
 
-        const managed = new NonceManager(client.signer);
-        const from = await managed.getAddress();
-        let next: number;
-        if (typeof p.l1TxOverrides?.nonce === 'number') {
-          next = p.l1TxOverrides.nonce;
-        } else {
-          const blockTag = p.l1TxOverrides?.nonce ?? 'latest';
-          next = await client.l1.getTransactionCount(from, blockTag);
-        }
-
-        const execution = await executePlan({
+        const execution = await executeSourcePlan({
           steps: plan.steps,
-          initialNonce: next,
-          executeStep: async ({ step, nonce }) => {
-            if (step.kind === 'approve') {
+          nonce: p.l1TxOverrides?.nonce,
+          driver: createEthersTransactionDriver({
+            provider: client.l1,
+            signer: client.signer,
+            defaultNonceTag: 'latest',
+            overrides: p.l1TxOverrides,
+            synchronizePendingNonce: true,
+            shouldSkip: async ({ step, sender }) => {
+              if (step.kind !== 'approve') return false;
               try {
                 const [, token, router] = step.key.split(':');
                 const erc20 = new Contract(token as Address, IERC20ABI, client.signer);
@@ -214,82 +211,58 @@ export function createDepositsResource(
                       need.token.toLowerCase() === (token ?? '').toLowerCase() &&
                       need.spender.toLowerCase() === (router ?? '').toLowerCase(),
                   )?.amount ?? 0n;
-
-                const current = (await erc20.allowance(from, router as Address)) as bigint;
-                if (current >= target) return null;
-              } catch (e) {
+                const current = (await erc20.allowance(sender, router as Address)) as bigint;
+                return current >= target;
+              } catch (error) {
                 throw toZKsyncError(
                   'CONTRACT',
                   {
                     resource: 'deposits',
                     operation: 'deposits.create.erc20-allowance-recheck',
-                    context: { where: 'erc20.allowance(recheck)', step: step.key, from },
+                    context: {
+                      where: 'erc20.allowance(recheck)',
+                      step: step.key,
+                      from: sender,
+                    },
                     message: 'Failed to read ERC-20 allowance during deposit step.',
                   },
-                  e,
+                  error,
                 );
               }
-            }
-            step.tx.nonce = nonce;
-
-            if (p.l1TxOverrides) {
-              const overrides = p.l1TxOverrides;
-              if (overrides.gasLimit != null) step.tx.gasLimit = overrides.gasLimit;
-              if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;
-              if (overrides.maxPriorityFeePerGas != null) {
-                step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
-              }
-            }
-
-            if (!p.l1TxOverrides?.gasLimit) {
-              try {
-                const preparedGasLimit =
-                  step.tx.gasLimit != null ? BigInt(step.tx.gasLimit.toString()) : undefined;
-                const est = await client.l1.estimateGas(step.tx);
-                step.tx.gasLimit = resolveCreateDepositL1GasLimit({
+            },
+            gasPolicy: {
+              mode: 'always',
+              resolveGasLimit: ({ step, preparedGasLimit, estimatedGasLimit }) =>
+                resolveCreateDepositL1GasLimit({
                   chainIdL2,
                   stepKey: step.key,
                   preparedGasLimit,
-                  estimatedGasLimit: BigInt(est),
-                });
-              } catch {
-                // Gas estimation is best-effort; keep the prepared value.
-              }
-            }
-
-            let hash: Hex | undefined;
-            try {
-              const sent = await managed.sendTransaction(step.tx);
-              hash = sent.hash as Hex;
-
-              const rcpt = await sent.wait();
-              if (rcpt?.status === 0) {
-                throw createError('EXECUTION', {
-                  resource: 'deposits',
-                  operation: 'deposits.create.sendTransaction',
-                  message: 'Deposit transaction reverted on L1 during a step.',
-                  context: { step: step.key, txHash: hash },
-                });
-              }
-              return hash;
-            } catch (e) {
-              if (isZKsyncError(e)) throw e;
-              throw toZKsyncError(
+                  estimatedGasLimit,
+                }),
+            },
+            revertedError: ({ step, txHash }) =>
+              createError('EXECUTION', {
+                resource: 'deposits',
+                operation: 'deposits.create.sendTransaction',
+                message: 'Deposit transaction reverted on L1 during a step.',
+                context: { step: step.key, txHash },
+              }),
+            mapError: (error, { step, txHash, nonce }) =>
+              toZKsyncError(
                 'EXECUTION',
                 {
                   resource: 'deposits',
                   operation: 'deposits.create.sendTransaction',
-                  context: { step: step.key, txHash: hash, nonce },
+                  context: { step: step.key, txHash, nonce },
                   message: 'Failed to send or confirm a deposit transaction step.',
                 },
-                e,
-              );
-            }
-          },
+                error,
+              ),
+          }),
         });
         return {
           kind: 'deposit',
-          l1TxHash: execution.sourceTxHash ?? ('0x' as Hex),
+          l1TxHash: execution.lastSourceHash ?? ('0x' as Hex),
           stepHashes: execution.stepHashes,
           plan,
         };

@@ -11,12 +11,7 @@ import type {
 } from '../../../../core/types/flows/deposits';
 import type { Address, Hex } from '../../../../core/types/primitives';
 
-import type {
-  Abi,
-  EstimateContractGasParameters,
-  TransactionReceipt,
-  WriteContractParameters,
-} from 'viem';
+import type { Abi, TransactionReceipt } from 'viem';
 import { IERC20ABI } from '../../../../core/abi.ts';
 
 import { commonCtx } from './context';
@@ -35,11 +30,12 @@ import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
-import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import { executeSourcePlan } from '../../../../core/internal/cross-chain/execution';
 import {
   inspectPriorityLifecycle,
   mapPriorityStateToDepositPhase,
 } from '../../../../core/internal/cross-chain/priority-lifecycle';
+import { createViemContractWriteDriver } from '../../internal/source-execution';
 
 const { wrap, toResult } = createErrorHandlers('deposits');
 
@@ -194,19 +190,17 @@ export function createDepositsResource(
         const chainIdL2 = BigInt(await client.l2.getChainId());
 
         const from = client.account.address;
-        let next: number;
-        if (typeof p.l1TxOverrides?.nonce === 'number') {
-          next = p.l1TxOverrides.nonce;
-        } else {
-          const blockTag = p.l1TxOverrides?.nonce ?? 'latest';
-          next = await client.l1.getTransactionCount({ address: from, blockTag });
-        }
-
-        const execution = await executePlan({
+        const execution = await executeSourcePlan({
           steps: plan.steps,
-          initialNonce: next,
-          executeStep: async ({ step, nonce }) => {
-            if (step.kind === 'approve') {
+          nonce: p.l1TxOverrides?.nonce,
+          driver: createViemContractWriteDriver({
+            publicClient: client.l1,
+            wallet: client.l1Wallet,
+            account: client.account,
+            defaultNonceTag: 'latest',
+            overrides: p.l1TxOverrides,
+            shouldSkip: async ({ step }) => {
+              if (step.kind !== 'approve') return false;
               try {
                 const [, token, router] = step.key.split(':');
                 const current = (await client.l1.readContract({
@@ -222,8 +216,8 @@ export function createDepositsResource(
                       need.token.toLowerCase() === (token ?? '').toLowerCase() &&
                       need.spender.toLowerCase() === (router ?? '').toLowerCase(),
                   )?.amount ?? 0n;
-                if (current >= target) return null;
-              } catch (e) {
+                return current >= target;
+              } catch (error) {
                 throw toZKsyncError(
                   'CONTRACT',
                   {
@@ -232,113 +226,51 @@ export function createDepositsResource(
                     context: { where: 'erc20.allowance(recheck)', step: step.key, from },
                     message: 'Failed to read ERC-20 allowance during deposit step.',
                   },
-                  e,
+                  error,
                 );
               }
-            }
-
-            if (p.l1TxOverrides) {
-              const overrides = p.l1TxOverrides;
-              if (overrides.maxFeePerGas != null) {
-                step.tx.maxFeePerGas = overrides.maxFeePerGas;
-              }
-              if (overrides.maxPriorityFeePerGas != null) {
-                step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
-              }
-              if (overrides.gasLimit != null) step.tx.gas = overrides.gasLimit;
-            }
-
-            if (!p.l1TxOverrides?.gasLimit) {
-              try {
-                const preparedGasLimit = step.tx.gas;
-                const feePart =
-                  step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
-                    ? {
-                        maxFeePerGas: step.tx.maxFeePerGas,
-                        maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                      }
-                    : {};
-                const params: EstimateContractGasParameters = {
-                  address: step.tx.address,
-                  abi: step.tx.abi as Abi,
-                  functionName: step.tx.functionName,
-                  args: step.tx.args,
-                  account: step.tx.account ?? client.account,
-                  ...(step.tx.value != null ? { value: step.tx.value } : {}),
-                  maxFeePerGas: step.tx.maxFeePerGas,
-                  maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                  ...feePart,
-                };
-                const gas = await client.l1.estimateContractGas({ ...params });
-                step.tx.gas = resolveCreateDepositL1GasLimit({
+            },
+            gasPolicy: {
+              mode: 'always',
+              resolveGasLimit: ({ step, preparedGasLimit, estimatedGasLimit }) =>
+                resolveCreateDepositL1GasLimit({
                   chainIdL2,
                   stepKey: step.key,
                   preparedGasLimit,
-                  estimatedGasLimit: gas,
-                });
-              } catch {
-                // Gas estimation is best-effort; keep the prepared value.
-              }
-            }
-
-            const fee1559 =
-              step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
-                ? {
-                    maxFeePerGas: step.tx.maxFeePerGas,
-                    maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                  }
-                : {};
-
-            const baseReq = {
-              address: step.tx.address,
-              abi: step.tx.abi as Abi,
-              functionName: step.tx.functionName,
-              args: step.tx.args,
-              account: step.tx.account ?? client.account,
-              gas: step.tx.gas,
-              nonce,
-              ...fee1559,
-              ...(step.tx.dataSuffix ? { dataSuffix: step.tx.dataSuffix } : {}),
-              ...(step.tx.chain ? { chain: step.tx.chain } : {}),
-            } as Omit<WriteContractParameters, 'value'>;
-
-            const req: WriteContractParameters =
-              step.tx.value != null
-                ? ({ ...baseReq, value: step.tx.value } as WriteContractParameters)
-                : (baseReq as WriteContractParameters);
-
-            let hash: Hex | undefined;
-            try {
-              hash = await client.l1Wallet.writeContract(req);
-              const rcpt = await client.l1.waitForTransactionReceipt({ hash });
-              if (!rcpt || rcpt.status !== 'success') {
-                throw createError('EXECUTION', {
-                  resource: 'deposits',
-                  operation: 'deposits.create.writeContract',
-                  message: 'Deposit transaction reverted on L1 during a step.',
-                  context: { step: step.key, txHash: hash, status: rcpt?.status },
-                });
-              }
-              return hash;
-            } catch (e) {
-              if (isZKsyncError(e)) throw e;
-              throw toZKsyncError(
+                  estimatedGasLimit,
+                }),
+            },
+            missingWalletError: ({ step }) =>
+              createError('EXECUTION', {
+                resource: 'deposits',
+                operation: 'deposits.create.writeContract',
+                message: 'No L1 wallet available to send deposit transaction step.',
+                context: { step: step.key },
+              }),
+            revertedError: ({ step, txHash }) =>
+              createError('EXECUTION', {
+                resource: 'deposits',
+                operation: 'deposits.create.writeContract',
+                message: 'Deposit transaction reverted on L1 during a step.',
+                context: { step: step.key, txHash, status: 'reverted' },
+              }),
+            mapError: (error, { step, txHash, nonce }) =>
+              toZKsyncError(
                 'EXECUTION',
                 {
                   resource: 'deposits',
                   operation: 'deposits.create.writeContract',
-                  context: { step: step.key, txHash: hash, nonce },
+                  context: { step: step.key, txHash, nonce },
                   message: 'Failed to send or confirm a deposit transaction step.',
                 },
-                e,
-              );
-            }
-          },
+                error,
+              ),
+          }),
         });
 
         return {
           kind: 'deposit',
-          l1TxHash: execution.sourceTxHash ?? ('0x' as Hex),
+          l1TxHash: execution.lastSourceHash ?? ('0x' as Hex),
           stepHashes: execution.stepHashes,
           plan,
         };

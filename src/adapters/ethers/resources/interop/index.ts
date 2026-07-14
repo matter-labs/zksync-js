@@ -33,17 +33,14 @@ import type {
   InteropStatus,
 } from '../../../../core/types/flows/interop';
 import type { ApprovalNeed, PlanStep } from '../../../../core/types/flows/base';
+import type { TxOverrides } from '../../../../core/types/fees';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import {
-  assertAtomicInteropIntent,
   assertAtomicInteropPayloadMatches,
   assertDeadline,
   assertInteropParams,
-  bindAtomicInteropFlow,
   decodeAtomicInteropBundleState,
   decodeAtomicInteropLegState,
-  defineAtomicInteropFlow,
-  getAtomicInteropCommitValue,
   isAtomicInteropIntent,
   isStaleAtomicInteropIndexErrorName,
   mapAtomicInteropPhase,
@@ -56,8 +53,9 @@ import type {
   InteropBundleBuild,
 } from '../../../../core/resources/interop/plan';
 import {
-  executePlan,
-  type PlanExecutionResult,
+  executeSourcePlan,
+  mergeSourceExecutionResults,
+  type SourceExecutionResult,
 } from '../../../../core/internal/cross-chain/execution';
 import { generateBundleSalt } from '../../../../core/internal/cross-chain/salt';
 import {
@@ -72,7 +70,7 @@ import {
   L2_INTEROP_COMMITMENT_TREE_ADDRESS,
   L2_INTEROP_HANDLER_ADDRESS,
 } from '../../../../core/constants';
-import { isZKsyncError, OP_INTEROP } from '../../../../core/types';
+import { OP_INTEROP } from '../../../../core/types';
 import { isHash66 } from '../../../../core/utils';
 import { createError } from '../../../../core/errors/factory';
 import { createErrorHandlers, toZKsyncError } from '../../errors/error-ops';
@@ -85,8 +83,16 @@ import type { InteropRouteStrategy } from './routes/types';
 import { quoteStepsL2Fee } from './services/gas';
 import { buildApproveSteps } from './services/erc20';
 import type { ChainRef, InteropConfig } from './types';
+import { ethersAtomicInteropPrimitives } from './atomic-codec';
+import { createEthersTransactionDriver } from '../../internal/source-execution';
 
 const { wrap, toResult } = createErrorHandlers('interop');
+const {
+  assertIntent: assertAtomicInteropIntent,
+  bindFlow: bindAtomicInteropFlow,
+  defineFlow: defineAtomicInteropFlow,
+  getCommitValue: getAtomicInteropCommitValue,
+} = ethersAtomicInteropPrimitives;
 
 export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
   direct: routeDirect(),
@@ -134,11 +140,6 @@ interface Material {
   steps: Array<PlanStep<TransactionRequest>>;
   approvals: ApprovalNeed[];
   summary: InteropQuote;
-}
-
-interface ExecutedSteps {
-  execution: PlanExecutionResult;
-  receipts: Map<string, TransactionReceipt>;
 }
 
 interface EthersCommitmentTreeLeaf {
@@ -461,66 +462,46 @@ export function createInteropResource(
     };
   }
 
-  async function startingNonce(ctx: BuildCtx, params: InteropParams): Promise<number> {
-    const configured = params.txOverrides?.nonce;
-    if (typeof configured === 'number') return configured;
-    const blockTag = configured ?? 'pending';
-    return client.l2.getTransactionCount(ctx.sender, blockTag);
-  }
-
   async function executeSteps(
     steps: readonly PlanStep<TransactionRequest>[],
     ctx: BuildCtx,
-    initialNonce: number,
-  ): Promise<ExecutedSteps> {
-    const signer = client.getL2Signer();
-    const receipts = new Map<string, TransactionReceipt>();
-    const execution = await executePlan({
+    nonce: TxOverrides['nonce'] | undefined,
+    overrides?: TxOverrides,
+  ): Promise<SourceExecutionResult<TransactionReceipt>> {
+    return executeSourcePlan({
       steps,
-      initialNonce,
-      executeStep: async ({ step, nonce }) => {
-        const tx: TransactionRequest = { ...step.tx, nonce };
-        if (tx.chainId == null) tx.chainId = Number(ctx.chainId);
-        if (tx.gasLimit == null) {
-          try {
-            tx.gasLimit =
-              ((await client.l2.estimateGas({ ...tx, from: ctx.sender })) * 115n) / 100n;
-          } catch {
-            // The send path reports the contract error with its full context.
-          }
-        }
-
-        let hash: Hex | undefined;
-        try {
-          const sent = await signer.sendTransaction(tx);
-          hash = sent.hash as Hex;
-          const receipt = await sent.wait();
-          if (!receipt || receipt.status === 0) {
-            throw createError('EXECUTION', {
-              resource: 'interop',
-              operation: OP_INTEROP.exec.waitStep,
-              message: 'Atomic interop transaction reverted on source L2.',
-              context: { step: step.key, txHash: hash },
-            });
-          }
-          receipts.set(step.key, receipt);
-          return hash;
-        } catch (error) {
-          if (isZKsyncError(error)) throw error;
-          throw toZKsyncError(
+      nonce,
+      driver: createEthersTransactionDriver({
+        provider: client.l2,
+        signer: client.getL2Signer(),
+        defaultNonceTag: 'pending',
+        requestDefaults: { chainId: Number(ctx.chainId) },
+        overrides,
+        gasPolicy: {
+          mode: 'when-missing',
+          estimateFrom: ctx.sender,
+          resolveGasLimit: ({ estimatedGasLimit }) => (estimatedGasLimit * 115n) / 100n,
+        },
+        revertedError: ({ step, txHash }) =>
+          createError('EXECUTION', {
+            resource: 'interop',
+            operation: OP_INTEROP.exec.waitStep,
+            message: 'Atomic interop transaction reverted on source L2.',
+            context: { step: step.key, txHash },
+          }),
+        mapError: (error, { step, txHash, nonce: stepNonce }) =>
+          toZKsyncError(
             'EXECUTION',
             {
               resource: 'interop',
               operation: OP_INTEROP.exec.sendStep,
               message: 'Failed to send or confirm an atomic interop transaction step.',
-              context: { step: step.key, txHash: hash, nonce },
+              context: { step: step.key, txHash, nonce: stepNonce },
             },
             error,
-          );
-        }
-      },
+          ),
+      }),
     });
-    return { execution, receipts };
   }
 
   async function simulateSend(ctx: BuildCtx, step: PlanStep<TransactionRequest>): Promise<void> {
@@ -625,9 +606,10 @@ export function createInteropResource(
       const executed = await executeSteps(
         steps,
         material.ctx,
-        await startingNonce(material.ctx, material.params),
+        material.params.txOverrides?.nonce,
+        material.params.txOverrides,
       );
-      return { approvals: material.approvals, stepHashes: executed.execution.stepHashes };
+      return { approvals: material.approvals, stepHashes: executed.stepHashes };
     });
 
   const previewLeg = (dstChain: ChainRef, params: InteropParams): Promise<AtomicInteropLegDraft> =>
@@ -656,14 +638,12 @@ export function createInteropResource(
       }
 
       const prerequisites = base.material.steps.filter((step) => step.key !== 'sendBundle');
-      const nonce = await startingNonce(base.material.ctx, base.material.params);
-      const prerequisiteExecution =
-        prerequisites.length > 0
-          ? await executeSteps(prerequisites, base.material.ctx, nonce)
-          : {
-              execution: { stepHashes: {}, nextNonce: nonce } satisfies PlanExecutionResult,
-              receipts: new Map<string, TransactionReceipt>(),
-            };
+      const prerequisiteExecution = await executeSteps(
+        prerequisites,
+        base.material.ctx,
+        base.material.params.txOverrides?.nonce,
+        base.material.params.txOverrides,
+      );
 
       await assertAllowances(base.material, {
         hashAffectingOnly: false,
@@ -704,14 +684,16 @@ export function createInteropResource(
         await simulateSend(base.material.ctx, sendStep);
       }
 
-      plan.steps = [...prerequisites, sendStep];
+      plan = { ...plan, steps: [...prerequisites, sendStep] };
       const sent = await executeSteps(
         [sendStep],
         base.material.ctx,
-        prerequisiteExecution.execution.nextNonce,
+        prerequisiteExecution.nextNonce,
+        base.material.params.txOverrides,
       );
-      const receipt = sent.receipts.get('sendBundle');
-      const l2SrcTxHash = sent.execution.sourceTxHash;
+      const execution = mergeSourceExecutionResults(prerequisiteExecution, sent);
+      const receipt = execution.receipts.get('sendBundle');
+      const l2SrcTxHash = execution.lastSourceHash;
       if (!receipt || !l2SrcTxHash)
         throw new Error('Atomic interop send did not produce a receipt.');
       const encodedBundle = parseBundleReceipt(receipt, base.material.ctx, intent);
@@ -719,10 +701,7 @@ export function createInteropResource(
       return {
         kind: 'interop',
         route: plan.route,
-        stepHashes: {
-          ...prerequisiteExecution.execution.stepHashes,
-          ...sent.execution.stepHashes,
-        },
+        stepHashes: execution.stepHashes,
         plan,
         intent,
         l2SrcTxHash,

@@ -7,6 +7,7 @@
 * Atomic interop leg coordination with `approve`, `previewLeg`, `defineFlow`, `bindFlow`, and settlement-layer deadline helpers.
 * Serializable atomic intents that retain the exact payload, secure salt, bundle commitment, canonical flow preimage, and source transaction metadata.
 * Optional validated `AtomicInteropIndexProvider` support with a bounded on-chain commitment-tree fallback.
+* Typed `zks_getImtLowNullifierIndex` and `zks_getImtInclusionProof` client methods with normalized IMT proof results.
 
 ### Changed
 
@@ -14,6 +15,7 @@
 * Withdrawals are sent as uniquely salted L2-to-L1 bundles and finalized atomically through `L1InteropHandler.executeBundle`.
 * `sdk.interop` now models one atomic source leg per SDK instance and preserves `quote -> prepare -> create -> status` for single-leg and coordinated multi-leg flows.
 * Atomic interop `prepare` and `create` require `enableExperimentalAtomicSend: true` until production completion and refund tooling is available.
+* `getL2ToL1LogProof` accepts the literal `"messageRoot"` and preserves the v32 settlement-layer block anchor.
 
 ### Deprecated
 

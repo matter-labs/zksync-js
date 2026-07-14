@@ -4,7 +4,17 @@ import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, type ViemClient } from '../../../src/adapters/viem';
 import { Address, Hex, type ZksRpc as ZksType } from '../../../src/core';
-import { GenesisContractDeployment, GenesisInput as GenesisType, GenesisStorageEntry, L2ToL1Log, ProofNormalized as ProofN, ReceiptWithL2ToL1 as RWithLog, BlockMetadata as MetadataType } from '../../../src/core/rpc/types';
+import {
+  GenesisContractDeployment,
+  GenesisInput as GenesisType,
+  GenesisStorageEntry,
+  L2ToL1Log,
+  ProofNormalized as ProofN,
+  ReceiptWithL2ToL1 as RWithLog,
+  BlockMetadata as MetadataType,
+  ImtInclusionProof as ImtProofType,
+  ImtLeaf as ImtLeafType,
+} from '../../../src/core/rpc/types';
 import { ProofTarget } from '../../../src/core/rpc/zks';
 
 import { l1Chain, l2Chain } from '../viem/chains';
@@ -17,7 +27,18 @@ export interface ZksRpc {
   // Fetches the Bytecode Supplier contract address.
   getBytecodeSupplierAddress(): Promise<Address>;
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
-  getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget): Promise<ProofNormalized>;
+  getL2ToL1LogProof(
+    txHash: Hex,
+    index: number,
+    proofTarget?: ProofTargetInput,
+  ): Promise<ProofNormalized>;
+  // Fetches the predecessor used to insert an IMT value at a historical block.
+  getImtLowNullifierIndex(value: bigint | Hex, blockNumber: number): Promise<bigint | null>;
+  // Fetches an IMT membership proof for a commit value at a historical block.
+  getImtInclusionProof(
+    commitValue: bigint | Hex,
+    blockNumber: number,
+  ): Promise<ImtInclusionProof | null>;
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
   // Fetches block metadata for the given block number.
@@ -36,6 +57,8 @@ enum ProofTarget {
   // Suitable for cross-chain interop message verification.
   MessageRoot = 'messageRoot',
 }
+
+type ProofTargetInput = ProofTarget | `${ProofTarget}`;
 // ANCHOR_END: proof-target
 
 // ANCHOR: proof-receipt-type
@@ -44,7 +67,7 @@ type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
-  /** @deprecated Legacy RPC metadata; not used for interop readiness. */
+  /** Settlement-layer block for a message-root proof; may be on L1 or a gateway. */
   gatewayBlockNumber?: bigint;
 };
 
@@ -63,6 +86,21 @@ type ReceiptWithL2ToL1 = {
   l2ToL1Logs?: L2ToL1Log[];
 };
 // ANCHOR_END: proof-receipt-type
+
+// ANCHOR: imt-proof-type
+type ImtLeaf = {
+  value: bigint;
+  nextIndex: bigint;
+  nextValue: bigint;
+};
+
+type ImtInclusionProof = {
+  chainImtRoot: Hex;
+  leaf: ImtLeaf;
+  imtLeafIndex: bigint;
+  imtProof: Hex[];
+};
+// ANCHOR_END: imt-proof-type
 
 // ANCHOR: genesis-type
 export type GenesisInput = {
@@ -103,6 +141,8 @@ it('checks to see if the zks rpc types are updated', async () => {
     const _receiptType: Exact<ReceiptWithL2ToL1, RWithLog> = true;
     const _genesisType: Exact<GenesisInput, GenesisType> = true;
     const _metadataType: Exact<BlockMetadata, MetadataType> = true;
+    const _imtProofType: Exact<ImtInclusionProof, ImtProofType> = true;
+    const _imtLeafType: Exact<ImtLeaf, ImtLeafType> = true;
 });
 
 it('tries to get the bridehub address', async () => {

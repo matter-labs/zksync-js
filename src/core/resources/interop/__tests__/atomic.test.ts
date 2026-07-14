@@ -7,19 +7,16 @@ import type {
 import type { Hex } from '../../../types/primitives';
 import {
   ATOMIC_COMMIT_LEAF_TAG,
-  assertAtomicInteropIntent,
   assertAtomicInteropPayloadMatches,
   assertInteropParams,
-  bindAtomicInteropFlow,
+  createAtomicInteropPrimitives,
   decodeAtomicInteropBundleState,
   decodeAtomicInteropLegState,
-  defineAtomicInteropFlow,
-  getAtomicInteropCommitValue,
-  hashAtomicInteropFlow,
   isStaleAtomicInteropIndexErrorName,
   mapAtomicInteropPhase,
   resolveAtomicInteropIndex,
   withAtomicBundleAttribute,
+  type AtomicInteropCodec,
   type AtomicInteropTreeLeaf,
 } from '../atomic';
 
@@ -28,6 +25,16 @@ const HASH_2 = `0x${'22'.repeat(32)}` as Hex;
 const SENDER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;
 const RECIPIENT = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;
 const DEADLINE = 1_900_000_000n;
+const fakeCodec: AtomicInteropCodec = {
+  hashFlow: () => HASH_2,
+  hashCommit: () => HASH_1,
+};
+const {
+  assertIntent: assertAtomicInteropIntent,
+  bindFlow: bindAtomicInteropFlow,
+  defineFlow: defineAtomicInteropFlow,
+  getCommitValue: getAtomicInteropCommitValue,
+} = createAtomicInteropPrimitives(fakeCodec);
 
 function draft(overrides: Partial<AtomicInteropLegDraft> = {}): AtomicInteropLegDraft {
   const params: InteropParams = {
@@ -66,18 +73,56 @@ function draft(overrides: Partial<AtomicInteropLegDraft> = {}): AtomicInteropLeg
 }
 
 describe('atomic interop identifiers', () => {
-  it('matches the protocol ABI hash vectors', () => {
-    const flowId = hashAtomicInteropFlow({
+  it('delegates typed flow and commit preimages to the codec', () => {
+    let flowInput: Parameters<AtomicInteropCodec['hashFlow']>[0] | undefined;
+    let commitInput: Parameters<AtomicInteropCodec['hashCommit']>[0] | undefined;
+    const primitives = createAtomicInteropPrimitives({
+      hashFlow: (input) => {
+        flowInput = input;
+        return HASH_2;
+      },
+      hashCommit: (input) => {
+        commitInput = input;
+        return HASH_1;
+      },
+    });
+    const flow = primitives.defineFlow({
+      legs: [
+        { bundleHash: HASH_2, sourceChainId: 270n, settlementLayerChainId: 1n },
+        { bundleHash: HASH_1, sourceChainId: 324n, settlementLayerChainId: 1n },
+      ],
+      deadline: DEADLINE,
+    });
+
+    expect(ATOMIC_COMMIT_LEAF_TAG).toBe('0x3445134c');
+    expect(flow.flowId).toBe(HASH_2);
+    expect(flowInput).toEqual({
       legBundleHashes: [HASH_1, HASH_2],
       legSourceChainIds: [324n, 270n],
       deadline: DEADLINE,
       settlementLayerChainId: 1n,
     });
-    expect(ATOMIC_COMMIT_LEAF_TAG).toBe('0x3445134c');
-    expect(flowId).toBe('0xebc86d7d5941bf0caa903c9eecc123d6ca97bd2f413fd114002e41c206155b36');
-    expect(`0x${getAtomicInteropCommitValue(flowId, HASH_1).toString(16).padStart(64, '0')}`).toBe(
-      '0x0cb8dbaa64b99f59f8edddf5c136dff3ced7a82c9b7bf5340575c35fe3feb7f4',
-    );
+    expect(primitives.getCommitValue(flow.flowId, HASH_1)).toBe(BigInt(HASH_1));
+    expect(commitInput).toEqual({
+      tag: ATOMIC_COMMIT_LEAF_TAG,
+      flowId: HASH_2,
+      bundleHash: HASH_1,
+    });
+  });
+
+  it('rejects malformed codec hashes', () => {
+    const primitives = createAtomicInteropPrimitives({
+      hashFlow: () => '0x12',
+      hashCommit: () => '0x12',
+    });
+    expect(() =>
+      primitives.defineFlow({
+        legs: [{ bundleHash: HASH_1, sourceChainId: 324n }],
+        deadline: DEADLINE,
+        settlementLayerChainId: 1n,
+      }),
+    ).toThrow(/invalid flow bytes32 hash/);
+    expect(() => primitives.getCommitValue(HASH_1, HASH_2)).toThrow(/invalid commit bytes32 hash/);
   });
 
   it('sorts bundle/source-chain pairs together and rejects duplicates', () => {

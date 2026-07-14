@@ -1,6 +1,6 @@
 # zks_ RPC
 
-Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
+Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (contract addresses, block metadata, L2→L1 log proofs, indexed Merkle tree proofs, and receipts with `l2ToL1Logs`).
 
 ## Standard Ethereum RPC (`eth_*`)
 
@@ -38,27 +38,27 @@ Fetch the on-chain **Bytecode Supplier** contract address.
 
 ---
 
-### `getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget) → Promise<ProofNormalized>`
+### `getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTargetInput) → Promise<ProofNormalized>`
 
 Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 
 **Parameters**
 
-| Name          | Type          | Required | Description                                                                                     |
-| ------------- | ------------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `txHash`      | Hex           | yes      | L2 transaction hash that emitted one or more L2→L1 logs.                                        |
-| `index`       | number        | yes      | Zero-based index of the target L2→L1 log within the tx.                                         |
-| `proofTarget` | `ProofTarget` | no       | Root the proof anchors to. `L1BatchRoot` (default) for L1 verification; `MessageRoot` for cross-chain interop. |
+| Name          | Type               | Required | Description                                                                                                                                                    |
+| ------------- | ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `txHash`      | Hex                | yes      | L2 transaction hash that emitted one or more L2→L1 logs.                                                                                                       |
+| `index`       | number             | yes      | Zero-based index of the target L2→L1 log within the tx.                                                                                                        |
+| `proofTarget` | `ProofTargetInput` | no       | Root the proof path terminates at. `L1BatchRoot` (default) for L1 verification; `MessageRoot` or the literal `"messageRoot"` for cross-chain interop.            |
 
 **Returns** `ProofNormalized`
 
-| Field                | Type     | Description                                                                                       |
-| -------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `id`                 | bigint   | Log index within the transaction.                                                                 |
-| `batchNumber`        | bigint   | L1 batch number the log was included in.                                                          |
-| `proof`              | Hex[]    | Merkle proof elements.                                                                            |
-| `root`               | Hex      | Merkle root the proof anchors to.                                                                 |
-| `gatewayBlockNumber` | bigint?  | Deprecated legacy RPC metadata. It is not used for interop readiness. |
+| Field                | Type    | Description                                                                                                                                               |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | bigint  | Leaf index in the batch-level L2→L1 log tree.                                                                                                             |
+| `batchNumber`        | bigint  | L1 batch number the log was included in.                                                                                                                  |
+| `proof`              | Hex[]   | Merkle proof elements.                                                                                                                                    |
+| `root`               | Hex     | Source-chain batch root from which the returned proof path begins.                                                                                        |
+| `gatewayBlockNumber` | bigint? | Settlement-layer execution block for a `messageRoot` proof. Despite the historical field name, this can be an L1 or gateway block.                       |
 
 ```ts
 {{#include ../../../snippets/core/rpc.test.ts:proof-target}}
@@ -71,6 +71,38 @@ Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 > [!INFO]
 > If a proof isn’t available yet, this method throws a typed `STATE` error.
 > Poll according to your app’s cadence.
+
+---
+
+### `getImtLowNullifierIndex(value: bigint | Hex, blockNumber: number) → Promise<bigint | null>`
+
+Return the predecessor leaf index used when inserting `value` into the atomic-interop indexed Merkle tree as it existed at `blockNumber`. A `bigint` value is encoded as a JSON-RPC hex quantity; a `Hex` value is forwarded unchanged.
+
+The method returns `null` when the node cannot find a predecessor. Index `0n` is a valid result.
+
+```ts
+const commitValue = '0x2a' as Hex;
+const lowNullifierIndex = await client.zks.getImtLowNullifierIndex(commitValue, 123);
+```
+
+---
+
+### `getImtInclusionProof(commitValue: bigint | Hex, blockNumber: number) → Promise<ImtInclusionProof | null>`
+
+Return the indexed Merkle tree membership proof for the leaf holding `commitValue` at the given historical L2 block. The result is normalized to SDK types: leaf values and the leaf index are `bigint`, while the root and sibling path remain `Hex`.
+
+The method returns `null` when that commit value was not present at the requested block.
+
+```ts
+const imtProof = await client.zks.getImtInclusionProof(commitValue, 123);
+if (imtProof) {
+  console.log(imtProof.chainImtRoot, imtProof.imtLeafIndex);
+}
+```
+
+```ts
+{{#include ../../../snippets/core/rpc.test.ts:imt-proof-type}}
+```
 
 ---
 
@@ -130,6 +162,8 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 {{#include ../../../snippets/core/rpc.test.ts:zks-rpc}}
 
 {{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
+
+{{#include ../../../snippets/core/rpc.test.ts:imt-proof-type}}
 
 {{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 

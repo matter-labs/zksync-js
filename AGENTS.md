@@ -88,7 +88,9 @@ Use these exact commands:
   - [`$adapter-parity-check`](./.agents/skills/adapter-parity-check/SKILL.md)
   - [`$sdk-verification-matrix`](./.agents/skills/sdk-verification-matrix/SKILL.md)
   - [`$contract-interaction-patterns`](./.agents/skills/contract-interaction-patterns/SKILL.md)
+  - [`$atomic-interop-local-env`](./.agents/skills/atomic-interop-local-env/SKILL.md)
 - Use [`$contract-interaction-patterns`](./.agents/skills/contract-interaction-patterns/SKILL.md) for ABI edits, contract wrapper/client changes, calldata construction, and event/log decoding updates.
+- Use [`$atomic-interop-local-env`](./.agents/skills/atomic-interop-local-env/SKILL.md) to provision or diagnose the pinned local atomic interop environment and run its protocol baseline before SDK live E2Es.
 - Do not invoke it for unrelated utility edits, docs-only formatting, or CI-only changes.
 - Skill index: [`.agents/skills/README.md`](./.agents/skills/README.md)
 

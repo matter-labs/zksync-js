@@ -1,0 +1,7 @@
+interface:
+  display_name: 'Atomic Interop Local Env'
+  short_description: 'Start and verify the local atomic interop stack.'
+  default_prompt: 'Use $atomic-interop-local-env to start, verify, and manage the pinned local atomic interop environment for SDK testing.'
+
+policy:
+  allow_implicit_invocation: false

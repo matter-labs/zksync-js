@@ -8,7 +8,7 @@ import {
   normalizeProof,
   normalizeGenesis,
   normalizeBlockMetadata,
-  ProofTarget,
+  normalizeImtInclusionProof,
 } from '../zks';
 import type { RpcTransport } from '../types';
 import { isZKsyncError } from '../../types/errors';
@@ -171,6 +171,51 @@ describe('rpc/zks.normalizeBlockMetadata', () => {
   });
 });
 
+describe('rpc/zks.normalizeImtInclusionProof', () => {
+  it('normalizes the server camelCase shape and bigint-compatible fields', () => {
+    const imtProof = Array.from(
+      { length: 32 },
+      (_, index) => `0x${index.toString(16).padStart(64, '0')}` as `0x${string}`,
+    );
+    const raw = {
+      chainImtRoot: `0x${'aa'.repeat(32)}`,
+      leaf: {
+        value: '0x2a',
+        nextIndex: '0x3',
+        nextValue: '0x2b',
+      },
+      imtLeafIndex: 2,
+      imtProof,
+    };
+
+    expect(normalizeImtInclusionProof(raw)).toEqual({
+      chainImtRoot: raw.chainImtRoot,
+      leaf: {
+        value: 42n,
+        nextIndex: 3n,
+        nextValue: 43n,
+      },
+      imtLeafIndex: 2n,
+      imtProof,
+    });
+  });
+
+  it('throws a typed RPC error for a malformed leaf', () => {
+    try {
+      normalizeImtInclusionProof({
+        chainImtRoot: `0x${'aa'.repeat(32)}`,
+        leaf: null,
+        imtLeafIndex: 0,
+        imtProof: [],
+      });
+      throw new Error('expected to throw');
+    } catch (error) {
+      expect(isZKsyncError(error)).toBe(true);
+      expect(String(error)).toContain('expected leaf object');
+    }
+  });
+});
+
 describe('rpc/zks.getBridgehubAddress', () => {
   it('returns a hex address when RPC responds with a 0x-prefixed string', async () => {
     const rpc = createZksRpc(
@@ -220,7 +265,7 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     expect(out).toEqual({ id: 5n, batchNumber: 10n, proof: proof.proof, root: proof.root });
   });
 
-  it('retains legacy gatewayBlockNumber metadata when present', async () => {
+  it('normalizes the settlement-layer block when present', async () => {
     const proof = {
       index: '1',
       batchNumber: '2',
@@ -252,19 +297,35 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     ).rejects.toThrow(/Proof not yet available/);
   });
 
-  it('forwards proofTarget as third RPC param when provided', async () => {
+  it('supports the v32 messageRoot literal and preserves its metadata proof', async () => {
+    let capturedMethod = '';
     let capturedParams: unknown[] = [];
-    const proof = { index: '0', batchNumber: '1', proof: [], root: '0x' + '00'.repeat(32) };
-    const rpc = createZksRpc((_method, params = []) => {
+    const txHash = ('0x' + 'cc'.repeat(32)) as `0x${string}`;
+    const metadata = `0x01032100${'00'.repeat(28)}` as `0x${string}`;
+    const sibling = ('0x' + '11'.repeat(32)) as `0x${string}`;
+    const proof = {
+      id: 7,
+      batchNumber: 12,
+      proof: [metadata, sibling],
+      root: '0x' + '22'.repeat(32),
+      gatewayBlockNumber: 99,
+    };
+    const rpc = createZksRpc((method, params = []) => {
+      capturedMethod = method;
       capturedParams = params;
       return Promise.resolve(proof);
     });
-    await rpc.getL2ToL1LogProof(
-      ('0x' + 'cc'.repeat(32)) as `0x${string}`,
-      0,
-      ProofTarget.MessageRoot,
-    );
-    expect(capturedParams[2]).toBe(ProofTarget.MessageRoot);
+    const out = await rpc.getL2ToL1LogProof(txHash, 3, 'messageRoot');
+
+    expect(capturedMethod).toBe('zks_getL2ToL1LogProof');
+    expect(capturedParams).toEqual([txHash, 3, 'messageRoot']);
+    expect(out).toEqual({
+      id: 7n,
+      batchNumber: 12n,
+      proof: [metadata, sibling],
+      root: proof.root,
+      gatewayBlockNumber: 99n,
+    });
   });
 
   it('omits proofTarget from RPC params when not provided', async () => {
@@ -276,6 +337,79 @@ describe('rpc/zks.getL2ToL1LogProof', () => {
     });
     await rpc.getL2ToL1LogProof(('0x' + 'dd'.repeat(32)) as `0x${string}`, 0);
     expect(capturedParams.length).toBe(2);
+  });
+});
+
+describe('rpc/zks.getImtLowNullifierIndex', () => {
+  it('forwards the exact RPC method and preserves a valid zero index', async () => {
+    let capturedMethod = '';
+    let capturedParams: unknown[] = [];
+    const value = `0x${'ab'.repeat(32)}` as `0x${string}`;
+    const rpc = createZksRpc((method, params = []) => {
+      capturedMethod = method;
+      capturedParams = params;
+      return Promise.resolve(0);
+    });
+
+    const out = await rpc.getImtLowNullifierIndex(value, 123);
+
+    expect(capturedMethod).toBe('zks_getImtLowNullifierIndex');
+    expect(capturedParams).toEqual([value, 123]);
+    expect(out).toBe(0n);
+  });
+
+  it('encodes bigint inputs as JSON-RPC quantities', async () => {
+    let capturedParams: unknown[] = [];
+    const rpc = createZksRpc((_method, params = []) => {
+      capturedParams = params;
+      return Promise.resolve(4);
+    });
+
+    expect(await rpc.getImtLowNullifierIndex(42n, 9)).toBe(4n);
+    expect(capturedParams).toEqual(['0x2a', 9]);
+  });
+
+  it('returns null when no predecessor exists', async () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getImtLowNullifierIndex: null }));
+    expect(
+      await rpc.getImtLowNullifierIndex(`0x${'cd'.repeat(32)}` as `0x${string}`, 5),
+    ).toBeNull();
+  });
+});
+
+describe('rpc/zks.getImtInclusionProof', () => {
+  const commitValue = `0x${'ef'.repeat(32)}` as `0x${string}`;
+  const raw = {
+    chainImtRoot: `0x${'aa'.repeat(32)}`,
+    leaf: { value: '0xef', nextIndex: '0x2', nextValue: '0xff' },
+    imtLeafIndex: 1,
+    imtProof: [`0x${'bb'.repeat(32)}`],
+  };
+
+  it('forwards the exact RPC method and returns a normalized proof', async () => {
+    let capturedMethod = '';
+    let capturedParams: unknown[] = [];
+    const rpc = createZksRpc((method, params = []) => {
+      capturedMethod = method;
+      capturedParams = params;
+      return Promise.resolve(raw);
+    });
+
+    const out = await rpc.getImtInclusionProof(commitValue, 456);
+
+    expect(capturedMethod).toBe('zks_getImtInclusionProof');
+    expect(capturedParams).toEqual([commitValue, 456]);
+    expect(out).toEqual({
+      chainImtRoot: raw.chainImtRoot,
+      leaf: { value: 239n, nextIndex: 2n, nextValue: 255n },
+      imtLeafIndex: 1n,
+      imtProof: raw.imtProof,
+    });
+  });
+
+  it('returns null when the commit value is absent', async () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getImtInclusionProof: null }));
+    expect(await rpc.getImtInclusionProof(commitValue, 456)).toBeNull();
   });
 });
 

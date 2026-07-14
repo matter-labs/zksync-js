@@ -22,6 +22,10 @@ These skills do not redefine policy. They orchestrate checks using the canonical
 - Purpose: Enforce ABI-derived correctness for contract wrappers/clients and event/log decoding.
 - Trigger summary: ABI edits, calldata/method mapping changes, and contract-event decode updates.
 
+5. `atomic-interop-local-env`
+- Purpose: Provision and validate the pinned two-chain atomic interop environment.
+- Trigger summary: Local atomic interop setup, protocol smoke tests, SDK live E2Es, and proof/RPC diagnostics.
+
 ## Explicit Invocation
 
 Use explicit invocation when the diff spans multiple risk areas:
@@ -30,5 +34,6 @@ Use explicit invocation when the diff spans multiple risk areas:
 - `$adapter-parity-check`
 - `$sdk-verification-matrix`
 - `$contract-interaction-patterns`
+- `$atomic-interop-local-env`
 
 Implicit triggering is defined in each skill's `SKILL.md` and optional `agents/openai.yaml`.

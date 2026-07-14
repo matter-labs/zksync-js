@@ -1,5 +1,5 @@
 // src/adapters/ethers/resources/withdrawals/index.ts
-import { type TransactionRequest, type TransactionReceipt, NonceManager } from 'ethers';
+import { type TransactionRequest, type TransactionReceipt } from 'ethers';
 import type { EthersClient } from '../../client';
 import type {
   WithdrawParams,
@@ -29,12 +29,13 @@ import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
-import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import { executeSourcePlan } from '../../../../core/internal/cross-chain/execution';
 import {
   finalizeWithdrawalBundleLifecycle,
   inspectWithdrawalBundleLifecycle,
   pollWithdrawalStatus,
 } from '../../../../core/internal/cross-chain/withdrawal-lifecycle';
+import { createEthersTransactionDriver } from '../../internal/source-execution';
 
 // --------------------
 // Withdrawal Route map
@@ -197,72 +198,41 @@ export function createWithdrawalsResource(
       OP_WITHDRAWALS.create,
       async () => {
         const plan = await prepare(p);
-
-        const managed = new NonceManager(client.getL2Signer());
-        const from = await managed.getAddress();
-        let next: number;
-        if (typeof p.l2TxOverrides?.nonce === 'number') {
-          next = p.l2TxOverrides.nonce;
-        } else {
-          const blockTag = p.l2TxOverrides?.nonce ?? 'pending';
-          next = await client.l2.getTransactionCount(from, blockTag);
-        }
-
-        const execution = await executePlan({
+        const execution = await executeSourcePlan({
           steps: plan.steps,
-          initialNonce: next,
-          executeStep: async ({ step, nonce }) => {
-            step.tx.nonce = nonce;
-
-            if (p.l2TxOverrides) {
-              const overrides = p.l2TxOverrides;
-              if (overrides.gasLimit != null) step.tx.gasLimit = overrides.gasLimit;
-              if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;
-              if (overrides.maxPriorityFeePerGas != null) {
-                step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
-              }
-            }
-
-            if (!step.tx.gasLimit) {
-              try {
-                const est = await client.l2.estimateGas(step.tx);
-                step.tx.gasLimit = (BigInt(est) * 115n) / 100n;
-              } catch {
-                // Gas estimation is best-effort; keep the prepared value.
-              }
-            }
-
-            let hash: Hex | undefined;
-            try {
-              const sent = await managed.sendTransaction(step.tx);
-              hash = sent.hash as Hex;
-
-              const rcpt = await sent.wait();
-              if (rcpt?.status === 0) {
-                throw createError('EXECUTION', {
-                  resource: 'withdrawals',
-                  operation: 'withdrawals.create.sendTransaction',
-                  message: 'Withdrawal transaction reverted on L2 during a step.',
-                  context: { step: step.key, txHash: hash, nonce },
-                });
-              }
-              return hash;
-            } catch (e) {
-              throw toZKsyncError(
+          nonce: p.l2TxOverrides?.nonce,
+          driver: createEthersTransactionDriver({
+            provider: client.l2,
+            signer: client.getL2Signer(),
+            defaultNonceTag: 'pending',
+            overrides: p.l2TxOverrides,
+            synchronizePendingNonce: true,
+            gasPolicy: {
+              mode: 'when-missing',
+              resolveGasLimit: ({ estimatedGasLimit }) => (estimatedGasLimit * 115n) / 100n,
+            },
+            revertedError: ({ step, txHash, nonce }) =>
+              createError('EXECUTION', {
+                resource: 'withdrawals',
+                operation: 'withdrawals.create.sendTransaction',
+                message: 'Withdrawal transaction reverted on L2 during a step.',
+                context: { step: step.key, txHash, nonce },
+              }),
+            mapError: (error, { step, txHash, nonce }) =>
+              toZKsyncError(
                 'EXECUTION',
                 {
                   resource: 'withdrawals',
                   operation: 'withdrawals.create.sendTransaction',
                   message: 'Failed to send or confirm a withdrawal transaction step.',
-                  context: { step: step.key, txHash: hash, nonce },
+                  context: { step: step.key, txHash, nonce },
                 },
-                e,
-              );
-            }
-          },
+                error,
+              ),
+          }),
         });
 
-        const l2TxHash = execution.sourceTxHash ?? ('0x' as Hex);
+        const l2TxHash = execution.lastSourceHash ?? ('0x' as Hex);
         return { kind: 'withdrawal', l2TxHash, stepHashes: execution.stepHashes, plan };
       },
       {

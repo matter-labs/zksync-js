@@ -1,6 +1,3 @@
-import { keccak_256 } from '@noble/hashes/sha3';
-import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from '@noble/hashes/utils';
-
 import type {
   AtomicInteropBundlePayload,
   AtomicInteropBundleState,
@@ -15,12 +12,36 @@ import type {
 import type { Address, Hex } from '../../types/primitives';
 import { isAddress, isHash, isHash66 } from '../../utils';
 
-const WORD_BYTES = 32;
 const UINT64_MAX = (1n << 64n) - 1n;
 export const ATOMIC_INTEROP_MAX_PREDECESSOR_WALK = 256;
-export const ATOMIC_COMMIT_LEAF_TAG: Hex = `0x${bytesToHex(
-  keccak_256(utf8ToBytes('AtomicInterop.commit.v1')).slice(0, 4),
-)}`;
+export const ATOMIC_COMMIT_LEAF_TAG: Hex = '0x3445134c';
+
+export interface AtomicInteropFlowHashInput {
+  legBundleHashes: readonly Hex[];
+  legSourceChainIds: readonly bigint[];
+  deadline: bigint;
+  settlementLayerChainId: bigint;
+}
+
+export interface AtomicInteropCommitHashInput {
+  tag: Hex;
+  flowId: Hex;
+  bundleHash: Hex;
+}
+
+/** Adapter-owned ABI encoding and hashing capability for atomic protocol preimages. */
+export interface AtomicInteropCodec {
+  hashFlow(input: AtomicInteropFlowHashInput): Hex;
+  hashCommit(input: AtomicInteropCommitHashInput): Hex;
+}
+
+export interface AtomicInteropPrimitives {
+  defineFlow: (input: AtomicInteropFlowParams) => AtomicInteropFlow;
+  bindFlow: (draft: AtomicInteropLegDraft, flow: AtomicInteropFlow) => AtomicInteropIntent;
+  assertFlow: (flow: AtomicInteropFlow) => void;
+  assertIntent: (intent: AtomicInteropIntent, context?: AtomicInteropIntentContext) => void;
+  getCommitValue: (flowId: Hex, bundleHash: Hex) => bigint;
+}
 
 export interface AtomicInteropIntentContext {
   sender: Address;
@@ -45,6 +66,16 @@ export interface ResolveAtomicInteropIndexInput {
   reader: AtomicInteropTreeReader;
   provider?: () => Promise<bigint | null | undefined>;
   maxWalk?: number;
+}
+
+export function createAtomicInteropPrimitives(codec: AtomicInteropCodec): AtomicInteropPrimitives {
+  return {
+    defineFlow: (input) => defineAtomicInteropFlow(codec, input),
+    bindFlow: (draft, flow) => bindAtomicInteropFlow(codec, draft, flow),
+    assertFlow: (flow) => assertAtomicInteropFlow(codec, flow),
+    assertIntent: (intent, context) => assertAtomicInteropIntent(codec, intent, context),
+    getCommitValue: (flowId, bundleHash) => getAtomicInteropCommitValue(codec, flowId, bundleHash),
+  };
 }
 
 export function assertInteropParams(params: InteropParams): void {
@@ -90,7 +121,10 @@ export function assertDeadline(deadline: bigint): void {
   }
 }
 
-export function defineAtomicInteropFlow(input: AtomicInteropFlowParams): AtomicInteropFlow {
+function defineAtomicInteropFlow(
+  codec: AtomicInteropCodec,
+  input: AtomicInteropFlowParams,
+): AtomicInteropFlow {
   assertDeadline(input.deadline);
   if (input.legs.length === 0) throw new Error('Atomic interop flow requires at least one leg.');
 
@@ -133,7 +167,7 @@ export function defineAtomicInteropFlow(input: AtomicInteropFlowParams): AtomicI
   return {
     kind: 'atomic-interop-flow',
     version: 1,
-    flowId: hashAtomicInteropFlow({
+    flowId: hashAtomicInteropFlow(codec, {
       legBundleHashes,
       legSourceChainIds,
       deadline: input.deadline,
@@ -146,12 +180,13 @@ export function defineAtomicInteropFlow(input: AtomicInteropFlowParams): AtomicI
   };
 }
 
-export function bindAtomicInteropFlow(
+function bindAtomicInteropFlow(
+  codec: AtomicInteropCodec,
   draft: AtomicInteropLegDraft,
   flow: AtomicInteropFlow,
 ): AtomicInteropIntent {
   assertAtomicInteropLegDraft(draft);
-  assertAtomicInteropFlow(flow);
+  assertAtomicInteropFlow(codec, flow);
   if (draft.deadline !== flow.deadline) throw new Error('Draft and flow deadlines do not match.');
   if (draft.settlementLayerChainId !== flow.settlementLayerChainId) {
     throw new Error('Draft and flow settlement layers do not match.');
@@ -222,14 +257,14 @@ export function assertAtomicInteropPayloadMatches(
   }
 }
 
-export function assertAtomicInteropFlow(flow: AtomicInteropFlow): void {
+function assertAtomicInteropFlow(codec: AtomicInteropCodec, flow: AtomicInteropFlow): void {
   if (flow.kind !== 'atomic-interop-flow' || flow.version !== 1) {
     throw new Error('Unsupported atomic interop flow version.');
   }
   if (flow.legBundleHashes.length !== flow.legSourceChainIds.length) {
     throw new Error('Atomic flow bundle-hash and source-chain arrays must have equal lengths.');
   }
-  const canonical = defineAtomicInteropFlow({
+  const canonical = defineAtomicInteropFlow(codec, {
     legs: flow.legBundleHashes.map((bundleHash, index) => ({
       bundleHash,
       sourceChainId: flow.legSourceChainIds[index],
@@ -248,14 +283,15 @@ export function assertAtomicInteropFlow(flow: AtomicInteropFlow): void {
   }
 }
 
-export function assertAtomicInteropIntent(
+function assertAtomicInteropIntent(
+  codec: AtomicInteropCodec,
   intent: AtomicInteropIntent,
   context?: AtomicInteropIntentContext,
 ): void {
   if (intent.kind !== 'atomic-interop-intent' || intent.version !== 1) {
     throw new Error('Unsupported atomic interop intent version.');
   }
-  const rebound = bindAtomicInteropFlow(intent.draft, intent.flow);
+  const rebound = bindAtomicInteropFlow(codec, intent.draft, intent.flow);
   if (rebound.flow.flowId.toLowerCase() !== intent.flow.flowId.toLowerCase()) {
     throw new Error('Atomic interop intent flow is invalid.');
   }
@@ -282,36 +318,27 @@ export function isAtomicInteropIntent(value: unknown): value is AtomicInteropInt
   );
 }
 
-export function hashAtomicInteropFlow(input: {
-  legBundleHashes: readonly Hex[];
-  legSourceChainIds: readonly bigint[];
-  deadline: bigint;
-  settlementLayerChainId: bigint;
-}): Hex {
+function hashAtomicInteropFlow(codec: AtomicInteropCodec, input: AtomicInteropFlowHashInput): Hex {
   if (input.legBundleHashes.length !== input.legSourceChainIds.length) {
     throw new Error('Atomic flow arrays must have equal lengths.');
   }
-  const hashesTail = encodeArray(input.legBundleHashes.map((hash) => encodeBytes32(hash)));
-  const chainsTail = encodeArray(input.legSourceChainIds.map((chainId) => encodeUint(chainId)));
-  const headSize = 4 * WORD_BYTES;
-  const encoded = concatBytes(
-    encodeUint(BigInt(headSize)),
-    encodeUint(BigInt(headSize + hashesTail.length)),
-    encodeUint(input.deadline, 64),
-    encodeUint(input.settlementLayerChainId),
-    hashesTail,
-    chainsTail,
-  );
-  return hashBytes(encoded);
+  const hash = codec.hashFlow(input);
+  assertCodecHash(hash, 'flow');
+  return hash.toLowerCase() as Hex;
 }
 
-export function getAtomicInteropCommitValue(flowId: Hex, bundleHash: Hex): bigint {
-  const encoded = concatBytes(
-    encodeFixedBytes(ATOMIC_COMMIT_LEAF_TAG, 4),
-    encodeBytes32(flowId),
-    encodeBytes32(bundleHash),
-  );
-  return BigInt(hashBytes(encoded));
+function getAtomicInteropCommitValue(
+  codec: AtomicInteropCodec,
+  flowId: Hex,
+  bundleHash: Hex,
+): bigint {
+  if (!isHash66(flowId)) throw new Error(`Expected flowId bytes32, received ${String(flowId)}.`);
+  if (!isHash66(bundleHash)) {
+    throw new Error(`Expected bundleHash bytes32, received ${String(bundleHash)}.`);
+  }
+  const hash = codec.hashCommit({ tag: ATOMIC_COMMIT_LEAF_TAG, flowId, bundleHash });
+  assertCodecHash(hash, 'commit');
+  return BigInt(hash);
 }
 
 export async function resolveAtomicInteropIndex(
@@ -481,36 +508,8 @@ function assertTargetNotPresent(target: bigint, leaf: AtomicInteropTreeLeaf): vo
   }
 }
 
-function encodeArray(words: readonly Uint8Array[]): Uint8Array {
-  return concatBytes(encodeUint(BigInt(words.length)), ...words);
-}
-
-function encodeBytes32(value: Hex): Uint8Array {
-  if (!isHash66(value)) throw new Error(`Expected bytes32, received ${String(value)}.`);
-  return hexToBytes(value.slice(2));
-}
-
-function encodeFixedBytes(value: Hex, size: number): Uint8Array {
-  const bytes = hexToBytes(value.slice(2));
-  if (bytes.length !== size) throw new Error(`Expected bytes${size}, received ${value}.`);
-  const word = new Uint8Array(WORD_BYTES);
-  word.set(bytes);
-  return word;
-}
-
-function encodeUint(value: bigint, bits = 256): Uint8Array {
-  if (value < 0n || value >= 1n << BigInt(bits)) {
-    throw new Error(`Value ${value} does not fit uint${bits}.`);
+function assertCodecHash(value: Hex, operation: 'flow' | 'commit'): void {
+  if (!isHash66(value)) {
+    throw new Error(`Atomic interop codec returned an invalid ${operation} bytes32 hash.`);
   }
-  const word = new Uint8Array(WORD_BYTES);
-  let remaining = value;
-  for (let i = WORD_BYTES - 1; i >= 0; i -= 1) {
-    word[i] = Number(remaining & 0xffn);
-    remaining >>= 8n;
-  }
-  return word;
-}
-
-function hashBytes(value: Uint8Array): Hex {
-  return `0x${bytesToHex(keccak_256(value))}`;
 }

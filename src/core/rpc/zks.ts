@@ -8,6 +8,7 @@ import type {
   GenesisContractDeployment,
   GenesisStorageEntry,
   BlockMetadata,
+  ImtInclusionProof,
 } from './types';
 import type { Hex, Address } from '../types/primitives';
 import { createError, shapeCause } from '../errors/factory';
@@ -27,6 +28,9 @@ export enum ProofTarget {
   MessageRoot = 'messageRoot',
 }
 
+/** Accepted wire values for the L2-to-L1 log proof target. */
+export type ProofTargetInput = ProofTarget | `${ProofTarget}`;
+
 /** ZKsync-specific RPC methods. */
 export interface ZksRpc {
   // Fetches the Bridgehub contract address.
@@ -41,8 +45,17 @@ export interface ZksRpc {
     index: number,
     //`proofTarget` selects which root the proof anchors to (see `ProofTarget`).
     // If omitted, `ProofTarget.L1BatchRoot` is used.
-    proofTarget?: ProofTarget,
+    proofTarget?: ProofTargetInput,
   ): Promise<ProofNormalized>;
+
+  // Fetches the predecessor leaf index used to insert an IMT value at a historical block.
+  getImtLowNullifierIndex(value: bigint | Hex, blockNumber: number): Promise<bigint | null>;
+
+  // Fetches the IMT membership proof for a commit value at a historical block.
+  getImtInclusionProof(
+    commitValue: bigint | Hex,
+    blockNumber: number,
+  ): Promise<ImtInclusionProof | null>;
 
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
@@ -57,11 +70,34 @@ export interface ZksRpc {
 const METHODS = {
   getBridgehub: 'zks_getBridgehubContract',
   getL2ToL1LogProof: 'zks_getL2ToL1LogProof',
+  getImtLowNullifierIndex: 'zks_getImtLowNullifierIndex',
+  getImtInclusionProof: 'zks_getImtInclusionProof',
   getReceipt: 'eth_getTransactionReceipt',
   getBytecodeSupplier: 'zks_getBytecodeSupplierContract',
   getBlockMetadataByNumber: 'zks_getBlockMetadataByNumber',
   getGenesis: 'zks_getGenesis',
 } as const;
+
+const U256_MAX = (1n << 256n) - 1n;
+
+function encodeRpcU256(value: bigint | Hex, field: string): Hex {
+  if (typeof value === 'bigint') {
+    if (value >= 0n && value <= U256_MAX) return `0x${value.toString(16)}`;
+  } else if (/^0x[0-9a-fA-F]+$/.test(value)) {
+    try {
+      if (BigInt(value) <= U256_MAX) return value;
+    } catch {
+      // Fall through to the typed validation error below.
+    }
+  }
+
+  throw createError('VALIDATION', {
+    resource: 'zksrpc' as Resource,
+    operation: 'zksrpc.encodeU256',
+    message: `Invalid ${field}: expected an unsigned 256-bit bigint or 0x-prefixed hex value.`,
+    context: { field, valueType: typeof value },
+  });
+}
 
 // TODO: move to utils
 function toHexArray(arr: unknown): Hex[] {
@@ -76,7 +112,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
     const raw = (p ?? {}) as Record<string, unknown>;
     const idRaw = raw?.id ?? raw?.index;
     const bnRaw = raw?.batch_number ?? raw?.batchNumber;
-    const legacyGatewayBlockNumberRaw = raw?.gatewayBlockNumber;
+    const settlementLayerBlockNumberRaw = raw?.gatewayBlockNumber ?? raw?.gateway_block_number;
     if (idRaw == null || bnRaw == null) {
       throw createError('RPC', {
         resource: 'zksrpc' as Resource,
@@ -109,7 +145,7 @@ export function normalizeProof(p: unknown): ProofNormalized {
       proof: toHexArray(raw?.proof),
       root: raw.root as Hex,
       gatewayBlockNumber:
-        legacyGatewayBlockNumberRaw != null ? toBig(legacyGatewayBlockNumberRaw) : undefined,
+        settlementLayerBlockNumberRaw != null ? toBig(settlementLayerBlockNumberRaw) : undefined,
     };
   } catch (e) {
     if (isZKsyncError(e)) throw e;
@@ -397,6 +433,95 @@ export function normalizeBlockMetadata(raw: unknown): BlockMetadata {
   }
 }
 
+function ensureImtHex(value: unknown, field: string): Hex {
+  if (typeof value === 'string' && /^0x[0-9a-fA-F]+$/.test(value)) return value as Hex;
+  throw createError('RPC', {
+    resource: 'zksrpc' as Resource,
+    operation: 'zksrpc.normalizeImtInclusionProof',
+    message: 'Malformed IMT inclusion proof: expected a 0x-prefixed hex value.',
+    context: { field, valueType: typeof value },
+  });
+}
+
+/** Normalizes an IMT inclusion proof returned by the node. */
+export function normalizeImtInclusionProof(raw: unknown): ImtInclusionProof {
+  try {
+    if (!isRecord(raw)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: 'zksrpc.normalizeImtInclusionProof',
+        message: 'Malformed IMT inclusion proof: expected object.',
+        context: { receivedType: typeof raw },
+      });
+    }
+
+    const leaf = raw['leaf'];
+    if (!isRecord(leaf)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: 'zksrpc.normalizeImtInclusionProof',
+        message: 'Malformed IMT inclusion proof: expected leaf object.',
+        context: { valueType: typeof leaf },
+      });
+    }
+
+    const proof = raw['imtProof'] ?? raw['imt_proof'];
+    if (!Array.isArray(proof)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: 'zksrpc.normalizeImtInclusionProof',
+        message: 'Malformed IMT inclusion proof: expected proof array.',
+        context: { valueType: typeof proof },
+      });
+    }
+
+    const numberOpts = {
+      operation: 'zksrpc.normalizeImtInclusionProof',
+      messagePrefix: 'Malformed IMT inclusion proof',
+    };
+    return {
+      chainImtRoot: ensureImtHex(raw['chainImtRoot'] ?? raw['chain_imt_root'], 'chainImtRoot'),
+      leaf: {
+        value: ensureBigInt(leaf['value'], 'leaf.value', numberOpts),
+        nextIndex: ensureBigInt(
+          leaf['nextIndex'] ?? leaf['next_index'],
+          'leaf.nextIndex',
+          numberOpts,
+        ),
+        nextValue: ensureBigInt(
+          leaf['nextValue'] ?? leaf['next_value'],
+          'leaf.nextValue',
+          numberOpts,
+        ),
+      },
+      imtLeafIndex: ensureBigInt(
+        raw['imtLeafIndex'] ?? raw['imt_leaf_index'],
+        'imtLeafIndex',
+        numberOpts,
+      ),
+      imtProof: proof.map((item, index) => ensureImtHex(item, `imtProof[${index}]`)),
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: 'zksrpc.normalizeImtInclusionProof',
+      message: 'Failed to normalize IMT inclusion proof.',
+      context: { receivedType: typeof raw },
+      cause: shapeCause(e),
+    });
+  }
+}
+
+/** Normalizes the nullable low-nullifier index returned by the node. */
+export function normalizeImtLowNullifierIndex(raw: unknown): bigint | null {
+  if (raw == null) return null;
+  return ensureBigInt(raw, 'index', {
+    operation: 'zksrpc.normalizeImtLowNullifierIndex',
+    messagePrefix: 'Malformed IMT low-nullifier index',
+  });
+}
+
 // Constructs a ZksRpc instance using the given transport function.
 export function createZksRpc(transport: RpcTransport): ZksRpc {
   return {
@@ -450,7 +575,7 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
         'Failed to fetch L2→L1 log proof.',
         { txHash, index, proofTarget },
         async () => {
-          const params: [Hex, number, ProofTarget?] = [txHash, index];
+          const params: [Hex, number, ProofTargetInput?] = [txHash, index];
           if (proofTarget != undefined) params.push(proofTarget);
           const proof: unknown = await transport(METHODS.getL2ToL1LogProof, params);
           if (!proof) {
@@ -462,6 +587,38 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
             });
           }
           return normalizeProof(proof);
+        },
+      );
+    },
+
+    // Fetches the predecessor leaf index used to insert an IMT value at a historical block.
+    async getImtLowNullifierIndex(value, blockNumber) {
+      return withRpcOp(
+        'zksrpc.getImtLowNullifierIndex',
+        'Failed to fetch IMT low-nullifier index.',
+        { value, blockNumber },
+        async () => {
+          const raw: unknown = await transport(METHODS.getImtLowNullifierIndex, [
+            encodeRpcU256(value, 'value'),
+            blockNumber,
+          ]);
+          return normalizeImtLowNullifierIndex(raw);
+        },
+      );
+    },
+
+    // Fetches the IMT membership proof for a commit value at a historical block.
+    async getImtInclusionProof(commitValue, blockNumber) {
+      return withRpcOp(
+        'zksrpc.getImtInclusionProof',
+        'Failed to fetch IMT inclusion proof.',
+        { commitValue, blockNumber },
+        async () => {
+          const raw: unknown = await transport(METHODS.getImtInclusionProof, [
+            encodeRpcU256(commitValue, 'commitValue'),
+            blockNumber,
+          ]);
+          return raw == null ? null : normalizeImtInclusionProof(raw);
         },
       );
     },

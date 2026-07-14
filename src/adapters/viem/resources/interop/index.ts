@@ -33,17 +33,14 @@ import type {
   InteropStatus,
 } from '../../../../core/types/flows/interop';
 import type { ApprovalNeed, PlanStep } from '../../../../core/types/flows/base';
+import type { TxOverrides } from '../../../../core/types/fees';
 import type { Address, Hex } from '../../../../core/types/primitives';
 import {
-  assertAtomicInteropIntent,
   assertAtomicInteropPayloadMatches,
   assertDeadline,
   assertInteropParams,
-  bindAtomicInteropFlow,
   decodeAtomicInteropBundleState,
   decodeAtomicInteropLegState,
-  defineAtomicInteropFlow,
-  getAtomicInteropCommitValue,
   isAtomicInteropIntent,
   isStaleAtomicInteropIndexErrorName,
   mapAtomicInteropPhase,
@@ -56,8 +53,9 @@ import type {
   InteropBundleBuild,
 } from '../../../../core/resources/interop/plan';
 import {
-  executePlan,
-  type PlanExecutionResult,
+  executeSourcePlan,
+  mergeSourceExecutionResults,
+  type SourceExecutionResult,
 } from '../../../../core/internal/cross-chain/execution';
 import { generateBundleSalt } from '../../../../core/internal/cross-chain/salt';
 import {
@@ -72,7 +70,7 @@ import {
   L2_INTEROP_COMMITMENT_TREE_ADDRESS,
   L2_INTEROP_HANDLER_ADDRESS,
 } from '../../../../core/constants';
-import { isZKsyncError, OP_INTEROP } from '../../../../core/types';
+import { OP_INTEROP } from '../../../../core/types';
 import { isHash66 } from '../../../../core/utils';
 import { createError } from '../../../../core/errors/factory';
 import { createErrorHandlers, toZKsyncError } from '../../errors/error-ops';
@@ -85,8 +83,16 @@ import type { InteropRouteStrategy, ViemTransactionRequest } from './routes/type
 import { quoteStepsL2Fee } from './services/gas';
 import { buildApproveSteps } from './services/erc20';
 import type { ChainRef, InteropConfig } from './types';
+import { viemAtomicInteropPrimitives } from './atomic-codec';
+import { createViemRawTransactionDriver } from '../../internal/source-execution';
 
 const { wrap, toResult } = createErrorHandlers('interop');
+const {
+  assertIntent: assertAtomicInteropIntent,
+  bindFlow: bindAtomicInteropFlow,
+  defineFlow: defineAtomicInteropFlow,
+  getCommitValue: getAtomicInteropCommitValue,
+} = viemAtomicInteropPrimitives;
 const ZERO_HASH = `0x${'00'.repeat(32)}`;
 
 export const ROUTES: Record<InteropRoute, InteropRouteStrategy> = {
@@ -137,11 +143,6 @@ interface Material {
   steps: Array<PlanStep<ViemTransactionRequest>>;
   approvals: ApprovalNeed[];
   summary: InteropQuote;
-}
-
-interface ExecutedSteps {
-  execution: PlanExecutionResult;
-  receipts: Map<string, TransactionReceipt>;
 }
 
 export function createInteropResource(
@@ -478,83 +479,53 @@ export function createInteropResource(
     };
   }
 
-  async function startingNonce(ctx: BuildCtx, params: InteropParams): Promise<number> {
-    const configured = params.txOverrides?.nonce;
-    if (typeof configured === 'number') return configured;
-    return client.l2.getTransactionCount({
-      address: ctx.sender,
-      blockTag: configured ?? 'pending',
-    });
-  }
-
   async function executeSteps(
     steps: readonly PlanStep<ViemTransactionRequest>[],
     ctx: BuildCtx,
-    initialNonce: number,
-  ): Promise<ExecutedSteps> {
-    const wallet = client.getL2Wallet();
-    const receipts = new Map<string, TransactionReceipt>();
-    const execution = await executePlan({
+    nonce: TxOverrides['nonce'] | undefined,
+    overrides?: TxOverrides,
+  ): Promise<SourceExecutionResult<TransactionReceipt>> {
+    return executeSourcePlan({
       steps,
-      initialNonce,
-      executeStep: async ({ step, nonce }) => {
-        let gas = step.tx.gas ?? step.tx.gasLimit;
-        if (gas == null) {
-          try {
-            gas =
-              ((await client.l2.estimateGas({
-                account: client.account,
-                to: step.tx.to as Address,
-                data: step.tx.data,
-                value: step.tx.value,
-              })) *
-                115n) /
-              100n;
-          } catch {
-            // The send path reports the contract error with its full context.
-          }
-        }
-
-        let hash: Hex | undefined;
-        try {
-          hash = await wallet.sendTransaction({
-            account: client.account,
-            chain: null,
-            to: step.tx.to as Address,
-            data: step.tx.data,
-            value: step.tx.value,
-            gas,
-            maxFeePerGas: step.tx.maxFeePerGas,
-            maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-            nonce,
-          });
-          const receipt = await client.l2.waitForTransactionReceipt({ hash });
-          if (receipt.status === 'reverted') {
-            throw createError('EXECUTION', {
-              resource: 'interop',
-              operation: OP_INTEROP.exec.waitStep,
-              message: 'Atomic interop transaction reverted on source L2.',
-              context: { step: step.key, txHash: hash },
-            });
-          }
-          receipts.set(step.key, receipt);
-          return hash;
-        } catch (error) {
-          if (isZKsyncError(error)) throw error;
-          throw toZKsyncError(
+      nonce,
+      driver: createViemRawTransactionDriver({
+        publicClient: client.l2,
+        wallet: client.getL2Wallet(),
+        account: client.account,
+        nonceAddress: ctx.sender,
+        defaultNonceTag: 'pending',
+        overrides,
+        gasPolicy: {
+          mode: 'when-missing',
+          resolveGasLimit: ({ estimatedGasLimit }) => (estimatedGasLimit * 115n) / 100n,
+        },
+        missingWalletError: ({ step }) =>
+          createError('EXECUTION', {
+            resource: 'interop',
+            operation: OP_INTEROP.exec.sendStep,
+            message: 'No L2 wallet is available for atomic interop.',
+            context: { step: step.key },
+          }),
+        revertedError: ({ step, txHash }) =>
+          createError('EXECUTION', {
+            resource: 'interop',
+            operation: OP_INTEROP.exec.waitStep,
+            message: 'Atomic interop transaction reverted on source L2.',
+            context: { step: step.key, txHash },
+          }),
+        mapError: (error, { step, txHash, nonce: stepNonce }) =>
+          toZKsyncError(
             'EXECUTION',
             {
               resource: 'interop',
               operation: OP_INTEROP.exec.sendStep,
               message: 'Failed to send or confirm an atomic interop transaction step.',
-              context: { step: step.key, txHash: hash, nonce },
+              context: { step: step.key, txHash, nonce: stepNonce },
             },
             error,
-          );
-        }
-      },
+          ),
+      }),
     });
-    return { execution, receipts };
   }
 
   async function simulateSend(
@@ -698,9 +669,10 @@ export function createInteropResource(
       const executed = await executeSteps(
         steps,
         material.ctx,
-        await startingNonce(material.ctx, material.params),
+        material.params.txOverrides?.nonce,
+        material.params.txOverrides,
       );
-      return { approvals: material.approvals, stepHashes: executed.execution.stepHashes };
+      return { approvals: material.approvals, stepHashes: executed.stepHashes };
     });
 
   const previewLeg = (dstChain: ChainRef, params: InteropParams): Promise<AtomicInteropLegDraft> =>
@@ -729,14 +701,12 @@ export function createInteropResource(
       }
 
       const prerequisites = base.material.steps.filter((step) => step.key !== 'sendBundle');
-      const nonce = await startingNonce(base.material.ctx, base.material.params);
-      const prerequisiteExecution =
-        prerequisites.length > 0
-          ? await executeSteps(prerequisites, base.material.ctx, nonce)
-          : {
-              execution: { stepHashes: {}, nextNonce: nonce } satisfies PlanExecutionResult,
-              receipts: new Map<string, TransactionReceipt>(),
-            };
+      const prerequisiteExecution = await executeSteps(
+        prerequisites,
+        base.material.ctx,
+        base.material.params.txOverrides?.nonce,
+        base.material.params.txOverrides,
+      );
 
       await assertAllowances(base.material, {
         hashAffectingOnly: false,
@@ -777,14 +747,16 @@ export function createInteropResource(
         await simulateSend(base.material.ctx, sendStep);
       }
 
-      plan.steps = [...prerequisites, sendStep];
+      plan = { ...plan, steps: [...prerequisites, sendStep] };
       const sent = await executeSteps(
         [sendStep],
         base.material.ctx,
-        prerequisiteExecution.execution.nextNonce,
+        prerequisiteExecution.nextNonce,
+        base.material.params.txOverrides,
       );
-      const receipt = sent.receipts.get('sendBundle');
-      const l2SrcTxHash = sent.execution.sourceTxHash;
+      const execution = mergeSourceExecutionResults(prerequisiteExecution, sent);
+      const receipt = execution.receipts.get('sendBundle');
+      const l2SrcTxHash = execution.lastSourceHash;
       if (!receipt || !l2SrcTxHash)
         throw new Error('Atomic interop send did not produce a receipt.');
       const encodedBundle = parseBundleReceipt(receipt, base.material.ctx, intent);
@@ -792,10 +764,7 @@ export function createInteropResource(
       return {
         kind: 'interop',
         route: plan.route,
-        stepHashes: {
-          ...prerequisiteExecution.execution.stepHashes,
-          ...sent.execution.stepHashes,
-        },
+        stepHashes: execution.stepHashes,
         plan,
         intent,
         l2SrcTxHash,

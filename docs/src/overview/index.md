@@ -52,6 +52,8 @@ Atomic interop completion and refunds remain external until production proof too
 * **`getBridgehubAddress`** (`zks_getBridgehubContract`) — resolve the canonical Bridgehub contract address.
 * **`getBytecodeSupplierAddress`** (`zks_getBytecodeSupplierContract`) — resolve the Bytecode Supplier contract address.
 * **`getL2ToL1LogProof`** (`zks_getL2ToL1LogProof`) — retrieve the log proof for an L2 → L1 transaction.
+* **`getImtLowNullifierIndex`** (`zks_getImtLowNullifierIndex`) — find the predecessor leaf for an atomic-interop commitment.
+* **`getImtInclusionProof`** (`zks_getImtInclusionProof`) — retrieve an atomic-interop commitment-tree membership proof.
 * **`getReceiptWithL2ToL1`** — returns a standard Ethereum `TransactionReceipt` **augmented** with `l2ToL1Logs`.
 * **`getBlockMetadataByNumber`** (`zks_getBlockMetadataByNumber`) — fetch block metadata (pubdata price, native price, execution version).
 * **`getGenesis`** (`zks_getGenesis`) - returns Genesis json.

@@ -10,12 +10,7 @@ import type {
   WithdrawalStatus,
 } from '../../../../core/types/flows/withdrawals';
 import type { Hex } from '../../../../core/types/primitives';
-import type {
-  Abi,
-  EstimateContractGasParameters,
-  TransactionReceipt,
-  WriteContractParameters,
-} from 'viem';
+import type { TransactionReceipt } from 'viem';
 
 import { commonCtx } from './context';
 import { toZKsyncError, createErrorHandlers } from '../../errors/error-ops';
@@ -38,12 +33,13 @@ import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
 import { createContractsResource } from '../contracts';
 import type { ContractsResource } from '../contracts';
-import { executePlan } from '../../../../core/internal/cross-chain/execution';
+import { executeSourcePlan } from '../../../../core/internal/cross-chain/execution';
 import {
   finalizeWithdrawalBundleLifecycle,
   inspectWithdrawalBundleLifecycle,
   pollWithdrawalStatus,
 } from '../../../../core/internal/cross-chain/withdrawal-lifecycle';
+import { createViemContractWriteDriver } from '../../internal/source-execution';
 
 // --------------------
 // Withdrawal Route map
@@ -197,118 +193,49 @@ export function createWithdrawalsResource(
         const plan = await prepare(p);
 
         const l2Wallet = client.getL2Wallet();
-        const from = client.account.address;
-
-        let next: number;
-        if (typeof p.l2TxOverrides?.nonce === 'number') {
-          next = p.l2TxOverrides.nonce;
-        } else {
-          const blockTag = p.l2TxOverrides?.nonce ?? 'pending';
-          next = await client.l2.getTransactionCount({ address: from, blockTag });
-        }
-
-        const execution = await executePlan({
+        const execution = await executeSourcePlan({
           steps: plan.steps,
-          initialNonce: next,
-          executeStep: async ({ step, nonce }) => {
-            if (p.l2TxOverrides) {
-              const overrides = p.l2TxOverrides;
-              if (overrides.maxFeePerGas != null) step.tx.maxFeePerGas = overrides.maxFeePerGas;
-              if (overrides.maxPriorityFeePerGas != null) {
-                step.tx.maxPriorityFeePerGas = overrides.maxPriorityFeePerGas;
-              }
-              if (overrides.gasLimit != null) step.tx.gas = overrides.gasLimit;
-            }
-
-            if (!p.l2TxOverrides?.gasLimit) {
-              try {
-                const feePart =
-                  step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
-                    ? {
-                        maxFeePerGas: step.tx.maxFeePerGas,
-                        maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                      }
-                    : {};
-                const params: EstimateContractGasParameters = {
-                  address: step.tx.address,
-                  abi: step.tx.abi as Abi,
-                  functionName: step.tx.functionName,
-                  args: step.tx.args ?? [],
-                  account: step.tx.account ?? l2Wallet.account ?? client.account,
-                  ...(step.tx.value != null ? { value: step.tx.value } : {}),
-                  ...feePart,
-                };
-                const gas = await client.l2.estimateContractGas(params);
-                step.tx.gas = (gas * 115n) / 100n;
-              } catch {
-                // Gas estimation is best-effort; keep the prepared value.
-              }
-            }
-
-            const fee1559 =
-              step.tx.maxFeePerGas != null && step.tx.maxPriorityFeePerGas != null
-                ? {
-                    maxFeePerGas: step.tx.maxFeePerGas,
-                    maxPriorityFeePerGas: step.tx.maxPriorityFeePerGas,
-                  }
-                : {};
-
-            const baseReq = {
-              address: step.tx.address,
-              abi: step.tx.abi as Abi,
-              functionName: step.tx.functionName,
-              args: step.tx.args ?? [],
-              account: step.tx.account ?? l2Wallet.account ?? client.account,
-              gas: step.tx.gas,
-              nonce,
-              ...fee1559,
-              ...(step.tx.dataSuffix ? { dataSuffix: step.tx.dataSuffix } : {}),
-              ...(step.tx.chain ? { chain: step.tx.chain } : {}),
-            } as Omit<WriteContractParameters, 'value'>;
-
-            const execReq: WriteContractParameters =
-              step.tx.value != null
-                ? ({ ...baseReq, value: step.tx.value } as WriteContractParameters)
-                : (baseReq as WriteContractParameters);
-
-            let hash: Hex | undefined;
-            try {
-              if (!client.l2Wallet) {
-                throw createError('EXECUTION', {
-                  resource: 'withdrawals',
-                  operation: 'withdrawals.create.getL2Wallet',
-                  message: 'No L2 wallet available to send withdrawal transaction step.',
-                  context: { step: step.key, l2Wallet },
-                });
-              }
-              hash = await l2Wallet.writeContract(execReq);
-
-              const rcpt = await client.l2.waitForTransactionReceipt({ hash });
-              if (!rcpt || rcpt.status !== 'success') {
-                throw createError('EXECUTION', {
-                  resource: 'withdrawals',
-                  operation: 'withdrawals.create.writeContract',
-                  message: 'Withdrawal transaction reverted on L2 during a step.',
-                  context: { step: step.key, txHash: hash, status: rcpt?.status },
-                });
-              }
-              return hash;
-            } catch (e) {
-              throw toZKsyncError(
+          nonce: p.l2TxOverrides?.nonce,
+          driver: createViemContractWriteDriver({
+            publicClient: client.l2,
+            wallet: client.l2Wallet,
+            account: l2Wallet.account ?? client.account,
+            nonceAddress: client.account.address,
+            defaultNonceTag: 'pending',
+            overrides: p.l2TxOverrides,
+            gasPolicy: {
+              mode: 'when-missing',
+              resolveGasLimit: ({ estimatedGasLimit }) => (estimatedGasLimit * 115n) / 100n,
+            },
+            missingWalletError: ({ step }) =>
+              createError('EXECUTION', {
+                resource: 'withdrawals',
+                operation: 'withdrawals.create.getL2Wallet',
+                message: 'No L2 wallet available to send withdrawal transaction step.',
+                context: { step: step.key, l2Wallet },
+              }),
+            revertedError: ({ step, txHash }) =>
+              createError('EXECUTION', {
+                resource: 'withdrawals',
+                operation: 'withdrawals.create.writeContract',
+                message: 'Withdrawal transaction reverted on L2 during a step.',
+                context: { step: step.key, txHash, status: 'reverted' },
+              }),
+            mapError: (error, { step, txHash }) =>
+              toZKsyncError(
                 'EXECUTION',
                 {
                   resource: 'withdrawals',
                   operation: 'withdrawals.create.writeContract',
                   message: 'Failed to send or confirm a withdrawal transaction step.',
-                  context: { step: step.key, txHash: hash, l2Wallet },
+                  context: { step: step.key, txHash, l2Wallet },
                 },
-                e,
-              );
-            }
-          },
+                error,
+              ),
+          }),
         });
 
-        const l2TxHash = execution.sourceTxHash ?? ('0x' as Hex);
+        const l2TxHash = execution.lastSourceHash ?? ('0x' as Hex);
         return { kind: 'withdrawal', l2TxHash, stepHashes: execution.stepHashes, plan };
       },
       {

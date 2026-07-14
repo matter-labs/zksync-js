@@ -57,11 +57,15 @@
       "import": "./dist/adapters/ethers/index.js",
       "require": "./dist/adapters/ethers/index.cjs"
     },
+    "./ethers/internal/*": null,
+    "./ethers/resources/interop/atomic-codec": null,
     "./viem": {
       "types": "./dist/adapters/viem/index.d.ts",
       "import": "./dist/adapters/viem/index.js",
       "require": "./dist/adapters/viem/index.cjs"
     },
+    "./viem/internal/*": null,
+    "./viem/resources/interop/atomic-codec": null,
     "./types": {
       "types": "./dist/core/types/index.d.ts",
       "import": "./dist/core/types/index.js",

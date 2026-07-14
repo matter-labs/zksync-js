@@ -30,8 +30,24 @@ export type ProofNormalized = {
   batchNumber: bigint;
   proof: Hex[];
   root: Hex;
-  /** @deprecated Legacy RPC metadata. The cross-chain lifecycle does not use a gateway. */
+  /**
+   * Settlement-layer block that anchors a `messageRoot` proof.
+   * Despite the historical name, this may identify an L1 or gateway block.
+   */
   gatewayBlockNumber?: bigint;
+};
+
+export type ImtLeaf = {
+  value: bigint;
+  nextIndex: bigint;
+  nextValue: bigint;
+};
+
+export type ImtInclusionProof = {
+  chainImtRoot: Hex;
+  leaf: ImtLeaf;
+  imtLeafIndex: bigint;
+  imtProof: Hex[];
 };
 
 export type GenesisContractDeployment = {
