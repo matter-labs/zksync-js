@@ -26,7 +26,7 @@ jobs:
       # Org-level secrets of the GitHub App used to mint installation tokens.
       # API commits are auto-signed.
       MATTERLABS_BOTS_APP_ID: ${{ secrets.MATTERLABS_BOTS_APP_ID }}
-      MATTERLABS_BOTS_PRIVATE_KEY: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}b
+      MATTERLABS_BOTS_PRIVATE_KEY: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}
     with:
       config: '.github/release-please/config.json' # Specify the path to the configuration file
       manifest: '.github/release-please/manifest.json' # Specify the path to the manifest file
