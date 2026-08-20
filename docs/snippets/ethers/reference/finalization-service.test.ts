@@ -23,6 +23,32 @@ interface FinalizeDepositParams {
   merkleProof: Hex[];
 }
 
+// Protocol v32+ finalization inputs: the withdrawal's interop bundle and its inclusion proof.
+interface WithdrawalBundleFinalization {
+  bundle: Hex;
+  bundleHash: Hex;
+  proof: {
+    chainId: bigint;
+    l1BatchNumber: bigint;
+    l2MessageIndex: bigint;
+    message: { txNumberInBatch: number; sender: Address; data: Hex };
+    proof: Hex[];
+  };
+}
+
+// Which contract finalizes the withdrawal, and with which arguments.
+//  - `nullifier`      → L1Nullifier.finalizeDeposit           (protocol v31 and below)
+//  - `interop-bundle` → L1InteropHandler.executeBundle        (protocol v32 and above)
+type WithdrawalFinalization =
+  | { protocol: 'nullifier'; params: FinalizeDepositParams }
+  | { protocol: 'interop-bundle'; params: WithdrawalBundleFinalization };
+
+interface ResolvedWithdrawalFinalization {
+  target: Address;
+  finalization: WithdrawalFinalization;
+  key: WithdrawalKey;
+}
+
 // Finalization readiness states
 // Used for `status()`
 type FinalizeReadiness =
@@ -49,32 +75,32 @@ interface FinalizationEstimate {
 
 interface FinalizationServices {
   /**
-   * Build finalizeDeposit params.
+   * Derive the finalization arguments for a withdrawal, tagged with the protocol they belong to.
+   */
+  fetchFinalization(l2TxHash: Hex): Promise<ResolvedWithdrawalFinalization>;
+
+  /**
+   * Build `finalizeDeposit` params.
+   *
+   * @deprecated Only meaningful on protocol v31 chains. Throws on v32+, where withdrawals are
+   * finalized through the interop handler — use {@link fetchFinalization} instead.
    */
   fetchFinalizeDepositParams(
     l2TxHash: Hex,
   ): Promise<{ params: FinalizeDepositParams; nullifier: Address }>;
 
-  /**
-   * Read the Nullifier mapping to check finalization status.
-   */
-  isWithdrawalFinalized(key: WithdrawalKey): Promise<boolean>;
+  /** Check whether the withdrawal has already been finalized on L1. */
+  isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean>;
 
-  /**
-   * Simulate finalizeDeposit on L1 Nullifier to check readiness.
-   */
-  simulateFinalizeReadiness(params: FinalizeDepositParams): Promise<FinalizeReadiness>;
+  /** Simulate finalization on L1 to check readiness. */
+  simulateFinalizeReadiness(finalization: WithdrawalFinalization): Promise<FinalizeReadiness>;
 
-  /**
-   * Estimate gas & fees for finalizeDeposit on L1 Nullifier.
-   */
-  estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate>;
+  /** Estimate gas & fees for finalization on L1. */
+  estimateFinalization(finalization: WithdrawalFinalization): Promise<FinalizationEstimate>;
 
-  /**
-   * Call finalizeDeposit on L1 Nullifier.
-   */
-  finalizeDeposit(
-    params: FinalizeDepositParams,
+  /** Send the finalization transaction on L1. */
+  finalize(
+    finalization: WithdrawalFinalization,
   ): Promise<{ hash: string; wait: () => Promise<TransactionReceipt> }>;
 }
 // ANCHOR_END: finalization-types
@@ -121,24 +147,22 @@ await sdk.withdrawals.wait(handle, { for: 'l2' });
 await sdk.withdrawals.wait(handle, { for: 'ready', pollMs: 6000 });
 
 // ANCHOR: finalize-with-svc
-// 1) Build finalize params + discover the L1 Nullifier to call
-const { params } = await svc.fetchFinalizeDepositParams(handle.l2TxHash);
-const key: WithdrawalKey = {
-  chainIdL2: params.chainId,
-  l2BatchNumber: params.l2BatchNumber,
-  l2MessageIndex: params.l2MessageIndex,
-};
+// 1) Derive the finalization args + the L1 contract to call. Works on both protocols: pre-v32
+//    chains resolve to `L1Nullifier.finalizeDeposit`, v32+ chains to
+//    `L1InteropHandler.executeBundle`.
+const { finalization, key } = await svc.fetchFinalization(handle.l2TxHash);
+
 // 2) (Optional) check finalization
-const already = await svc.isWithdrawalFinalized(key);
+const already = await svc.isWithdrawalFinalized(finalization);
 if (already) {
-  console.log('Already finalized on L1');
+  console.log('Already finalized on L1', key);
 } else {
   // 3) Dry-run on L1 to confirm readiness (no gas spent)
-  const readiness = await svc.simulateFinalizeReadiness(params);
+  const readiness = await svc.simulateFinalizeReadiness(finalization);
 
   if (readiness.kind === 'READY') {
     // 4) Submit finalize tx
-    const { hash, wait } = await svc.finalizeDeposit(params);
+    const { hash, wait } = await svc.finalize(finalization);
     console.log('L1 finalize tx:', hash);
     const rcpt = await wait();
     console.log('Finalized in block:', rcpt.blockNumber);

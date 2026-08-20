@@ -3,6 +3,7 @@
 import type { WithdrawalFeeBreakdown, TxOverrides } from '../fees';
 import type { Address, Hex } from '../primitives';
 import type { ApprovalNeed, Plan, Handle } from './base';
+import type { WithdrawalBundleFinalization } from '../../resources/withdrawals/finalization';
 
 /** Input */
 export interface WithdrawParams {
@@ -57,7 +58,34 @@ export type WithdrawalKey = {
   chainIdL2: bigint;
   l2BatchNumber: bigint;
   l2MessageIndex: bigint;
+  /**
+   * Hash of the withdrawal's interop bundle. Only present on protocol v32+ chains, where it — not
+   * `(chainId, batch, messageIndex)` — is what identifies the withdrawal on L1.
+   */
+  bundleHash?: Hex;
 };
+
+/**
+ * Protocol-tagged finalization arguments.
+ *
+ * v31 and v32 finalize withdrawals on different contracts with entirely different arguments, so the
+ * derived parameters are a discriminated union rather than one widened shape:
+ *
+ * - `nullifier` — `L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)`
+ * - `interop-bundle` — `L1InteropHandler.executeBundle(bundle, MessageInclusionProof)`
+ */
+export type WithdrawalFinalization =
+  | { protocol: 'nullifier'; params: FinalizeDepositParams }
+  | { protocol: 'interop-bundle'; params: WithdrawalBundleFinalization };
+
+/** Resolved finalization arguments together with the L1 contract they target. */
+export interface ResolvedWithdrawalFinalization {
+  /** The L1 contract to send the finalization to. */
+  target: Address;
+  finalization: WithdrawalFinalization;
+  /** Identifying key, for status reporting. */
+  key: WithdrawalKey;
+}
 
 type WithdrawalPhase =
   | 'L2_PENDING' // tx not in an L2 block yet

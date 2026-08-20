@@ -39,6 +39,21 @@ const IERC7786AttributesABI = [
     stateMutability: 'pure',
   },
   {
+    // v32+ only. Harmless to keep in the shared ABI: the attribute is only ever attached when the
+    // chain is known to speak the interop-bundle withdrawal protocol.
+    type: 'function',
+    name: 'interopBundleSalt',
+    inputs: [
+      {
+        name: '_salt',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'pure',
+  },
+  {
     type: 'function',
     name: 'unbundlerAddress',
     inputs: [

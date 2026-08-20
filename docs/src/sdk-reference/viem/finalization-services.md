@@ -1,7 +1,9 @@
 # Finalization Services
 
 Helpers for building and executing **L1 finalization** of L2 withdrawals using the **Viem adapter**.
-These utilities fetch the required L2→L1 proof data, check readiness, and submit `finalizeDeposit` on the **L1 Nullifier** contract.
+These utilities fetch the required L2→L1 proof data, check readiness, and submit the finalization tx on L1.
+They are **protocol-aware**: on protocol v31 and below they call `finalizeDeposit` on the **L1 Nullifier**;
+from v32 on they call `executeBundle` on the **L1 InteropHandler**, which replaced it.
 
 > Use these services when you need fine-grained control (preflight simulations, custom gas, external orchestration).
 > For the high-level path, see [`sdk.withdrawals.finalize(...)`](./withdrawals.md).
@@ -11,7 +13,7 @@ These utilities fetch the required L2→L1 proof data, check readiness, and subm
 ## At a Glance
 
 * **Factory:** `createFinalizationServices(client) → FinalizationServices`
-* **Workflow:** *fetch params* → *optionally check status* → *simulate readiness* → *submit finalize tx*
+* **Workflow:** *fetch finalization* → *optionally check status* → *simulate readiness* → *submit finalize tx*
 * **Prereq:** An initialized **ViemClient** with an **L1 wallet** (used to sign the L1 finalize tx).
 
 ## Import & Setup
@@ -32,7 +34,32 @@ These utilities fetch the required L2→L1 proof data, check readiness, and subm
 
 ## API
 
+### `fetchFinalization(l2TxHash) → Promise<ResolvedWithdrawalFinalization>`
+
+Derives the finalization arguments for a given **L2 withdrawal tx**, tagged with the withdrawal
+protocol the chain speaks. This is the protocol-neutral entry point: it resolves to
+`L1Nullifier.finalizeDeposit` on protocol v31 and below, and to `L1InteropHandler.executeBundle` on
+v32 and above.
+
+**Parameters**
+
+| Name       | Type  | Required | Description                     |
+| ---------- | ----- | -------- | ------------------------------- |
+| `l2TxHash` | `Hex` | ✅        | L2 withdrawal transaction hash. |
+
+**Returns**
+
+| Field          | Type                      | Description                                                          |
+| -------------- | ------------------------- | -------------------------------------------------------------------- |
+| `target`       | `Address`                 | L1 contract to send the finalization to.                             |
+| `finalization` | `WithdrawalFinalization`  | Protocol-tagged finalize input (see [Types](#types)).                |
+| `key`          | `WithdrawalKey`           | Identifying key; carries `bundleHash` on v32+.                       |
+
 ### `fetchFinalizeDepositParams(l2TxHash) → Promise<{ params, nullifier }>`
+
+> [!WARNING]
+> **Deprecated.** Only meaningful on protocol v31 chains. On v32+ this throws, because
+> `L1Nullifier.finalizeDeposit` no longer exists. Use `fetchFinalization` instead.
 
 Builds the inputs required by **`Nullifier.finalizeDeposit`** for a given **L2 withdrawal tx**.
 
@@ -49,41 +76,60 @@ Builds the inputs required by **`Nullifier.finalizeDeposit`** for a given **L2 w
 | `params`    | `FinalizeDepositParams` | Canonical finalize input (proof, indices, message). |
 | `nullifier` | `Address`               | L1 Nullifier contract address to call.              |
 
-### `isWithdrawalFinalized(key) → Promise<boolean>`
+### `isWithdrawalFinalized(finalization) → Promise<boolean>`
 
-Reads the **Nullifier mapping** to determine whether a withdrawal has already been finalized.
+Checks whether the withdrawal has already been finalized on L1. Reads the **Nullifier mapping** on
+v31, and the **interop handler's bundle status** on v32+ (finalized means `FullyExecuted` or
+`Unbundled`).
 
 **Parameters**
 
-| Name  | Type            | Required | Description                    |
-| ----- | --------------- | -------- | ------------------------------ |
-| `key` | `WithdrawalKey` | ✅        | Unique key for the withdrawal. |
+| Name           | Type                     | Required | Description                              |
+| -------------- | ------------------------ | -------- | ---------------------------------------- |
+| `finalization` | `WithdrawalFinalization` | ✅        | As returned by `fetchFinalization`.      |
 
 **Returns:** `true` if finalized; otherwise `false`.
 
-### `simulateFinalizeReadiness(params, nullifier) → Promise<FinalizeReadiness>`
+### `simulateFinalizeReadiness(finalization) → Promise<FinalizeReadiness>`
 
-Performs a **static call** on the L1 Nullifier to check whether `finalizeDeposit` **would** succeed now (no gas spent).
-
-**Parameters**
-
-| Name        | Type                    | Required | Description              |
-| ----------- | ----------------------- | -------- | ------------------------ |
-| `params`    | `FinalizeDepositParams` | ✅        | Prepared finalize input. |
-| `nullifier` | `Address`               | ✅        | L1 Nullifier address.    |
-
-**Returns:** `FinalizeReadiness` (see [Types](#types)).
-
-### `finalizeDeposit(params, nullifier) → Promise<{ hash: string; wait: () => Promise<TransactionReceipt> }>`
-
-Sends the **L1 finalize** transaction to the Nullifier with the provided `params`.
+Performs a **static call** on the resolved L1 contract to check whether finalization **would**
+succeed now (no gas spent).
 
 **Parameters**
 
-| Name        | Type                    | Required | Description              |
-| ----------- | ----------------------- | -------- | ------------------------ |
-| `params`    | `FinalizeDepositParams` | ✅        | Prepared finalize input. |
-| `nullifier` | `Address`               | ✅        | L1 Nullifier address.    |
+| Name           | Type                     | Required | Description                         |
+| -------------- | ------------------------ | -------- | ----------------------------------- |
+| `finalization` | `WithdrawalFinalization` | ✅        | As returned by `fetchFinalization`. |
+
+**Returns:** `FinalizeReadiness`
+
+Readiness states (see [Types](#types)) include:
+
+* `{ kind: 'READY' }`
+* `{ kind: 'FINALIZED' }`
+* `{ kind: 'NOT_READY', reason, detail? }` (temporary)
+* `{ kind: 'UNFINALIZABLE', reason, detail? }` (permanent)
+
+### `estimateFinalization(finalization) → Promise<FinalizationEstimate>`
+
+Estimates gas and per-gas fees for the L1 finalization transaction.
+
+**Parameters**
+
+| Name           | Type                     | Required | Description                         |
+| -------------- | ------------------------ | -------- | ----------------------------------- |
+| `finalization` | `WithdrawalFinalization` | ✅        | As returned by `fetchFinalization`. |
+
+### `finalize(finalization) → Promise<{ hash; wait: () => Promise<TransactionReceipt> }>`
+
+Sends the **L1 finalize** transaction — `finalizeDeposit` on the Nullifier (v31) or `executeBundle`
+on the interop handler (v32+).
+
+**Parameters**
+
+| Name           | Type                     | Required | Description                         |
+| -------------- | ------------------------ | -------- | ----------------------------------- |
+| `finalization` | `WithdrawalFinalization` | ✅        | As returned by `fetchFinalization`. |
 
 **Returns**
 
@@ -92,8 +138,9 @@ Sends the **L1 finalize** transaction to the Nullifier with the provided `params
 | `hash` | `string`                            | Submitted L1 transaction hash.                |
 | `wait` | `() => Promise<TransactionReceipt>` | Helper to await on-chain inclusion of the tx. |
 
-> **Warning:** This call will revert if the withdrawal is not ready or invalid.
-> Prefer `simulateFinalizeReadiness` or `sdk.withdrawals.wait(..., { for: 'ready' })` first.
+> [!WARNING]
+> This method will **revert** if the withdrawal is not ready or invalid.
+> Prefer calling `simulateFinalizeReadiness` or using `sdk.withdrawals.wait(..., { for: 'ready' })` first.
 
 ## Status & Phases
 

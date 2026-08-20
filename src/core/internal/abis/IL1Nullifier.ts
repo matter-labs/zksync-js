@@ -393,6 +393,22 @@ const IL1NullifierABI = [
     type: 'function',
   },
   {
+    // v32+ only: the nullifier points at the L1InteropHandler that took over withdrawal
+    // finalization from its own (now removed) `finalizeDeposit`. Reverts on v31 nullifiers, which is
+    // itself a usable signal.
+    inputs: [],
+    name: 'l1InteropHandler',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint256',

@@ -23,7 +23,7 @@ import {
   L2NativeTokenVaultABI,
   IInteropCenterABI,
 } from '../../core/abi.ts';
-import type { Address } from '../../core/types/primitives';
+import type { Address, Hex } from '../../core/types/primitives';
 import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
@@ -229,6 +229,9 @@ function makeEthersL2(state: EthersL2State) {
     async getCode(_address: string) {
       return '0x01';
     },
+    async getTransactionCount(_address: string, _blockTag?: unknown) {
+      return 7;
+    },
   };
 }
 
@@ -370,6 +373,10 @@ function makeViemClient(state: ViemClientState): PublicClient {
       if (state.code) return state.code;
       // Default to deployed bytecode sentinel
       return key ? '0x01' : '0x';
+    },
+    // The v32 route derives its bundle salt from the sender's pending L2 nonce.
+    async getTransactionCount(_args: { address: Address; blockTag?: unknown }) {
+      return 7;
     },
   } as unknown as PublicClient;
 }
@@ -597,7 +604,15 @@ export type WithdrawalTestContext<T extends AdapterHarness> = {
   l2AssetRouter: Address;
   l2NativeTokenVault: Address;
   l2BaseTokenSystem: Address;
+  interopCenter: Address;
   baseIsEth: boolean;
+  /** Token kind: the chain's base token, or a non-base ERC-20. */
+  route: 'base' | 'erc20-nonbase';
+  /** Withdrawal protocol the route builder should assume. */
+  protocol: 'nullifier' | 'interop-bundle';
+  /** Destination chain of a v32 withdrawal bundle. */
+  l1ChainId: bigint;
+  baseTokenAssetId: Hex;
   l2GasLimit: bigint;
   gasBufferPct: number;
   fee?: Record<string, unknown>;
@@ -622,7 +637,12 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
     l2AssetRouter: L2_ASSET_ROUTER_ADDRESS,
     l2NativeTokenVault: L2_NATIVE_TOKEN_VAULT_ADDRESS,
     l2BaseTokenSystem: L2_BASE_TOKEN_ADDRESS,
+    interopCenter: L2_INTEROP_CENTER_ADDRESS,
     baseIsEth: true,
+    route: 'base',
+    protocol: 'nullifier',
+    l1ChainId: 1n,
+    baseTokenAssetId: `0x${'ee'.repeat(32)}` as Hex,
     l2GasLimit: 300_000n,
     gasBufferPct: 15,
     fee: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },

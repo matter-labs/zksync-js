@@ -1,26 +1,50 @@
 // src/adapters/ethers/resources/withdrawals/services/finalization.ts
+//
+// Withdrawal finalization on L1, for both withdrawal protocols.
+//
+//   v31 (`nullifier`)      L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)
+//                          status via L1Nullifier.isWithdrawalFinalized(chainId, batch, msgIndex)
+//
+//   v32 (`interop-bundle`) L1InteropHandler.executeBundle(bundle, MessageInclusionProof)
+//                          status via L1InteropHandler.bundleStatus(bundleHash)
+//
+// v32 removed `finalizeDeposit`, `finalizeWithdrawal` and `isWithdrawalFinalized` from the
+// nullifier outright, so there is no shared entry point to fall back on — everything here branches
+// on the detected protocol.
 
-import { AbiCoder, Contract, type TransactionReceipt } from 'ethers';
+import {
+  AbiCoder,
+  Contract,
+  type ContractTransactionResponse,
+  type TransactionReceipt,
+} from 'ethers';
 
 import type { Address, Hex } from '../../../../../core/types/primitives';
 import type { EthersClient } from '../../../client';
 import {
   type FinalizeReadiness,
   type FinalizeDepositParams,
-  type WithdrawalKey,
   type FinalizationEstimate,
+  type WithdrawalFinalization,
+  type ResolvedWithdrawalFinalization,
 } from '../../../../../core/types/flows/withdrawals';
 
-import { IL1NullifierABI } from '../../../../../core/abi.ts';
+import { IL1NullifierABI, IInteropHandlerABI } from '../../../../../core/abi.ts';
 
 import { L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
 import { findL1MessageSentLog } from '../../../../../core/utils/events';
 import { messengerLogIndex } from '../../../../../core/resources/withdrawals/logs';
+import {
+  buildWithdrawalFinalization,
+  isBundleFinalized,
+  type BundleStatus,
+} from '../../../../../core/resources/withdrawals/finalization';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { classifyReadinessFromRevert } from '../../../errors/revert';
 import { OP_WITHDRAWALS } from '../../../../../core/types';
 import { createError } from '../../../../../core/errors/factory';
 import { toZKsyncError } from '../../../errors/error-ops';
+import type { WithdrawalProtocolService } from './protocol';
 
 // error handling
 const { wrapAs } = createErrorHandlers('withdrawals');
@@ -32,232 +56,308 @@ const IL1NullifierMini = [
 
 export interface FinalizationServices {
   /**
-   * Build finalizeDeposit params.
+   * Derive the finalization arguments for a withdrawal, tagged with the protocol they belong to.
+   */
+  fetchFinalization(l2TxHash: Hex): Promise<ResolvedWithdrawalFinalization>;
+
+  /**
+   * Build `finalizeDeposit` params.
+   *
+   * @deprecated Only meaningful on protocol v31 chains. Throws on v32+, where withdrawals are
+   * finalized through the interop handler — use {@link fetchFinalization} instead.
    */
   fetchFinalizeDepositParams(
     l2TxHash: Hex,
   ): Promise<{ params: FinalizeDepositParams; nullifier: Address }>;
 
-  /**
-   * Read the Nullifier mapping to check finalization status.
-   */
-  isWithdrawalFinalized(key: WithdrawalKey): Promise<boolean>;
+  /** Check whether the withdrawal has already been finalized on L1. */
+  isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean>;
 
-  /**
-   * Simulate finalizeDeposit on L1 Nullifier to check readiness.
-   */
-  simulateFinalizeReadiness(params: FinalizeDepositParams): Promise<FinalizeReadiness>;
+  /** Simulate finalization on L1 to check readiness. */
+  simulateFinalizeReadiness(finalization: WithdrawalFinalization): Promise<FinalizeReadiness>;
 
-  /**
-   * Estimate gas & fees for finalizeDeposit on L1 Nullifier.
-   */
-  estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate>;
+  /** Estimate gas & fees for finalization on L1. */
+  estimateFinalization(finalization: WithdrawalFinalization): Promise<FinalizationEstimate>;
 
-  /**
-   * Call finalizeDeposit on L1 Nullifier.
-   */
-  finalizeDeposit(
-    params: FinalizeDepositParams,
+  /** Send the finalization transaction on L1. */
+  finalize(
+    finalization: WithdrawalFinalization,
   ): Promise<{ hash: string; wait: () => Promise<TransactionReceipt> }>;
 }
 
-export function createFinalizationServices(client: EthersClient): FinalizationServices {
+export function createFinalizationServices(
+  client: EthersClient,
+  protocolService: WithdrawalProtocolService,
+): FinalizationServices {
   const { l1, l2, signer } = client;
 
-  return {
-    async fetchFinalizeDepositParams(l2TxHash: Hex) {
-      // Fetch parsed L2 receipt (with L2->L1 logs)
-      const parsed = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.receipt,
-        () => client.zks.getReceiptWithL2ToL1(l2TxHash),
-        {
-          ctx: { where: 'getReceiptWithL2ToL1', l2TxHash },
-          message: 'Failed to fetch L2 receipt (with L2→L1 logs).',
-        },
-      );
-      if (!parsed) {
-        throw createError('STATE', {
-          resource: 'withdrawals',
-          operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
-          message: 'L2 receipt not found.',
-          context: { l2TxHash },
-        });
-      }
+  /** The L1 contract that finalizes withdrawals under the given protocol. */
+  async function finalizationTarget(
+    protocol: WithdrawalFinalization['protocol'],
+  ): Promise<Address> {
+    const { l1Nullifier } = await client.ensureAddresses();
+    if (protocol === 'nullifier') return l1Nullifier;
 
-      // Find L1MessageSent event and decode message bytes
-      const ev = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.findMessage,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        () => Promise.resolve(findL1MessageSentLog(parsed as any, { index: 0 })),
-        {
-          ctx: { l2TxHash, index: 0 },
-          message: 'Failed to locate L1MessageSent event in L2 receipt.',
-        },
-      );
+    // The nullifier is the stable, already-resolved anchor, and it points at the handler that took
+    // over its finalization duties — so the handler needs no extra configuration.
+    const nullifier = new Contract(l1Nullifier, IL1NullifierABI, l1);
+    const handler = await wrapAs(
+      'CONTRACT',
+      OP_WITHDRAWALS.finalize.fetchParams.receipt,
+      () => nullifier.l1InteropHandler() as Promise<Address>,
+      {
+        ctx: { where: 'L1Nullifier.l1InteropHandler', l1Nullifier },
+        message:
+          'Failed to resolve the L1 interop handler. The chain reports protocol v32+, but its ' +
+          'L1Nullifier does not expose `l1InteropHandler()`.',
+      },
+    );
 
-      const message = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.decodeMessage,
-        () => Promise.resolve(AbiCoder.defaultAbiCoder().decode(['bytes'], ev.data)[0] as Hex),
-        {
-          ctx: { where: 'decode L1MessageSent', data: ev.data },
-          message: 'Failed to decode withdrawal message.',
-        },
-      );
+    return handler;
+  }
 
-      // Fetch raw receipt again
-      const raw = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-        () => client.zks.getReceiptWithL2ToL1(l2TxHash),
-        {
-          ctx: { where: 'getReceiptWithL2ToL1 (raw)', l2TxHash },
-          message: 'Failed to fetch raw L2 receipt.',
-        },
-      );
-      if (!raw) {
-        throw createError('STATE', {
-          resource: 'withdrawals',
-          operation: OP_WITHDRAWALS.finalize.fetchParams.rawReceipt,
-          message: 'Raw L2 receipt not found.',
-          context: { l2TxHash },
-        });
-      }
+  /** Shared receipt/proof plumbing: both protocols need the message, its log index and a proof. */
+  async function fetchMessageAndProof(l2TxHash: Hex) {
+    const raw = await wrapAs(
+      'RPC',
+      OP_WITHDRAWALS.finalize.fetchParams.receipt,
+      () => client.zks.getReceiptWithL2ToL1(l2TxHash),
+      {
+        ctx: { where: 'getReceiptWithL2ToL1', l2TxHash },
+        message: 'Failed to fetch L2 receipt (with L2→L1 logs).',
+      },
+    );
+    if (!raw) {
+      throw createError('STATE', {
+        resource: 'withdrawals',
+        operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
+        message: 'L2 receipt not found.',
+        context: { l2TxHash },
+      });
+    }
 
-      const idx = await wrapAs(
-        'INTERNAL',
-        OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
-        () =>
-          Promise.resolve(messengerLogIndex(raw, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
-        {
-          ctx: { where: 'derive messenger log index', l2TxHash, receipt: raw },
-          message: 'Failed to derive messenger log index.',
-        },
-      );
+    const ev = await wrapAs(
+      'INTERNAL',
+      OP_WITHDRAWALS.finalize.fetchParams.findMessage,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      () => Promise.resolve(findL1MessageSentLog(raw as any, { index: 0 })),
+      {
+        ctx: { l2TxHash, index: 0 },
+        message: 'Failed to locate L1MessageSent event in L2 receipt.',
+      },
+    );
 
-      // Fetch L2->L1 log proof
-      const proof = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.proof,
-        () => client.zks.getL2ToL1LogProof(l2TxHash, idx),
-        {
-          ctx: { where: 'get L2→L1 log proof', l2TxHash, messengerLogIndex: idx },
-          message: 'Failed to fetch L2→L1 log proof.',
-        },
-      );
+    const message = await wrapAs(
+      'INTERNAL',
+      OP_WITHDRAWALS.finalize.fetchParams.decodeMessage,
+      () => Promise.resolve(AbiCoder.defaultAbiCoder().decode(['bytes'], ev.data)[0] as Hex),
+      {
+        ctx: { where: 'decode L1MessageSent', data: ev.data },
+        message: 'Failed to decode withdrawal message.',
+      },
+    );
 
-      const { chainId } = await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.fetchParams.network,
-        () => l2.getNetwork(),
-        {
-          ctx: { where: 'l2.getNetwork' },
-          message: 'Failed to read L2 network.',
-        },
-      );
+    const idx = await wrapAs(
+      'INTERNAL',
+      OP_WITHDRAWALS.finalize.fetchParams.messengerIndex,
+      () => Promise.resolve(messengerLogIndex(raw, { index: 0, messenger: L1_MESSENGER_ADDRESS })),
+      {
+        ctx: { where: 'derive messenger log index', l2TxHash, receipt: raw },
+        message: 'Failed to derive messenger log index.',
+      },
+    );
 
-      // TODO: fix me
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const txIndex = Number((parsed as any).transactionIndex ?? 0);
+    // Default proof target (`l1BatchRoot`) is the right one for both protocols: the proof is
+    // verified on L1, so it must cover the full gateway batch range including the local-root
+    // extension. (Interop L2→L2 finalization is what needs `messageRoot` instead.)
+    const proof = await wrapAs(
+      'RPC',
+      OP_WITHDRAWALS.finalize.fetchParams.proof,
+      () => client.zks.getL2ToL1LogProof(l2TxHash, idx),
+      {
+        ctx: { where: 'get L2→L1 log proof', l2TxHash, messengerLogIndex: idx },
+        message: 'Failed to fetch L2→L1 log proof.',
+      },
+    );
 
+    const { chainId } = await wrapAs(
+      'RPC',
+      OP_WITHDRAWALS.finalize.fetchParams.network,
+      () => l2.getNetwork(),
+      { ctx: { where: 'l2.getNetwork' }, message: 'Failed to read L2 network.' },
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    const txNumberInBatch = Number((raw as any).transactionIndex ?? 0);
+
+    return { raw, message, proof, chainId: BigInt(chainId), txNumberInBatch };
+  }
+
+  async function fetchFinalization(l2TxHash: Hex): Promise<ResolvedWithdrawalFinalization> {
+    const protocol = await protocolService.protocol();
+    const { raw, message, proof, chainId, txNumberInBatch } = await fetchMessageAndProof(l2TxHash);
+    const target = await finalizationTarget(protocol);
+
+    if (protocol === 'nullifier') {
       const params: FinalizeDepositParams = {
-        chainId: BigInt(chainId),
+        chainId,
         l2BatchNumber: proof.batchNumber,
         l2MessageIndex: proof.id,
-        l2Sender: parsed.to,
-        l2TxNumberInBatch: txIndex,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+        l2Sender: (raw as any).to as Address,
+        l2TxNumberInBatch: txNumberInBatch,
         message,
         merkleProof: proof.proof,
       };
 
-      const { l1Nullifier } = await client.ensureAddresses();
-      return { params, nullifier: l1Nullifier };
+      return {
+        target,
+        finalization: { protocol, params },
+        key: {
+          chainIdL2: chainId,
+          l2BatchNumber: proof.batchNumber,
+          l2MessageIndex: proof.id,
+        },
+      };
+    }
+
+    const params = buildWithdrawalFinalization({
+      messageData: message,
+      sourceChainId: chainId,
+      txNumberInBatch,
+      proof: { batchNumber: proof.batchNumber, id: proof.id, proof: proof.proof },
+    });
+
+    return {
+      target,
+      finalization: { protocol, params },
+      key: {
+        chainIdL2: chainId,
+        l2BatchNumber: proof.batchNumber,
+        l2MessageIndex: proof.id,
+        bundleHash: params.bundleHash,
+      },
+    };
+  }
+
+  async function isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean> {
+    const target = await finalizationTarget(finalization.protocol);
+
+    if (finalization.protocol === 'nullifier') {
+      const c = new Contract(target, IL1NullifierMini, l1);
+      return await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.isFinalized,
+        () =>
+          c.isWithdrawalFinalized(
+            finalization.params.chainId,
+            finalization.params.l2BatchNumber,
+            finalization.params.l2MessageIndex,
+          ) as Promise<boolean>,
+        {
+          ctx: { where: 'isWithdrawalFinalized', params: finalization.params },
+          message: 'Failed to read finalization status.',
+        },
+      );
+    }
+
+    const handler = new Contract(target, IInteropHandlerABI, l1);
+    const status = await wrapAs(
+      'RPC',
+      OP_WITHDRAWALS.finalize.isFinalized,
+      () => handler.bundleStatus(finalization.params.bundleHash) as Promise<bigint>,
+      {
+        ctx: {
+          where: 'L1InteropHandler.bundleStatus',
+          bundleHash: finalization.params.bundleHash,
+        },
+        message: 'Failed to read bundle status.',
+      },
+    );
+
+    return isBundleFinalized(Number(status) as BundleStatus);
+  }
+
+  return {
+    fetchFinalization,
+    isWithdrawalFinalized,
+
+    async fetchFinalizeDepositParams(l2TxHash: Hex) {
+      const resolved = await fetchFinalization(l2TxHash);
+      if (resolved.finalization.protocol !== 'nullifier') {
+        throw createError('VALIDATION', {
+          resource: 'withdrawals',
+          operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
+          message:
+            'This chain finalizes withdrawals through the L1 interop handler; ' +
+            '`finalizeDeposit` params do not exist. Use `fetchFinalization` instead.',
+          context: { l2TxHash, protocol: resolved.finalization.protocol },
+        });
+      }
+      return { params: resolved.finalization.params, nullifier: resolved.target };
     },
 
-    async simulateFinalizeReadiness(params: FinalizeDepositParams): Promise<FinalizeReadiness> {
-      const { l1Nullifier } = await client.ensureAddresses();
-      // check if the withdrawal is already finalized
-      const done = await (async (): Promise<boolean> => {
-        try {
-          const cMini = new Contract(l1Nullifier, IL1NullifierMini, l1);
-          const isFinalized = await wrapAs(
-            'RPC',
-            OP_WITHDRAWALS.finalize.readiness.isFinalized,
-            (): Promise<boolean> =>
-              cMini.isWithdrawalFinalized(
-                params.chainId,
-                params.l2BatchNumber,
-                params.l2MessageIndex,
-              ),
-            {
-              ctx: { where: 'isWithdrawalFinalized', params },
-              message: 'Failed to read finalization status.',
-            },
-          );
+    async simulateFinalizeReadiness(
+      finalization: WithdrawalFinalization,
+    ): Promise<FinalizeReadiness> {
+      const target = await finalizationTarget(finalization.protocol);
 
-          return Boolean(isFinalized);
+      // Cheap authoritative check first; a revert here is non-fatal, we fall through to simulation.
+      const done = await (async () => {
+        try {
+          return await isWithdrawalFinalized(finalization);
         } catch {
-          // If this read fails for any reason, treat as "not finalized" and fall through
           return false;
         }
       })();
-
       if (done) return { kind: 'FINALIZED' };
 
-      // Try simulating finalizeDeposit
-      const c = new Contract(l1Nullifier, IL1NullifierABI, l1);
       try {
-        await c.finalizeDeposit.staticCall(params);
+        if (finalization.protocol === 'nullifier') {
+          const c = new Contract(target, IL1NullifierABI, l1);
+          await c.finalizeDeposit.staticCall(finalization.params);
+        } else {
+          const handler = new Contract(target, IInteropHandlerABI, l1);
+          await handler.executeBundle.staticCall(
+            finalization.params.bundle,
+            finalization.params.proof,
+          );
+        }
         return { kind: 'READY' };
       } catch (e) {
         return classifyReadinessFromRevert(e);
       }
     },
 
-    async isWithdrawalFinalized(key: WithdrawalKey) {
-      const { l1Nullifier } = await client.ensureAddresses();
-      const c = new Contract(l1Nullifier, IL1NullifierMini, l1);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return await wrapAs(
-        'RPC',
-        OP_WITHDRAWALS.finalize.isFinalized,
-        () => c.isWithdrawalFinalized(key.chainIdL2, key.l2BatchNumber, key.l2MessageIndex),
-        {
-          ctx: { where: 'isWithdrawalFinalized', key },
-          message: 'Failed to read finalization status.',
-        },
-      );
-    },
+    async estimateFinalization(
+      finalization: WithdrawalFinalization,
+    ): Promise<FinalizationEstimate> {
+      const target = await finalizationTarget(finalization.protocol);
+      const l1Signer = client.getL1Signer();
 
-    async estimateFinalization(params: FinalizeDepositParams): Promise<FinalizationEstimate> {
-      const { l1Nullifier } = await client.ensureAddresses();
-
-      const signer = client.getL1Signer();
-      const c = new Contract(l1Nullifier, IL1NullifierABI, signer);
-
-      // Estimate gas for finalizeDeposit on the L1 Nullifier
       const gasLimit = await wrapAs(
         'RPC',
         OP_WITHDRAWALS.finalize.estimate,
-        () => c.finalizeDeposit.estimateGas(params),
+        () => {
+          if (finalization.protocol === 'nullifier') {
+            const c = new Contract(target, IL1NullifierABI, l1Signer);
+            return c.finalizeDeposit.estimateGas(finalization.params);
+          }
+          const handler = new Contract(target, IInteropHandlerABI, l1Signer);
+          return handler.executeBundle.estimateGas(
+            finalization.params.bundle,
+            finalization.params.proof,
+          );
+        },
         {
-          ctx: {
-            where: 'estimateGas(finalizeDeposit)',
-            chainIdL2: params.chainId,
-            l2BatchNumber: params.l2BatchNumber,
-            l2MessageIndex: params.l2MessageIndex,
-            l1Nullifier,
-          },
-          message: 'Failed to estimate gas for finalizeDeposit.',
+          ctx: { where: 'estimateGas(finalize)', protocol: finalization.protocol, target },
+          message: 'Failed to estimate gas for withdrawal finalization.',
         },
       );
 
-      // Estimate per-gas fees (EIP-1559 if available, fallback to legacy gasPrice)
       const feeData = await wrapAs('RPC', OP_WITHDRAWALS.finalize.estimate, () => l1.getFeeData(), {
         ctx: { where: 'l1.getFeeData' },
-        message: 'Failed to estimate fee data for finalizeDeposit.',
+        message: 'Failed to estimate fee data for withdrawal finalization.',
       });
 
       const maxFeePerGas =
@@ -272,39 +372,53 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
           });
         })();
 
-      const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? 0n;
-
       return {
         gasLimit,
         maxFeePerGas,
-        maxPriorityFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? 0n,
       };
     },
 
-    async finalizeDeposit(params: FinalizeDepositParams) {
-      const { l1Nullifier } = await client.ensureAddresses();
-      const c = new Contract(l1Nullifier, IL1NullifierABI, signer);
+    async finalize(finalization: WithdrawalFinalization) {
+      const target = await finalizationTarget(finalization.protocol);
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const receipt = await c.finalizeDeposit(params);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const hash = receipt.hash;
+        const sent = await (async (): Promise<ContractTransactionResponse> => {
+          if (finalization.protocol === 'nullifier') {
+            const c = new Contract(target, IL1NullifierABI, signer);
+            return (await c.finalizeDeposit(finalization.params)) as ContractTransactionResponse;
+          }
+          const handler = new Contract(target, IInteropHandlerABI, signer);
+          return (await handler.executeBundle(
+            finalization.params.bundle,
+            finalization.params.proof,
+          )) as ContractTransactionResponse;
+        })();
+
+        const hash = sent.hash;
 
         return {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           hash,
-          wait: async () => {
+          wait: async (): Promise<TransactionReceipt> => {
             try {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-              return await receipt.wait();
+              const receipt = await sent.wait();
+              if (!receipt) {
+                // ethers returns null when the tx was replaced or dropped before confirmation.
+                throw createError('EXECUTION', {
+                  resource: 'withdrawals',
+                  operation: OP_WITHDRAWALS.finalize.wait,
+                  message: 'Withdrawal finalization transaction produced no receipt.',
+                  context: { txHash: hash, protocol: finalization.protocol },
+                });
+              }
+              return receipt;
             } catch (e) {
               throw toZKsyncError(
                 'EXECUTION',
                 {
                   resource: 'withdrawals',
                   operation: OP_WITHDRAWALS.finalize.wait,
-                  message: 'Failed while waiting for finalizeDeposit transaction.',
-                  context: { txHash: hash },
+                  message: 'Failed while waiting for the withdrawal finalization transaction.',
+                  context: { txHash: hash, protocol: finalization.protocol },
                 },
                 e,
               );
@@ -312,19 +426,13 @@ export function createFinalizationServices(client: EthersClient): FinalizationSe
           },
         };
       } catch (e) {
-        // Map send failures to EXECUTION; revert data is decoded by toZKsyncError
         throw toZKsyncError(
           'EXECUTION',
           {
             resource: 'withdrawals',
             operation: OP_WITHDRAWALS.finalize.send,
-            message: 'Failed to send finalizeDeposit transaction.',
-            context: {
-              chainIdL2: params.chainId,
-              l2BatchNumber: params.l2BatchNumber,
-              l2MessageIndex: params.l2MessageIndex,
-              l1Nullifier,
-            },
+            message: 'Failed to send the withdrawal finalization transaction.',
+            context: { protocol: finalization.protocol, target },
           },
           e,
         );

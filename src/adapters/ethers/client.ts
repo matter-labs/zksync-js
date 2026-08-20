@@ -29,12 +29,16 @@ import { createError } from '../../core/errors/factory';
 import { OP_DEPOSITS, OP_CLIENT } from '../../core/types';
 import { createErrorHandlers } from './errors/error-ops';
 import { FORMAL_ETH_ADDRESS } from '../../core/constants';
+import { unpackSemver } from '../../core/resources/protocol/semver';
 
 // error handling
 const { wrapAs, wrap } = createErrorHandlers('client');
 // Single function, instead of the whole ABI. If more fns are needed, consider adding the whole ABI.
 const ChainTypeManagerABI = [
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
+  // Per-chain version. `getSemverProtocolVersion` reports the CTM's own (latest) version, which
+  // runs ahead of individual chains mid-upgrade — so capability gating must use this one.
+  'function getProtocolVersion(uint256 _chainId) view returns (uint256)',
 ] as const;
 
 export interface ResolvedAddresses {
@@ -91,6 +95,18 @@ export interface EthersClient {
 
   /** Read semver protocol version for the CTM of a chain. */
   getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion>;
+
+  /**
+   * Read the protocol version of a specific chain, as recorded by its CTM.
+   *
+   * Prefer this over {@link getProtocolVersion} when gating behaviour on chain capabilities: the
+   * CTM-wide value moves as soon as the ecosystem is upgraded, while a given chain adopts the new
+   * version only once its own upgrade executes.
+   *
+   * Returns `undefined` rather than throwing when the version cannot be read (no registered CTM,
+   * unreachable Bridgehub, restricted RPC), so callers can fall back to other probes.
+   */
+  getChainProtocolVersion(chainId?: bigint): Promise<ProtocolVersion | undefined>;
 
   /** Get a signer connected to a specific provider */
   signerFor(target?: 'l1' | AbstractProvider): Signer;
@@ -348,6 +364,28 @@ export function createEthersClient(args: InitArgs): EthersClient {
     return semver;
   }
 
+  async function getChainProtocolVersion(chainId?: bigint): Promise<ProtocolVersion | undefined> {
+    try {
+      const targetChainId = chainId ?? (await l2.getNetwork()).chainId;
+      const { bridgehub } = await ensureAddresses();
+      const bh = new Contract(bridgehub, IBridgehubABI, l1);
+
+      const chainTypeManager = (await bh.chainTypeManager(targetChainId)) as Address;
+      if (chainTypeManager.toLowerCase() === FORMAL_ETH_ADDRESS) return undefined;
+
+      const ctm = new Contract(chainTypeManager, ChainTypeManagerABI, l1);
+      const packed = (await ctm.getProtocolVersion(targetChainId)) as bigint;
+      // A chain that was never registered reads back as 0; treat that as "unknown" rather than as
+      // protocol 0.0.0, which would otherwise be mistaken for a very old chain.
+      if (packed === 0n) return undefined;
+
+      return unpackSemver(packed);
+    } catch {
+      // Deliberately soft: the caller falls back to a bytecode probe.
+      return undefined;
+    }
+  }
+
   /** Signer helpers */
   function signerFor(target?: 'l1' | AbstractProvider): Signer {
     if (target === 'l1') {
@@ -374,6 +412,7 @@ export function createEthersClient(args: InitArgs): EthersClient {
     refresh,
     baseToken,
     getProtocolVersion,
+    getChainProtocolVersion,
     signerFor,
   };
 
