@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.21](https://github.com/matter-labs/zksync-js/compare/v0.0.20...v0.0.21) (2026-08-21)
+
+
+### Bug Fixes
+
+* derive withdrawal l2Sender from the L1MessageSent log ([#115](https://github.com/matter-labs/zksync-js/issues/115)) ([4b9aad6](https://github.com/matter-labs/zksync-js/commit/4b9aad618081fad845c77008b6609cbc1a45492d))
+
 ## [0.0.20](https://github.com/matter-labs/zksync-js/compare/v0.0.19...v0.0.20) (2026-07-09)
 
 
