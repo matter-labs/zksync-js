@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { describe, it, expect } from 'bun:test';
-import { findL1MessageSentLog, isL1MessageSentLog } from '../events';
+import { findL1MessageSentLog, isL1MessageSentLog, l1MessageSentSender } from '../events';
 import {
   L1_MESSENGER_ADDRESS,
   L2_ASSET_ROUTER_ADDRESS,
@@ -142,5 +142,70 @@ describe('utils/isL1MessageSentLog', () => {
   it('returns false when both address and topic do not match', () => {
     const lg = log('0x1111111111111111111111111111111111111111', '0xdeadbeef');
     expect(isL1MessageSentLog(lg as any)).toBe(false);
+  });
+});
+
+describe('utils/l1MessageSentSender', () => {
+  const senderTopic = (addr: string) => `0x${'0'.repeat(24)}${addr.slice(2)}`;
+
+  it('reads the sender from topics[1] of a legacy-format log', () => {
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [TOPIC_L1_MESSAGE_SENT_LEG, senderTopic(L2_ASSET_ROUTER_ADDRESS)],
+    } as any;
+    expect(l1MessageSentSender(l)).toBe(L2_ASSET_ROUTER_ADDRESS.toLowerCase());
+  });
+
+  it('reads the sender from topics[1] of a new-format log', () => {
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [TOPIC_L1_MESSAGE_SENT_NEW, senderTopic(L2_ASSET_ROUTER_ADDRESS)],
+    } as any;
+    expect(l1MessageSentSender(l)).toBe(L2_ASSET_ROUTER_ADDRESS.toLowerCase());
+  });
+
+  it('returns the messenger sender, not the contract that initiated the withdrawal', () => {
+    const initiatingContract = '0x8FEa35F40E787cf7C182546B6B9056846704c033';
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [TOPIC_L1_MESSAGE_SENT_LEG, senderTopic(L2_ASSET_ROUTER_ADDRESS)],
+    } as any;
+    expect(l1MessageSentSender(l)).not.toBe(initiatingContract.toLowerCase());
+    expect(l1MessageSentSender(l)).toBe(L2_ASSET_ROUTER_ADDRESS.toLowerCase());
+  });
+
+  it('lowercases a checksummed sender topic', () => {
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [
+        TOPIC_L1_MESSAGE_SENT_LEG,
+        senderTopic('0xAbCdEf0123456789AbCdEf0123456789AbCdEf01'),
+      ],
+    } as any;
+    expect(l1MessageSentSender(l)).toBe('0xabcdef0123456789abcdef0123456789abcdef01');
+  });
+
+  it('throws when the sender topic is missing', () => {
+    const l = { address: L1_MESSENGER_ADDRESS, topics: [TOPIC_L1_MESSAGE_SENT_LEG] } as any;
+    expect(() => l1MessageSentSender(l)).toThrow(/sender topic/i);
+  });
+
+  it('throws when the topic carries data above the low 20 bytes', () => {
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [
+        TOPIC_L1_MESSAGE_SENT_LEG,
+        '0x000000000000000000000001' + L2_ASSET_ROUTER_ADDRESS.slice(2),
+      ],
+    } as any;
+    expect(() => l1MessageSentSender(l)).toThrow(/sender topic/i);
+  });
+
+  it('throws when the sender topic is malformed', () => {
+    const l = {
+      address: L1_MESSENGER_ADDRESS,
+      topics: [TOPIC_L1_MESSAGE_SENT_LEG, '0x1234'],
+    } as any;
+    expect(() => l1MessageSentSender(l)).toThrow(/sender topic/i);
   });
 });

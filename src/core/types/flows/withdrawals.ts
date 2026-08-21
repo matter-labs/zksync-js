@@ -59,7 +59,7 @@ export type WithdrawalKey = {
   l2MessageIndex: bigint;
 };
 
-type WithdrawalPhase =
+export type WithdrawalPhase =
   | 'L2_PENDING' // tx not in an L2 block yet
   | 'L2_INCLUDED' // we have the L2 receipt
   | 'PENDING' // inclusion known; proof data not yet derivable/available
@@ -67,6 +67,7 @@ type WithdrawalPhase =
   | 'FINALIZING' // L1 tx sent but not picked up yet
   | 'FINALIZED' // L2-L1 tx finalized on L1
   | 'FINALIZE_FAILED' // prior L1 finalize reverted
+  | 'UNFINALIZABLE' // finalization can never succeed for this withdrawal
   | 'UNKNOWN';
 
 // Withdrawal Status
@@ -75,6 +76,8 @@ export type WithdrawalStatus = {
   l2TxHash: Hex;
   l1FinalizeTxHash?: Hex;
   key?: WithdrawalKey;
+  // Why, for PENDING and UNFINALIZABLE.
+  reason?: string;
 };
 
 // Finalization readiness states

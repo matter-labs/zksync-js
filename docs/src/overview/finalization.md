@@ -40,6 +40,7 @@ Withdrawals are a **two-step process**:
 | `UNKNOWN`           | Handle doesn’t contain an L2 hash yet.            |
 | `L2_PENDING`        | L2 transaction not yet included.                  |
 | `PENDING`           | L2 included, but not yet ready to finalize on L1. |
+| `UNFINALIZABLE`     | Finalization can never succeed; see `status.reason`. |
 | `READY_TO_FINALIZE` | Finalization on L1 would succeed now.             |
 | `FINALIZED`         | Finalized on L1; funds released.                  |
 

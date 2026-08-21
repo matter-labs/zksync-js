@@ -22,6 +22,7 @@ import { routeErc20NonBase } from './routes/erc20-nonbase';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
+import { phaseFromReadiness } from '../../../../core/resources/withdrawals/status';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
@@ -327,11 +328,9 @@ export function createWithdrawalsResource(
 
         // check finalization would succeed right now
         const readiness = await svc.simulateFinalizeReadiness(pack.params);
+        const { phase, reason } = phaseFromReadiness(readiness);
 
-        if (readiness.kind === 'FINALIZED') return { phase: 'FINALIZED', l2TxHash, key };
-        if (readiness.kind === 'READY') return { phase: 'READY_TO_FINALIZE', l2TxHash, key };
-
-        return { phase: 'PENDING', l2TxHash, key };
+        return { phase, reason, l2TxHash, key };
       },
       {
         message: 'Internal error while checking withdrawal status.',
@@ -394,6 +393,15 @@ export function createWithdrawalsResource(
 
         while (true) {
           const s = await status(l2Hash);
+
+          if (s.phase === 'UNFINALIZABLE') {
+            throw createError('STATE', {
+              resource: 'withdrawals',
+              operation: OP_WITHDRAWALS.wait,
+              message: 'Withdrawal can never be finalized.',
+              context: { l2TxHash: l2Hash, reason: s.reason },
+            });
+          }
 
           if (opts.for === 'ready') {
             // Resolve when finalization becomes possible OR already finalized.
