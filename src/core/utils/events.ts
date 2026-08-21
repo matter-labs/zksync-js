@@ -6,6 +6,7 @@ import {
   TOPIC_L1_MESSAGE_SENT_LEG,
 } from '../constants';
 import type { Log, TxReceipt } from '../types/transactions';
+import type { Address } from '../types/primitives';
 
 type Prefer = 'messenger' | 'assetRouter' | { address: string };
 
@@ -58,4 +59,15 @@ export function isL1MessageSentLog(log: Log, opts?: { prefer?: Prefer }): boolea
     (topic === TOPIC_L1_MESSAGE_SENT_LEG.toLowerCase() ||
       topic === TOPIC_L1_MESSAGE_SENT_NEW.toLowerCase())
   );
+}
+
+const SENDER_TOPIC = /^0x0{24}([0-9a-fA-F]{40})$/;
+
+// Not the L2 tx `to`, which is the initiating contract for an onchain-triggered withdrawal.
+export function l1MessageSentSender(log: Log): Address {
+  const sender = SENDER_TOPIC.exec(log.topics?.[1] ?? '')?.[1];
+  if (!sender) {
+    throw new Error('L1MessageSent log has no valid sender topic.');
+  }
+  return `0x${sender.toLowerCase()}`;
 }
