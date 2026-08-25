@@ -33,6 +33,7 @@ import { messengerLogIndex } from '../../../../../core/resources/withdrawals/log
 import {
   buildWithdrawalFinalization,
   isBundleFinalized,
+  parseBundleHashFromLogs,
   type BundleStatus,
 } from '../../../../../core/resources/withdrawals/finalization';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -238,6 +239,9 @@ export function createFinalizationServices(
       sourceChainId: chainId,
       txNumberInBatch,
       proof: { batchNumber: proof.batchNumber, id: proof.id, proof: proof.proof },
+      // Prefer the hash the InteropCenter emitted over recomputing it; the derivation is not
+      // stable across v32 revisions.
+      bundleHash: parseBundleHashFromLogs(raw.logs ?? []),
     });
 
     return {

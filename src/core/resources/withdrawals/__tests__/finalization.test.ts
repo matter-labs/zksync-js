@@ -7,6 +7,7 @@ import {
   buildWithdrawalFinalization,
   isBundleFinalized,
   keccakHex,
+  parseBundleHashFromLogs,
   stripBundleIdentifier,
 } from '../finalization';
 import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../../constants';
@@ -85,5 +86,80 @@ describe('withdrawals/isBundleFinalized', () => {
     // `Verified` only means the inclusion proof landed; the calls have not run.
     expect(isBundleFinalized(BundleStatus.Unreceived)).toBe(false);
     expect(isBundleFinalized(BundleStatus.Verified)).toBe(false);
+  });
+});
+
+describe('withdrawals/parseBundleHashFromLogs', () => {
+  const word = (b: string) => b.repeat(32);
+  const EMITTED = `0x${word('42')}` as Hex;
+
+  // InteropBundleSent(bytes32, bytes32, InteropBundle): all non-indexed, so one topic, and the
+  // hash is the second data word regardless of the bundle tuple's shape.
+  const sentLog = {
+    address: L2_INTEROP_CENTER_ADDRESS,
+    topics: [`0x${word('aa')}`],
+    data: `0x${word('11')}${word('42')}${word('00')}`,
+  };
+
+  it('reads the emitted bundle hash positionally', () => {
+    expect(parseBundleHashFromLogs([sentLog])).toBe(EMITTED);
+  });
+
+  it('is indifferent to topic0, which moved between v32 revisions', () => {
+    const other = { ...sentLog, topics: [`0x${word('bb')}`] };
+    expect(parseBundleHashFromLogs([other])).toBe(EMITTED);
+  });
+
+  it("ignores the InteropCenter's indexed events", () => {
+    // e.g. ProtocolFeesAccumulated(address indexed, uint256) — two topics.
+    const fee = {
+      address: L2_INTEROP_CENTER_ADDRESS,
+      topics: [`0x${word('cc')}`, `0x${word('dd')}`],
+      data: `0x${word('99')}${word('99')}${word('99')}`,
+    };
+    expect(parseBundleHashFromLogs([fee, sentLog])).toBe(EMITTED);
+  });
+
+  it('ignores single-topic logs from other emitters', () => {
+    const foreign = { ...sentLog, address: '0x000000000000000000000000000000000001000e' };
+    expect(parseBundleHashFromLogs([foreign])).toBeUndefined();
+  });
+
+  it('ignores a truncated payload', () => {
+    const short = { ...sentLog, data: `0x${word('11')}${word('42')}` };
+    expect(parseBundleHashFromLogs([short])).toBeUndefined();
+  });
+
+  it('returns undefined when no bundle was sent', () => {
+    expect(parseBundleHashFromLogs([])).toBeUndefined();
+  });
+});
+
+describe('withdrawals/buildWithdrawalFinalization bundle hash', () => {
+  it('prefers the emitted hash over recomputing it', () => {
+    // The derivation is not stable across v32 revisions: the earlier atomic line hashed
+    // `abi.encode(sourceChainId, bundle)`, the release line hashes `bundle`. Both report 0.32.0,
+    // so the emitted value is the only version-independent source.
+    const emitted = `0x${'77'.repeat(32)}` as Hex;
+    const result = buildWithdrawalFinalization({
+      messageData: MESSAGE,
+      sourceChainId: 271n,
+      txNumberInBatch: 3,
+      proof: PROOF,
+      bundleHash: emitted,
+    });
+
+    expect(result.bundleHash).toBe(emitted);
+    expect(result.bundleHash).not.toBe(keccak256(BUNDLE));
+  });
+
+  it('falls back to keccak256(bundle) when nothing was emitted', () => {
+    const result = buildWithdrawalFinalization({
+      messageData: MESSAGE,
+      sourceChainId: 271n,
+      txNumberInBatch: 3,
+      proof: PROOF,
+    });
+    expect(result.bundleHash).toBe(keccak256(BUNDLE));
   });
 });

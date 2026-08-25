@@ -6,7 +6,10 @@ import {
   MIN_INTEROP_WITHDRAWAL_MINOR,
   type WithdrawalProtocolProbes,
 } from '../protocol';
-import { L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS } from '../../../constants';
+import {
+  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
+  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
+} from '../../../constants';
 import type { Address, ProtocolVersion } from '../../../types/primitives';
 
 function probes(opts: {
@@ -89,7 +92,21 @@ describe('withdrawals/detectWithdrawalProtocol', () => {
     expect(detection.protocol).toBe('interop-bundle');
   });
 
-  it('reports the legacy protocol when the probe finds no code', async () => {
+  it('detects a v32 chain that predates the parser but has the atomic built-ins', async () => {
+    // Observed on a live v32 ZKsync OS chain (protocol 0.32.0) built from an earlier point of the
+    // v32 line: 0x…010014 present, 0x…010015 absent. A parser-only probe reports legacy here.
+    const detection = await detectWithdrawalProtocol(
+      probes({ code: [L2_ATOMIC_FLOW_MANAGER_ADDRESS] }),
+    );
+
+    expect(detection.protocol).toBe('interop-bundle');
+    expect(detection.source).toEqual({
+      via: 'code-probe',
+      address: L2_ATOMIC_FLOW_MANAGER_ADDRESS,
+    });
+  });
+
+  it('reports the legacy protocol when no sentinel has code', async () => {
     const detection = await detectWithdrawalProtocol(probes({ code: [] }));
     expect(detection.protocol).toBe('legacy-withdrawal');
     expect(detection.source).toEqual({
