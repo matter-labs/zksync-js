@@ -3,6 +3,7 @@
 export { default as IBridgehubABI } from './internal/abis/IBridgehub';
 export { default as IL1AssetRouterABI } from './internal/abis/IL1AssetRouter';
 export { default as IL1NullifierABI } from './internal/abis/IL1Nullifier';
+export { default as IL1NullifierV32ABI } from './internal/abis/IL1NullifierV32';
 export { default as IL2AssetRouterABI } from './internal/abis/IL2AssetRouter';
 export { default as L1NativeTokenVaultABI } from './internal/abis/L1NativeTokenVault';
 export { default as L2NativeTokenVaultABI } from './internal/abis/L2NativeTokenVault';

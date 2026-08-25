@@ -37,10 +37,10 @@ interface WithdrawalBundleFinalization {
 }
 
 // Which contract finalizes the withdrawal, and with which arguments.
-//  - `nullifier`      → L1Nullifier.finalizeDeposit           (protocol v31 and below)
-//  - `interop-bundle` → L1InteropHandler.executeBundle        (protocol v32 and above)
+//  - `legacy-withdrawal` → L1Nullifier.finalizeDeposit        (protocol v31 and below)
+//  - `interop-bundle`     → L1InteropHandler.executeBundle     (protocol v32 and above)
 type WithdrawalFinalization =
-  | { protocol: 'nullifier'; params: FinalizeDepositParams }
+  | { protocol: 'legacy-withdrawal'; params: FinalizeDepositParams }
   | { protocol: 'interop-bundle'; params: WithdrawalBundleFinalization };
 
 interface ResolvedWithdrawalFinalization {

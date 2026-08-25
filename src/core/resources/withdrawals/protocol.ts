@@ -16,20 +16,17 @@
 // The SDK therefore has to pick a protocol per chain before building anything.
 
 import type { Address, ProtocolVersion } from '../../types/primitives';
-import {
-  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
-  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
-} from '../../constants';
+import { L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS } from '../../constants';
 
 /**
  * Which withdrawal protocol a chain speaks.
  *
- * - `nullifier` — protocol v31 and below: dedicated `withdraw` entry points, finalized on the
- *   `L1Nullifier`.
+ * - `legacy-withdrawal` — protocol v31 and below: dedicated `withdraw` entry points, finalized on
+ *   the `L1Nullifier`.
  * - `interop-bundle` — protocol v32 and above: withdrawals are single-call interop bundles
  *   destined for the L1 chain, finalized on the `L1InteropHandler`.
  */
-export type WithdrawalProtocol = 'nullifier' | 'interop-bundle';
+export type WithdrawalProtocol = 'legacy-withdrawal' | 'interop-bundle';
 
 /** First protocol minor version that uses the interop-bundle withdrawal protocol. */
 export const MIN_INTEROP_WITHDRAWAL_MINOR = 32;
@@ -60,7 +57,7 @@ export interface WithdrawalProtocolProbes {
 /** Decides the protocol from a known protocol version. */
 export function protocolFromVersion(version: ProtocolVersion): WithdrawalProtocol {
   const [, minor] = version;
-  return minor >= MIN_INTEROP_WITHDRAWAL_MINOR ? 'interop-bundle' : 'nullifier';
+  return minor >= MIN_INTEROP_WITHDRAWAL_MINOR ? 'interop-bundle' : 'legacy-withdrawal';
 }
 
 /**
@@ -72,10 +69,8 @@ export function protocolFromVersion(version: ProtocolVersion): WithdrawalProtoco
  *    authoritative and cheap, so it wins whenever it can be read.
  * 2. **Bytecode probe.** Falls back to asking the L2 whether the v32-only
  *    `InteropAttributeParser` (`0x…010015`) has code. That contract is force-deployed on *every*
- *    v32 chain, EraVM and ZKsync OS alike, which is what makes it a safe sentinel. The
- *    `AtomicFlowManager` (`0x…010014`) is checked as a fallback but never on its own: it is a
- *    ZKsync-OS-only built-in, so its absence on an EraVM v32 chain would otherwise be misread as
- *    a pre-v32 chain.
+ *    v32 chain, EraVM and ZKsync OS alike, which is what makes it a safe sentinel — unlike the
+ *    atomic-interop built-ins, which are ZKsync-OS-only and would misreport an EraVM v32 chain.
  *
  * A caller-supplied `override` short-circuits both probes, which is the escape hatch for chains
  * whose Bridgehub is not reachable from the configured L1 provider.
@@ -101,17 +96,8 @@ export async function detectWithdrawalProtocol(
     };
   }
 
-  // Corroborating probe: a ZKsync OS chain that somehow lacks the parser but has the atomic
-  // built-ins is still on v32.
-  if (await probes.hasCodeAt(L2_ATOMIC_FLOW_MANAGER_ADDRESS)) {
-    return {
-      protocol: 'interop-bundle',
-      source: { via: 'code-probe', address: L2_ATOMIC_FLOW_MANAGER_ADDRESS },
-    };
-  }
-
   return {
-    protocol: 'nullifier',
+    protocol: 'legacy-withdrawal',
     source: { via: 'code-probe', address: L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS },
   };
 }

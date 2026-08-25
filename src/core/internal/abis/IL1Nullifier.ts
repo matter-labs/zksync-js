@@ -1,3 +1,7 @@
+// The pre-v32 (`legacy-withdrawal`) L1Nullifier. v32 is NOT a superset of this: it removed
+// `finalizeDeposit`, `finalizeWithdrawal`, `isWithdrawalFinalized`, `claimFailedDeposit`,
+// `chainBalance`, `l2BridgeAddress`, `legacyBridge`, `transferTokenToNTV` and
+// `nullifyChainBalanceByNTV`. See `IL1NullifierV32.ts`.
 const IL1NullifierABI = [
   {
     anonymous: false,
@@ -385,22 +389,6 @@ const IL1NullifierABI = [
     outputs: [
       {
         internalType: 'contract IL1NativeTokenVault',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    // v32+ only: the nullifier points at the L1InteropHandler that took over withdrawal
-    // finalization from its own (now removed) `finalizeDeposit`. Reverts on v31 nullifiers, which is
-    // itself a usable signal.
-    inputs: [],
-    name: 'l1InteropHandler',
-    outputs: [
-      {
-        internalType: 'address',
         name: '',
         type: 'address',
       },

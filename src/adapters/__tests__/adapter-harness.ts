@@ -609,7 +609,7 @@ export type WithdrawalTestContext<T extends AdapterHarness> = {
   /** Token kind: the chain's base token, or a non-base ERC-20. */
   route: 'base' | 'erc20-nonbase';
   /** Withdrawal protocol the route builder should assume. */
-  protocol: 'nullifier' | 'interop-bundle';
+  protocol: 'legacy-withdrawal' | 'interop-bundle';
   /** Destination chain of a v32 withdrawal bundle. */
   l1ChainId: bigint;
   baseTokenAssetId: Hex;
@@ -640,7 +640,7 @@ export function makeWithdrawalContext<T extends AdapterHarness>(
     interopCenter: L2_INTEROP_CENTER_ADDRESS,
     baseIsEth: true,
     route: 'base',
-    protocol: 'nullifier',
+    protocol: 'legacy-withdrawal',
     l1ChainId: 1n,
     baseTokenAssetId: `0x${'ee'.repeat(32)}` as Hex,
     l2GasLimit: 300_000n,

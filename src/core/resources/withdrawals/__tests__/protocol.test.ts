@@ -6,10 +6,7 @@ import {
   MIN_INTEROP_WITHDRAWAL_MINOR,
   type WithdrawalProtocolProbes,
 } from '../protocol';
-import {
-  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
-  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
-} from '../../../constants';
+import { L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS } from '../../../constants';
 import type { Address, ProtocolVersion } from '../../../types/primitives';
 
 function probes(opts: {
@@ -28,10 +25,10 @@ function probes(opts: {
 }
 
 describe('withdrawals/protocolFromVersion', () => {
-  it('treats v31 and below as the nullifier protocol', () => {
-    expect(protocolFromVersion([0, 26, 0])).toBe('nullifier');
-    expect(protocolFromVersion([0, 31, 0])).toBe('nullifier');
-    expect(protocolFromVersion([0, 31, 7])).toBe('nullifier');
+  it('treats v31 and below as the legacy withdrawal protocol', () => {
+    expect(protocolFromVersion([0, 26, 0])).toBe('legacy-withdrawal');
+    expect(protocolFromVersion([0, 31, 0])).toBe('legacy-withdrawal');
+    expect(protocolFromVersion([0, 31, 7])).toBe('legacy-withdrawal');
   });
 
   it('treats v32 and above as the interop-bundle protocol', () => {
@@ -66,9 +63,9 @@ describe('withdrawals/detectWithdrawalProtocol', () => {
     expect(probed).toBe(false);
   });
 
-  it('reports the nullifier protocol for a readable pre-v32 version', async () => {
+  it('reports the legacy protocol for a readable pre-v32 version', async () => {
     const detection = await detectWithdrawalProtocol(probes({ version: [0, 31, 0] }));
-    expect(detection.protocol).toBe('nullifier');
+    expect(detection.protocol).toBe('legacy-withdrawal');
   });
 
   it('falls back to the attribute-parser bytecode probe when the version is unreadable', async () => {
@@ -83,30 +80,18 @@ describe('withdrawals/detectWithdrawalProtocol', () => {
     });
   });
 
-  it('detects an EraVM v32 chain, which has no AtomicFlowManager', async () => {
-    // The atomic-interop built-ins are force-deployed on ZKsync OS only, so the parser is the
-    // probe that has to carry EraVM. Probing the flow manager alone would report `nullifier` here.
+  it('detects an EraVM v32 chain, which has none of the atomic-interop built-ins', async () => {
+    // Those built-ins are force-deployed on ZKsync OS only, which is exactly why the parser — not
+    // one of them — is the sentinel: on EraVM only the parser is there to be found.
     const detection = await detectWithdrawalProtocol(
       probes({ code: [L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS] }),
     );
     expect(detection.protocol).toBe('interop-bundle');
   });
 
-  it('still detects v32 from the AtomicFlowManager alone', async () => {
-    const detection = await detectWithdrawalProtocol(
-      probes({ code: [L2_ATOMIC_FLOW_MANAGER_ADDRESS] }),
-    );
-
-    expect(detection.protocol).toBe('interop-bundle');
-    expect(detection.source).toEqual({
-      via: 'code-probe',
-      address: L2_ATOMIC_FLOW_MANAGER_ADDRESS,
-    });
-  });
-
-  it('reports the nullifier protocol when neither probe finds code', async () => {
+  it('reports the legacy protocol when the probe finds no code', async () => {
     const detection = await detectWithdrawalProtocol(probes({ code: [] }));
-    expect(detection.protocol).toBe('nullifier');
+    expect(detection.protocol).toBe('legacy-withdrawal');
     expect(detection.source).toEqual({
       via: 'code-probe',
       address: L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,

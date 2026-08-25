@@ -2,11 +2,11 @@
 //
 // Withdrawal finalization on L1, for both withdrawal protocols.
 //
-//   v31 (`nullifier`)      L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)
-//                          status via L1Nullifier.isWithdrawalFinalized(chainId, batch, msgIndex)
+//   v31 (`legacy-withdrawal`) L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)
+//                             status via L1Nullifier.isWithdrawalFinalized(chainId, batch, index)
 //
-//   v32 (`interop-bundle`) L1InteropHandler.executeBundle(bundle, MessageInclusionProof)
-//                          status via L1InteropHandler.bundleStatus(bundleHash)
+//   v32 (`interop-bundle`)    L1InteropHandler.executeBundle(bundle, MessageInclusionProof)
+//                             status via L1InteropHandler.bundleStatus(bundleHash)
 //
 // v32 removed `finalizeDeposit`, `finalizeWithdrawal` and `isWithdrawalFinalized` from the
 // nullifier outright, so there is no shared entry point to fall back on — everything here branches
@@ -29,7 +29,11 @@ import {
   type ResolvedWithdrawalFinalization,
 } from '../../../../../core/types/flows/withdrawals';
 
-import { IL1NullifierABI, IInteropHandlerABI } from '../../../../../core/abi.ts';
+import {
+  IL1NullifierABI,
+  IL1NullifierV32ABI,
+  IInteropHandlerABI,
+} from '../../../../../core/abi.ts';
 
 import { L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
 import { findL1MessageSentLog } from '../../../../../core/utils/events';
@@ -96,11 +100,11 @@ export function createFinalizationServices(
     protocol: WithdrawalFinalization['protocol'],
   ): Promise<Address> {
     const { l1Nullifier } = await client.ensureAddresses();
-    if (protocol === 'nullifier') return l1Nullifier;
+    if (protocol === 'legacy-withdrawal') return l1Nullifier;
 
     // The nullifier is the stable, already-resolved anchor, and it points at the handler that took
     // over its finalization duties — so the handler needs no extra configuration.
-    const nullifier = new Contract(l1Nullifier, IL1NullifierABI, l1);
+    const nullifier = new Contract(l1Nullifier, IL1NullifierV32ABI, l1);
     const handler = await wrapAs(
       'CONTRACT',
       OP_WITHDRAWALS.finalize.fetchParams.receipt,
@@ -198,7 +202,7 @@ export function createFinalizationServices(
     const { raw, message, proof, chainId, txNumberInBatch } = await fetchMessageAndProof(l2TxHash);
     const target = await finalizationTarget(protocol);
 
-    if (protocol === 'nullifier') {
+    if (protocol === 'legacy-withdrawal') {
       const params: FinalizeDepositParams = {
         chainId,
         l2BatchNumber: proof.batchNumber,
@@ -243,7 +247,7 @@ export function createFinalizationServices(
   async function isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean> {
     const target = await finalizationTarget(finalization.protocol);
 
-    if (finalization.protocol === 'nullifier') {
+    if (finalization.protocol === 'legacy-withdrawal') {
       const c = new Contract(target, IL1NullifierMini, l1);
       return await wrapAs(
         'RPC',
@@ -284,7 +288,7 @@ export function createFinalizationServices(
 
     async fetchFinalizeDepositParams(l2TxHash: Hex) {
       const resolved = await fetchFinalization(l2TxHash);
-      if (resolved.finalization.protocol !== 'nullifier') {
+      if (resolved.finalization.protocol !== 'legacy-withdrawal') {
         throw createError('VALIDATION', {
           resource: 'withdrawals',
           operation: OP_WITHDRAWALS.finalize.fetchParams.receipt,
@@ -313,7 +317,7 @@ export function createFinalizationServices(
       if (done) return { kind: 'FINALIZED' };
 
       try {
-        if (finalization.protocol === 'nullifier') {
+        if (finalization.protocol === 'legacy-withdrawal') {
           const c = new Contract(target, IL1NullifierABI, l1);
           await c.finalizeDeposit.staticCall(finalization.params);
         } else {
@@ -339,7 +343,7 @@ export function createFinalizationServices(
         'RPC',
         OP_WITHDRAWALS.finalize.estimate,
         () => {
-          if (finalization.protocol === 'nullifier') {
+          if (finalization.protocol === 'legacy-withdrawal') {
             const c = new Contract(target, IL1NullifierABI, l1Signer);
             return c.finalizeDeposit.estimateGas(finalization.params);
           }
@@ -383,7 +387,7 @@ export function createFinalizationServices(
       const target = await finalizationTarget(finalization.protocol);
       try {
         const sent = await (async (): Promise<ContractTransactionResponse> => {
-          if (finalization.protocol === 'nullifier') {
+          if (finalization.protocol === 'legacy-withdrawal') {
             const c = new Contract(target, IL1NullifierABI, signer);
             return (await c.finalizeDeposit(finalization.params)) as ContractTransactionResponse;
           }

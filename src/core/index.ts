@@ -8,7 +8,6 @@ export {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L1_SOPH_TOKEN_ADDRESS,
   L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
-  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
 } from './constants';
 
 export * as abi from './abi';

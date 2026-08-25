@@ -71,11 +71,11 @@ export type WithdrawalKey = {
  * v31 and v32 finalize withdrawals on different contracts with entirely different arguments, so the
  * derived parameters are a discriminated union rather than one widened shape:
  *
- * - `nullifier` — `L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)`
+ * - `legacy-withdrawal` — `L1Nullifier.finalizeDeposit(FinalizeL1DepositParams)`
  * - `interop-bundle` — `L1InteropHandler.executeBundle(bundle, MessageInclusionProof)`
  */
 export type WithdrawalFinalization =
-  | { protocol: 'nullifier'; params: FinalizeDepositParams }
+  | { protocol: 'legacy-withdrawal'; params: FinalizeDepositParams }
   | { protocol: 'interop-bundle'; params: WithdrawalBundleFinalization };
 
 /** Resolved finalization arguments together with the L1 contract they target. */
