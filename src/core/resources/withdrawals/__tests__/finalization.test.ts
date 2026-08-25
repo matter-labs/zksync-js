@@ -105,7 +105,7 @@ describe('withdrawals/parseBundleHashFromLogs', () => {
     expect(parseBundleHashFromLogs([sentLog])).toBe(EMITTED);
   });
 
-  it('is indifferent to topic0, which moved between v32 revisions', () => {
+  it('is indifferent to topic0, which moved when BundleAttributes gained salt', () => {
     const other = { ...sentLog, topics: [`0x${word('bb')}`] };
     expect(parseBundleHashFromLogs([other])).toBe(EMITTED);
   });
@@ -137,9 +137,9 @@ describe('withdrawals/parseBundleHashFromLogs', () => {
 
 describe('withdrawals/buildWithdrawalFinalization bundle hash', () => {
   it('prefers the emitted hash over recomputing it', () => {
-    // The derivation is not stable across v32 revisions: the earlier atomic line hashed
-    // `abi.encode(sourceChainId, bundle)`, the release line hashes `bundle`. Both report 0.32.0,
-    // so the emitted value is the only version-independent source.
+    // On the current contracts the two agree; preferring the emitted one means the SDK carries no
+    // assumption about the derivation at all. Asserted with a value that cannot collide with
+    // `keccak256(bundle)` so the precedence is actually observable.
     const emitted = `0x${'77'.repeat(32)}` as Hex;
     const result = buildWithdrawalFinalization({
       messageData: MESSAGE,

@@ -16,10 +16,7 @@
 // The SDK therefore has to pick a protocol per chain before building anything.
 
 import type { Address, ProtocolVersion } from '../../types/primitives';
-import {
-  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
-  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
-} from '../../constants';
+import { L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS } from '../../constants';
 
 /**
  * Which withdrawal protocol a chain speaks.
@@ -64,31 +61,16 @@ export function protocolFromVersion(version: ProtocolVersion): WithdrawalProtoco
 }
 
 /**
- * Built-ins that exist only from protocol v32 on. A hit at *any* of them means the chain speaks the
- * interop-bundle protocol.
- *
- * More than one address is probed because which of these a v32 chain actually has depends on both
- * its VM and which point of the v32 line it was deployed from — verified against a live v32 ZKsync
- * OS chain that has the AtomicFlowManager but predates the InteropAttributeParser. Ordered
- * cheapest-to-most-likely-conclusive: the parser is force-deployed on both VMs in the release line,
- * so it settles the common case first; the atomic built-ins cover the earlier ZKsync-OS-only line.
- * Neither is load-bearing on its own.
- */
-const V32_SENTINELS: readonly Address[] = [
-  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
-  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
-];
-
-/**
  * Detects the withdrawal protocol of the connected L2.
  *
  * Two probes, in order of trustworthiness:
  *
  * 1. **Per-chain protocol version.** `ChainTypeManager.getProtocolVersion(chainId)` is
  *    authoritative and cheap, so it wins whenever it can be read.
- * 2. **Bytecode probe.** Falls back to asking the L2 whether any {@link V32_SENTINELS} address has
- *    code. Only reached when the version read failed, so the extra `eth_getCode` calls are confined
- *    to an already-degraded path.
+ * 2. **Bytecode probe.** Falls back to asking the L2 whether the v32-only
+ *    `InteropAttributeParser` (`0x…010015`) has code. That contract is force-deployed on *every*
+ *    v32 chain, EraVM and ZKsync OS alike, which is what makes it a safe sentinel — unlike the
+ *    atomic-interop built-ins, which are ZKsync-OS-only and would misreport an EraVM v32 chain.
  *
  * A caller-supplied `override` short-circuits both probes, which is the escape hatch for chains
  * whose Bridgehub is not reachable from the configured L1 provider.
@@ -106,14 +88,16 @@ export async function detectWithdrawalProtocol(
     return { protocol: protocolFromVersion(version), source: { via: 'protocol-version', version } };
   }
 
-  for (const address of V32_SENTINELS) {
-    if (await probes.hasCodeAt(address)) {
-      return { protocol: 'interop-bundle', source: { via: 'code-probe', address } };
-    }
+  // The parser is present on every v32 chain, so a hit is conclusive.
+  if (await probes.hasCodeAt(L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS)) {
+    return {
+      protocol: 'interop-bundle',
+      source: { via: 'code-probe', address: L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS },
+    };
   }
 
   return {
     protocol: 'legacy-withdrawal',
-    source: { via: 'code-probe', address: V32_SENTINELS[0] },
+    source: { via: 'code-probe', address: L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS },
   };
 }

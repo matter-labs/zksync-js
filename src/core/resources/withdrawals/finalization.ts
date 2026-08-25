@@ -72,17 +72,17 @@ export function stripBundleIdentifier(messageData: Hex): Hex {
  * Reads the authoritative `interopBundleHash` out of the `InteropBundleSent` log the L2
  * InteropCenter emits, or `undefined` when no such log is present.
  *
- * Read **positionally rather than by ABI**, which is what makes it version-proof. All three of the
- * event's parameters are non-indexed, and the first two are static `bytes32`, so the hash is always
- * the second data word. That sidesteps two things that are *not* stable across v32 revisions:
+ * This is the value the InteropCenter itself computed and the handler keys `bundleStatus` on, so
+ * using it means the SDK never has to assume a hash derivation. On the current contracts that
+ * derivation is `keccak256(bundle)` and the emitted value matches it exactly — the point is not to
+ * paper over a mismatch but to avoid re-deriving a protocol detail we are handed for free, out of a
+ * receipt we already fetch.
  *
- *  - the event's `topic0`, which moved when `BundleAttributes` gained its `salt` field, and
- *  - `InteropDataEncoding.encodeInteropBundleHash`, which was `keccak256(abi.encode(sourceChainId,
- *    bundle))` in the earlier atomic-interop line and is `keccak256(bundle)` in the release line.
- *
- * Both revisions report protocol `0.32.0`, so the version cannot tell them apart — taking the hash
- * the chain itself emitted avoids having to. Identified by emitter plus arity: `InteropBundleSent`
- * is the InteropCenter's only fully non-indexed event, so it is the one with a single topic.
+ * Read **positionally rather than by ABI**: all three of the event's parameters are non-indexed and
+ * the first two are static `bytes32`, so the hash is always the second data word. That keeps it
+ * working across the `topic0` change that `BundleAttributes.salt` caused, without needing a
+ * version-aware ABI for the bundle tuple. Identified by emitter plus arity — `InteropBundleSent` is
+ * the InteropCenter's only fully non-indexed event, so it is the one with a single topic.
  */
 export function parseBundleHashFromLogs(
   logs: readonly { address: string; topics: readonly string[]; data: string }[],
@@ -118,12 +118,13 @@ export interface BuildWithdrawalFinalizationInput {
 /**
  * Assembles the `executeBundle` arguments.
  *
- * `bundleHash` is whatever the chain emitted when it accepted the bundle. It falls back to
- * `keccak256(bundle)` — the release line's `InteropDataEncoding.encodeInteropBundleHash` — only when
- * the emitted value is unavailable. The hash is what keys `bundleStatus` on the handler, so getting
- * it wrong does not break finalization itself but does make the withdrawal look permanently
- * unfinalized, which in turn makes a retry re-send a transaction that then reverts with
- * `BundleAlreadyProcessed`.
+ * `bundleHash` is whatever the chain emitted when it accepted the bundle, falling back to
+ * `keccak256(bundle)` — `InteropDataEncoding.encodeInteropBundleHash` — when no log is available.
+ *
+ * The hash keys `bundleStatus` on the handler, so getting it wrong does not break finalization
+ * itself but does make the withdrawal look permanently unfinalized, which in turn makes a retry
+ * re-send a transaction that then reverts with `BundleAlreadyProcessed`. That failure mode is why
+ * the emitted value is preferred over a derivation.
  */
 export function buildWithdrawalFinalization(
   input: BuildWithdrawalFinalizationInput,
