@@ -26,6 +26,7 @@ export * from './utils/hash';
 export * from './resources/deposits/route';
 export * from './resources/withdrawals/route';
 export * from './resources/withdrawals/protocol';
+export * from './resources/withdrawals/status';
 export * from './resources/withdrawals/bundle';
 export * from './resources/withdrawals/finalization';
 export * from './resources/protocol/semver';

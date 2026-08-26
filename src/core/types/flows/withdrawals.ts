@@ -98,13 +98,6 @@ export type WithdrawalPhase =
   | 'UNFINALIZABLE' // permanently cannot finalize; see `reason`
   | 'UNKNOWN';
 
-/** Phases from which a withdrawal can never progress. `wait()` stops on these. */
-export const TERMINAL_WITHDRAWAL_PHASES = ['FINALIZED', 'UNFINALIZABLE'] as const;
-
-export function isTerminalWithdrawalPhase(phase: WithdrawalPhase): boolean {
-  return (TERMINAL_WITHDRAWAL_PHASES as readonly string[]).includes(phase);
-}
-
 // Withdrawal Status
 export type WithdrawalStatus = {
   phase: WithdrawalPhase;

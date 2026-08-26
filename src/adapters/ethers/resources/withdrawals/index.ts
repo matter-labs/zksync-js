@@ -26,6 +26,7 @@ import {
   type WithdrawalProtocolService,
 } from './services/protocol';
 import type { WithdrawalProtocol } from '../../../../core/resources/withdrawals/protocol';
+import { isTerminalWithdrawalPhase } from '../../../../core/resources/withdrawals/status';
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
@@ -443,7 +444,7 @@ export function createWithdrawalsResource(
 
           // Never becomes ready or finalized: stop rather than poll to the timeout (or forever,
           // when none was given), and hand the caller the reason.
-          if (s.phase === 'UNFINALIZABLE') {
+          if (isTerminalWithdrawalPhase(s.phase) && s.phase !== 'FINALIZED') {
             throw createError('STATE', {
               resource: 'withdrawals',
               operation: OP_WITHDRAWALS.wait,
