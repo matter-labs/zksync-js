@@ -179,7 +179,7 @@ const handleOrHash = handle;
 
 // ANCHOR: withdraw-status
 const s = await sdk.withdrawals.status(handleOrHash);
-// s.phase ∈ 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+// s.phase ∈ 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED' | 'UNFINALIZABLE'
 // ANCHOR_END: withdraw-status
 expect(s.phase).toEqual("FINALIZED");
 });

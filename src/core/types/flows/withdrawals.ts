@@ -95,7 +95,7 @@ export type WithdrawalPhase =
   | 'FINALIZING' // L1 tx sent but not picked up yet
   | 'FINALIZED' // L2-L1 tx finalized on L1
   | 'FINALIZE_FAILED' // prior L1 finalize reverted
-  | 'UNFINALIZABLE' // permanently cannot finalize; see `reason`
+  | 'UNFINALIZABLE' // finalization can never succeed for this withdrawal
   | 'UNKNOWN';
 
 // Withdrawal Status
@@ -104,19 +104,9 @@ export type WithdrawalStatus = {
   l2TxHash: Hex;
   l1FinalizeTxHash?: Hex;
   key?: WithdrawalKey;
-  /**
-   * Why the withdrawal is `UNFINALIZABLE`. Carries the readiness reason from the L1 simulation, or
-   * `bundle-cancelled` when the destination handler unwound the bundle and cancelled its call.
-   */
-  reason?: FinalizeUnfinalizableReason | 'bundle-cancelled';
+  // Why, for PENDING and UNFINALIZABLE.
+  reason?: string;
 };
-
-/** Reasons a withdrawal can never be finalized. */
-export type FinalizeUnfinalizableReason =
-  | 'message-invalid'
-  | 'invalid-chain'
-  | 'settlement-layer'
-  | 'unsupported';
 
 // Finalization readiness states
 // Used for `status()`

@@ -40,14 +40,3 @@ export const hexEq = (a: Hex, b: Hex): boolean => a.toLowerCase() === b.toLowerC
 // Normalize L1 token address (FORMAL_ETH_ADDRESS → ETH_ADDRESS)
 export const normalizeL1Token = (token: Address): Address =>
   isAddressEq(token, FORMAL_ETH_ADDRESS) ? ETH_ADDRESS : token;
-
-/**
- * Extracts an address from an indexed event topic — the low 20 bytes of the 32-byte word.
- *
- * Used to read `L1MessageSent`'s `_sender`, which is the emitting contract. That is the value the
- * v31 nullifier validates as `l2Sender`; the transaction's `to` only coincides with it when the
- * user called the system contract directly.
- */
-export function addressFromTopic(topic: Hex): Address {
-  return `0x${topic.slice(-40)}`;
-}

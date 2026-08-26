@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { addressFromTopic, isAddressEq, isETH, normalizeAddrEq } from '../addr';
+import { isAddressEq, isETH, normalizeAddrEq } from '../addr';
 import { isHash66 } from '../hash';
 import { ETH_ADDRESS, FORMAL_ETH_ADDRESS, L2_BASE_TOKEN_ADDRESS } from '../../constants';
 
@@ -67,20 +67,5 @@ describe('utils/addr.normalizeAddrEq', () => {
 
   it("is tolerant of input that isn't strictly validated", () => {
     expect(normalizeAddrEq('abc', '0xABC')).toBe(true);
-  });
-});
-
-describe('utils/addressFromTopic', () => {
-  it('extracts the address from a left-padded indexed topic', () => {
-    // L1MessageSent._sender for a v32 withdrawal: the L2 InteropCenter.
-    expect(
-      addressFromTopic('0x000000000000000000000000000000000000000000000000000000000001000d'),
-    ).toBe('0x000000000000000000000000000000000001000d');
-  });
-
-  it('keeps a full 20-byte address intact', () => {
-    expect(
-      addressFromTopic('0x0000000000000000000000001111111111111111111111111111111111111111'),
-    ).toBe('0x1111111111111111111111111111111111111111');
   });
 });

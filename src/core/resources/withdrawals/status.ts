@@ -1,20 +1,25 @@
 // src/core/resources/withdrawals/status.ts
+import type { FinalizeReadiness, WithdrawalPhase } from '../../types/flows/withdrawals';
+import { assertNever } from '../../utils';
 
-import type { WithdrawalPhase } from '../../types/flows/withdrawals';
-
-/**
- * Phases a withdrawal can never progress out of.
- *
- * `wait()` stops on these: `FINALIZED` because the funds are released, `UNFINALIZABLE` because the
- * message, chain or settlement path is permanently invalid, or the destination unwound the bundle
- * and cancelled its call. Polling either of them would never terminate on its own.
- */
-export const TERMINAL_WITHDRAWAL_PHASES: readonly WithdrawalPhase[] = [
-  'FINALIZED',
-  'UNFINALIZABLE',
-];
-
-/** True when the withdrawal can never leave its current phase. */
-export function isTerminalWithdrawalPhase(phase: WithdrawalPhase): boolean {
-  return TERMINAL_WITHDRAWAL_PHASES.includes(phase);
+// UNFINALIZABLE must not fold into PENDING: callers would poll a call that can never succeed.
+export function phaseFromReadiness(r: FinalizeReadiness): {
+  phase: WithdrawalPhase;
+  reason?: string;
+} {
+  switch (r.kind) {
+    case 'FINALIZED':
+      return { phase: 'FINALIZED' };
+    case 'READY':
+      return { phase: 'READY_TO_FINALIZE' };
+    case 'NOT_READY':
+      return { phase: 'PENDING', reason: formatReason(r.reason, r.detail) };
+    case 'UNFINALIZABLE':
+      return { phase: 'UNFINALIZABLE', reason: formatReason(r.reason, r.detail) };
+    default:
+      return assertNever(r);
+  }
 }
+
+const formatReason = (reason: string, detail?: string) =>
+  detail ? `${reason}: ${detail}` : reason;

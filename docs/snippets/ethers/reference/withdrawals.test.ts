@@ -138,6 +138,7 @@ type WithdrawalPhase =
   | 'FINALIZING' // L1 tx sent but not picked up yet
   | 'FINALIZED' // L2-L1 tx finalized on L1
   | 'FINALIZE_FAILED' // prior L1 finalize reverted
+  | 'UNFINALIZABLE' // finalization can never succeed for this withdrawal
   | 'UNKNOWN';
 
 // Withdrawal Status
@@ -146,6 +147,8 @@ type WithdrawalStatus = {
   l2TxHash: Hex;
   l1FinalizeTxHash?: Hex;
   key?: WithdrawalKey;
+  // Why the withdrawal is PENDING or UNFINALIZABLE, when known.
+  reason?: string;
 };
 // ANCHOR_END: status-type
 

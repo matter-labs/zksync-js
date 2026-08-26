@@ -36,8 +36,7 @@ import {
 } from '../../../../../core/abi.ts';
 
 import { L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
-import { findL1MessageSentLog } from '../../../../../core/utils/events';
-import { addressFromTopic } from '../../../../../core/utils/addr';
+import { findL1MessageSentLog, l1MessageSentSender } from '../../../../../core/utils/events';
 import { messengerLogIndex } from '../../../../../core/resources/withdrawals/logs';
 import type { CallStatus } from '../../../../../core/resources/withdrawals/finalization';
 import {
@@ -214,8 +213,8 @@ export function createFinalizationServices(
     // token system contract or the asset router), not the transaction's `to`. Those coincide only
     // when the user calls the system contract directly; a withdrawal routed through another
     // contract would otherwise revert with `WrongL2Sender`. `_sender` is the first indexed
-    // parameter of `L1MessageSent`, so it is carried in topic 1.
-    const l2Sender = addressFromTopic(ev.topics[1]);
+    // parameter of `L1MessageSent`.
+    const l2Sender = l1MessageSentSender(ev);
 
     return { raw, message, proof, chainId: BigInt(chainId), txNumberInBatch, l2Sender };
   }

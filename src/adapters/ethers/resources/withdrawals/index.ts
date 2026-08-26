@@ -26,9 +26,9 @@ import {
   type WithdrawalProtocolService,
 } from './services/protocol';
 import type { WithdrawalProtocol } from '../../../../core/resources/withdrawals/protocol';
-import { isTerminalWithdrawalPhase } from '../../../../core/resources/withdrawals/status';
 import { createErrorHandlers } from '../../errors/error-ops';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
+import { phaseFromReadiness } from '../../../../core/resources/withdrawals/status';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
 import { createTokensResource } from '../tokens';
 import type { TokensResource } from '../../../../core/types/flows/token';
@@ -369,16 +369,9 @@ export function createWithdrawalsResource(
 
         // check finalization would succeed right now
         const readiness = await svc.simulateFinalizeReadiness(pack.finalization);
+        const { phase, reason } = phaseFromReadiness(readiness);
 
-        if (readiness.kind === 'FINALIZED') return { phase: 'FINALIZED', l2TxHash, key };
-        if (readiness.kind === 'READY') return { phase: 'READY_TO_FINALIZE', l2TxHash, key };
-        // Permanent: the message, chain or settlement path is invalid, so polling will never
-        // succeed. Surfaced as a terminal phase carrying the reason rather than as PENDING.
-        if (readiness.kind === 'UNFINALIZABLE') {
-          return { phase: 'UNFINALIZABLE', l2TxHash, key, reason: readiness.reason };
-        }
-
-        return { phase: 'PENDING', l2TxHash, key };
+        return { phase, reason, l2TxHash, key };
       },
       {
         message: 'Internal error while checking withdrawal status.',
@@ -442,14 +435,12 @@ export function createWithdrawalsResource(
         while (true) {
           const s = await status(l2Hash);
 
-          // Never becomes ready or finalized: stop rather than poll to the timeout (or forever,
-          // when none was given), and hand the caller the reason.
-          if (isTerminalWithdrawalPhase(s.phase) && s.phase !== 'FINALIZED') {
+          if (s.phase === 'UNFINALIZABLE') {
             throw createError('STATE', {
               resource: 'withdrawals',
               operation: OP_WITHDRAWALS.wait,
-              message: `Withdrawal can never be finalized: ${s.reason ?? 'unknown'}.`,
-              context: { l2TxHash: l2Hash, phase: s.phase, reason: s.reason, for: opts.for },
+              message: 'Withdrawal can never be finalized.',
+              context: { l2TxHash: l2Hash, reason: s.reason },
             });
           }
 

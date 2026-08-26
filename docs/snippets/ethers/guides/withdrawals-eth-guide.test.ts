@@ -85,7 +85,7 @@ async function main() {
   // Quick status check
   // ANCHOR: status
   const s = await sdk.withdrawals.status(handle.l2TxHash); /* input can be handle or l2TxHash */
-// s.phase: 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED'
+// s.phase: 'UNKNOWN' | 'L2_PENDING' | 'PENDING' | 'READY_TO_FINALIZE' | 'FINALIZED' | 'UNFINALIZABLE'
 // ANCHOR_END: status
   console.log('STATUS (initial):', s.phase);
 

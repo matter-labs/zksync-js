@@ -28,6 +28,7 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 | `UNKNOWN`           | Handle doesn’t contain an L2 hash yet.            |
 | `L2_PENDING`        | L2 transaction not yet included.                  |
 | `PENDING`           | L2 included, **not** yet ready to finalize on L1. |
+| `UNFINALIZABLE`     | Finalization can never succeed; see `status.reason`. |
 | `READY_TO_FINALIZE` | Finalization on L1 would succeed now.             |
 | `FINALIZED`         | Finalized on L1; funds released.                  |
 
@@ -35,6 +36,7 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 
 * No L2 receipt ⇒ `L2_PENDING`
 * Finalization key derivable but not ready ⇒ `PENDING`
+* Finalization would always revert (e.g. a malformed message) ⇒ `UNFINALIZABLE`; polling will not help, and `wait(...)` throws rather than spinning
 * Already finalized ⇒ `FINALIZED`
 
 <details>
