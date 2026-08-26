@@ -4,14 +4,16 @@ import { AbiCoder, concat, keccak256 } from 'ethers';
 
 import {
   BundleStatus,
+  CallStatus,
   buildWithdrawalFinalization,
+  classifyBundleOutcome,
   isBundleFinalized,
   keccakHex,
   parseBundleHashFromLogs,
   stripBundleIdentifier,
 } from '../finalization';
 import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../../constants';
-import type { Hex } from '../../../types/primitives';
+import type { Address, Hex } from '../../../types/primitives';
 
 const BUNDLE = AbiCoder.defaultAbiCoder().encode(['uint256', 'string'], [42n, 'bundle']) as Hex;
 const MESSAGE = concat([BUNDLE_IDENTIFIER, BUNDLE]) as Hex;
@@ -77,9 +79,12 @@ describe('withdrawals/buildWithdrawalFinalization', () => {
 });
 
 describe('withdrawals/isBundleFinalized', () => {
-  it('treats executed and unbundled as finalized', () => {
+  it('treats only FullyExecuted as finalized', () => {
     expect(isBundleFinalized(BundleStatus.FullyExecuted)).toBe(true);
-    expect(isBundleFinalized(BundleStatus.Unbundled)).toBe(true);
+    // Deliberately NOT true for `Unbundled`: without the call status it cannot tell a successful
+    // unbundle from a cancelled one. That is why it is deprecated in favour of
+    // `classifyBundleOutcome`.
+    expect(isBundleFinalized(BundleStatus.Unbundled)).toBe(false);
   });
 
   it('treats unreceived and verified as not yet finalized', () => {
@@ -161,5 +166,75 @@ describe('withdrawals/buildWithdrawalFinalization bundle hash', () => {
       proof: PROOF,
     });
     expect(result.bundleHash).toBe(keccak256(BUNDLE));
+  });
+});
+
+describe('withdrawals/classifyBundleOutcome', () => {
+  it('treats FullyExecuted as finalized regardless of call status', () => {
+    expect(classifyBundleOutcome(BundleStatus.FullyExecuted)).toBe('finalized');
+    expect(classifyBundleOutcome(BundleStatus.FullyExecuted, CallStatus.Unprocessed)).toBe(
+      'finalized',
+    );
+  });
+
+  it('treats an unbundled-but-executed call as finalized', () => {
+    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Executed)).toBe('finalized');
+  });
+
+  it('treats an unbundled-and-cancelled call as terminal failure, not success', () => {
+    // `unbundleBundle` lets the unbundler cancel a call instead of executing it, so the funds were
+    // never released. Reporting this as finalized would tell the user they had been paid.
+    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Cancelled)).toBe('failed');
+  });
+
+  it('treats an unbundled-but-untouched call as still pending', () => {
+    // A later `unbundleBundle` can still execute it, so this is not terminal.
+    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Unprocessed)).toBe('pending');
+    expect(classifyBundleOutcome(BundleStatus.Unbundled)).toBe('pending');
+  });
+
+  it('treats unreceived and verified as pending', () => {
+    expect(classifyBundleOutcome(BundleStatus.Unreceived)).toBe('pending');
+    expect(classifyBundleOutcome(BundleStatus.Verified)).toBe('pending');
+  });
+});
+
+describe('withdrawals/buildWithdrawalFinalization interop center', () => {
+  it('names the resolved InteropCenter as the proof sender', () => {
+    // The L1 handler checks `message.sender`, so a client using `overrides.interopCenter` must get
+    // its override here — hard-coding the canonical address would make the bundle unfinalizable.
+    const override = '0x00000000000000000000000000000000000abcde' as Address;
+    const result = buildWithdrawalFinalization({
+      messageData: MESSAGE,
+      sourceChainId: 271n,
+      txNumberInBatch: 0,
+      proof: PROOF,
+      interopCenter: override,
+    });
+    expect(result.proof.message.sender).toBe(override);
+  });
+
+  it('falls back to the canonical InteropCenter', () => {
+    const result = buildWithdrawalFinalization({
+      messageData: MESSAGE,
+      sourceChainId: 271n,
+      txNumberInBatch: 0,
+      proof: PROOF,
+    });
+    expect(result.proof.message.sender).toBe(L2_INTEROP_CENTER_ADDRESS);
+  });
+});
+
+describe('withdrawals/parseBundleHashFromLogs interop center', () => {
+  it('matches on the resolved InteropCenter, not the canonical one', () => {
+    const override = '0x00000000000000000000000000000000000abcde' as Address;
+    const log = {
+      address: override,
+      topics: [`0x${'aa'.repeat(32)}`],
+      data: `0x${'11'.repeat(32)}${'42'.repeat(32)}${'00'.repeat(32)}`,
+    };
+    expect(parseBundleHashFromLogs([log], override)).toBe(`0x${'42'.repeat(32)}`);
+    // Same log, canonical expectation: not this center's event.
+    expect(parseBundleHashFromLogs([log])).toBeUndefined();
   });
 });

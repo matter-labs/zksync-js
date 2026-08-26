@@ -355,8 +355,13 @@ export function createWithdrawalsResource(
         const key = pack.key;
 
         try {
-          const done = await svc.isWithdrawalFinalized(pack.finalization);
-          if (done) return { phase: 'FINALIZED', l2TxHash, key };
+          const outcome = await svc.bundleOutcome(pack.finalization);
+          if (outcome === 'finalized') return { phase: 'FINALIZED', l2TxHash, key };
+          // The destination unwound the bundle and cancelled its call: nothing was paid out and
+          // nothing more can be done, so this must not be reported as pending.
+          if (outcome === 'failed') {
+            return { phase: 'UNFINALIZABLE', l2TxHash, key, reason: 'bundle-cancelled' };
+          }
         } catch {
           // ignore; continue to readiness simulation
         }
@@ -366,6 +371,11 @@ export function createWithdrawalsResource(
 
         if (readiness.kind === 'FINALIZED') return { phase: 'FINALIZED', l2TxHash, key };
         if (readiness.kind === 'READY') return { phase: 'READY_TO_FINALIZE', l2TxHash, key };
+        // Permanent: the message, chain or settlement path is invalid, so polling will never
+        // succeed. Surfaced as a terminal phase carrying the reason rather than as PENDING.
+        if (readiness.kind === 'UNFINALIZABLE') {
+          return { phase: 'UNFINALIZABLE', l2TxHash, key, reason: readiness.reason };
+        }
 
         return { phase: 'PENDING', l2TxHash, key };
       },
@@ -431,6 +441,17 @@ export function createWithdrawalsResource(
         while (true) {
           const s = await status(l2Hash);
 
+          // Never becomes ready or finalized: stop rather than poll to the timeout (or forever,
+          // when none was given), and hand the caller the reason.
+          if (s.phase === 'UNFINALIZABLE') {
+            throw createError('STATE', {
+              resource: 'withdrawals',
+              operation: OP_WITHDRAWALS.wait,
+              message: `Withdrawal can never be finalized: ${s.reason ?? 'unknown'}.`,
+              context: { l2TxHash: l2Hash, phase: s.phase, reason: s.reason, for: opts.for },
+            });
+          }
+
           if (opts.for === 'ready') {
             // Resolve when finalization becomes possible OR already finalized.
             if (s.phase === 'READY_TO_FINALIZE' || s.phase === 'FINALIZED') return null;
@@ -491,8 +512,9 @@ export function createWithdrawalsResource(
         const { finalization } = pack;
 
         try {
-          const done = await svc.isWithdrawalFinalized(finalization);
-          if (done) {
+          const outcome = await svc.bundleOutcome(finalization);
+          // `failed` is terminal too: re-sending would only revert with BundleAlreadyProcessed.
+          if (outcome === 'finalized' || outcome === 'failed') {
             const statusNow = await status(l2TxHash);
             return { status: statusNow };
           }
@@ -602,3 +624,5 @@ export function createWithdrawalsResource(
 
 export { createFinalizationServices };
 export type { FinalizationServices };
+export { createWithdrawalProtocolService };
+export type { WithdrawalProtocolService };

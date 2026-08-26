@@ -37,19 +37,22 @@ import {
 
 import { L1_MESSENGER_ADDRESS } from '../../../../../core/constants';
 import { findL1MessageSentLog } from '../../../../../core/utils/events';
+import { addressFromTopic } from '../../../../../core/utils/addr';
 import { messengerLogIndex } from '../../../../../core/resources/withdrawals/logs';
+import type { CallStatus } from '../../../../../core/resources/withdrawals/finalization';
 import {
   buildWithdrawalFinalization,
-  isBundleFinalized,
+  classifyBundleOutcome,
   parseBundleHashFromLogs,
-  type BundleStatus,
+  BundleStatus,
+  type BundleOutcome,
 } from '../../../../../core/resources/withdrawals/finalization';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { classifyReadinessFromRevert } from '../../../errors/revert';
 import { OP_WITHDRAWALS } from '../../../../../core/types';
 import { createError } from '../../../../../core/errors/factory';
 import { toZKsyncError } from '../../../errors/error-ops';
-import type { WithdrawalProtocolService } from './protocol';
+import { createWithdrawalProtocolService, type WithdrawalProtocolService } from './protocol';
 
 // error handling
 const { wrapAs } = createErrorHandlers('withdrawals');
@@ -78,6 +81,13 @@ export interface FinalizationServices {
   /** Check whether the withdrawal has already been finalized on L1. */
   isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean>;
 
+  /**
+   * Classify the withdrawal's on-chain outcome. Distinguishes a terminally-failed bundle (unwound
+   * with its call cancelled) from one that is merely not finalized yet — which
+   * {@link isWithdrawalFinalized} collapses into `false`.
+   */
+  bundleOutcome(finalization: WithdrawalFinalization): Promise<BundleOutcome>;
+
   /** Simulate finalization on L1 to check readiness. */
   simulateFinalizeReadiness(finalization: WithdrawalFinalization): Promise<FinalizeReadiness>;
 
@@ -92,7 +102,12 @@ export interface FinalizationServices {
 
 export function createFinalizationServices(
   client: EthersClient,
-  protocolService: WithdrawalProtocolService,
+  /**
+   * Withdrawal-protocol detection. Optional: constructed per client when omitted, so
+   * `createFinalizationServices(client)` keeps working. Pass one in to share the detection cache
+   * with a withdrawals resource built over the same client.
+   */
+  protocolService: WithdrawalProtocolService = createWithdrawalProtocolService(client),
 ): FinalizationServices {
   const { l1, l2, signer } = client;
 
@@ -195,12 +210,20 @@ export function createFinalizationServices(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     const txNumberInBatch = Number((raw as any).transactionIndex ?? 0);
 
-    return { raw, message, proof, chainId: BigInt(chainId), txNumberInBatch };
+    // The v31 nullifier requires `l2Sender` to be the contract that *emitted* the message (the base
+    // token system contract or the asset router), not the transaction's `to`. Those coincide only
+    // when the user calls the system contract directly; a withdrawal routed through another
+    // contract would otherwise revert with `WrongL2Sender`. `_sender` is the first indexed
+    // parameter of `L1MessageSent`, so it is carried in topic 1.
+    const l2Sender = addressFromTopic(ev.topics[1]);
+
+    return { raw, message, proof, chainId: BigInt(chainId), txNumberInBatch, l2Sender };
   }
 
   async function fetchFinalization(l2TxHash: Hex): Promise<ResolvedWithdrawalFinalization> {
     const protocol = await protocolService.protocol();
-    const { raw, message, proof, chainId, txNumberInBatch } = await fetchMessageAndProof(l2TxHash);
+    const { raw, message, proof, chainId, txNumberInBatch, l2Sender } =
+      await fetchMessageAndProof(l2TxHash);
     const target = await finalizationTarget(protocol);
 
     if (protocol === 'legacy-withdrawal') {
@@ -208,8 +231,7 @@ export function createFinalizationServices(
         chainId,
         l2BatchNumber: proof.batchNumber,
         l2MessageIndex: proof.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-        l2Sender: (raw as any).to as Address,
+        l2Sender,
         l2TxNumberInBatch: txNumberInBatch,
         message,
         merkleProof: proof.proof,
@@ -226,14 +248,16 @@ export function createFinalizationServices(
       };
     }
 
+    // Resolved, not canonical: a client may override it, and the L1 handler checks the sender.
+    const { interopCenter } = await client.ensureAddresses();
     const params = buildWithdrawalFinalization({
       messageData: message,
       sourceChainId: chainId,
       txNumberInBatch,
       proof: { batchNumber: proof.batchNumber, id: proof.id, proof: proof.proof },
-      // Prefer the hash the InteropCenter emitted over recomputing it; the derivation is not
-      // stable across v32 revisions.
-      bundleHash: parseBundleHashFromLogs(raw.logs ?? []),
+      // Prefer the hash the InteropCenter emitted over recomputing it.
+      bundleHash: parseBundleHashFromLogs(raw.logs ?? [], interopCenter),
+      interopCenter,
     });
 
     return {
@@ -248,12 +272,12 @@ export function createFinalizationServices(
     };
   }
 
-  async function isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean> {
+  async function bundleOutcome(finalization: WithdrawalFinalization): Promise<BundleOutcome> {
     const target = await finalizationTarget(finalization.protocol);
 
     if (finalization.protocol === 'legacy-withdrawal') {
       const c = new Contract(target, IL1NullifierMini, l1);
-      return await wrapAs(
+      const done = await wrapAs(
         'RPC',
         OP_WITHDRAWALS.finalize.isFinalized,
         () =>
@@ -267,28 +291,50 @@ export function createFinalizationServices(
           message: 'Failed to read finalization status.',
         },
       );
+      return done ? 'finalized' : 'pending';
     }
 
+    const { bundleHash } = finalization.params;
     const handler = new Contract(target, IInteropHandlerABI, l1);
-    const status = await wrapAs(
-      'RPC',
-      OP_WITHDRAWALS.finalize.isFinalized,
-      () => handler.bundleStatus(finalization.params.bundleHash) as Promise<bigint>,
-      {
-        ctx: {
-          where: 'L1InteropHandler.bundleStatus',
-          bundleHash: finalization.params.bundleHash,
+    const status = Number(
+      await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.isFinalized,
+        () => handler.bundleStatus(bundleHash) as Promise<bigint>,
+        {
+          ctx: { where: 'L1InteropHandler.bundleStatus', bundleHash },
+          message: 'Failed to read bundle status.',
         },
-        message: 'Failed to read bundle status.',
-      },
-    );
+      ),
+    ) as BundleStatus;
 
-    return isBundleFinalized(Number(status) as BundleStatus);
+    // Only `Unbundled` needs the per-call status: the unbundler may have cancelled the withdrawal's
+    // call rather than executing it, in which case nothing was paid out.
+    if (status !== BundleStatus.Unbundled) return classifyBundleOutcome(status);
+
+    const callStatus = Number(
+      await wrapAs(
+        'RPC',
+        OP_WITHDRAWALS.finalize.isFinalized,
+        () => handler.callStatus(bundleHash, 0) as Promise<bigint>,
+        {
+          ctx: { where: 'L1InteropHandler.callStatus', bundleHash },
+          message: 'Failed to read bundle call status.',
+        },
+      ),
+    ) as CallStatus;
+
+    return classifyBundleOutcome(status, callStatus);
+  }
+
+  async function isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean> {
+    return (await bundleOutcome(finalization)) === 'finalized';
   }
 
   return {
     fetchFinalization,
     isWithdrawalFinalized,
+    bundleOutcome,
 
     async fetchFinalizeDepositParams(l2TxHash: Hex) {
       const resolved = await fetchFinalization(l2TxHash);

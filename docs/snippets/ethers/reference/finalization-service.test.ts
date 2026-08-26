@@ -36,6 +36,12 @@ interface WithdrawalBundleFinalization {
   };
 }
 
+// Outcome of a withdrawal bundle on the destination.
+//  - `finalized` — the call ran; funds released on L1
+//  - `failed`    — terminally unwound with the call cancelled; funds NOT released
+//  - `pending`   — not resolved yet
+type BundleOutcome = 'finalized' | 'failed' | 'pending';
+
 // Which contract finalizes the withdrawal, and with which arguments.
 //  - `legacy-withdrawal` → L1Nullifier.finalizeDeposit        (protocol v31 and below)
 //  - `interop-bundle`     → L1InteropHandler.executeBundle     (protocol v32 and above)
@@ -91,6 +97,12 @@ interface FinalizationServices {
 
   /** Check whether the withdrawal has already been finalized on L1. */
   isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean>;
+
+  /**
+   * Classify the withdrawal's on-chain outcome. Distinguishes a terminally-failed bundle (unwound
+   * with its call cancelled) from one that is merely not finalized yet.
+   */
+  bundleOutcome(finalization: WithdrawalFinalization): Promise<BundleOutcome>;
 
   /** Simulate finalization on L1 to check readiness. */
   simulateFinalizeReadiness(finalization: WithdrawalFinalization): Promise<FinalizeReadiness>;

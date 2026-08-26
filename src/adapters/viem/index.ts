@@ -8,10 +8,12 @@ export type { DepositsResource } from './resources/deposits';
 export { getL2TransactionHashFromLogs } from './resources/deposits/services/verification';
 export { createWithdrawalsResource } from './resources/withdrawals';
 export { createFinalizationServices } from './resources/withdrawals';
+export { createWithdrawalProtocolService } from './resources/withdrawals';
 export type {
   WithdrawalsResource,
   WithdrawalsResourceOptions,
   FinalizationServices,
+  WithdrawalProtocolService,
 } from './resources/withdrawals';
 export { createTokensResource } from './resources/tokens';
 export { createContractsResource } from './resources/contracts';

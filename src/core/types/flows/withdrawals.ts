@@ -87,7 +87,7 @@ export interface ResolvedWithdrawalFinalization {
   key: WithdrawalKey;
 }
 
-type WithdrawalPhase =
+export type WithdrawalPhase =
   | 'L2_PENDING' // tx not in an L2 block yet
   | 'L2_INCLUDED' // we have the L2 receipt
   | 'PENDING' // inclusion known; proof data not yet derivable/available
@@ -95,7 +95,15 @@ type WithdrawalPhase =
   | 'FINALIZING' // L1 tx sent but not picked up yet
   | 'FINALIZED' // L2-L1 tx finalized on L1
   | 'FINALIZE_FAILED' // prior L1 finalize reverted
+  | 'UNFINALIZABLE' // permanently cannot finalize; see `reason`
   | 'UNKNOWN';
+
+/** Phases from which a withdrawal can never progress. `wait()` stops on these. */
+export const TERMINAL_WITHDRAWAL_PHASES = ['FINALIZED', 'UNFINALIZABLE'] as const;
+
+export function isTerminalWithdrawalPhase(phase: WithdrawalPhase): boolean {
+  return (TERMINAL_WITHDRAWAL_PHASES as readonly string[]).includes(phase);
+}
 
 // Withdrawal Status
 export type WithdrawalStatus = {
@@ -103,7 +111,19 @@ export type WithdrawalStatus = {
   l2TxHash: Hex;
   l1FinalizeTxHash?: Hex;
   key?: WithdrawalKey;
+  /**
+   * Why the withdrawal is `UNFINALIZABLE`. Carries the readiness reason from the L1 simulation, or
+   * `bundle-cancelled` when the destination handler unwound the bundle and cancelled its call.
+   */
+  reason?: FinalizeUnfinalizableReason | 'bundle-cancelled';
 };
+
+/** Reasons a withdrawal can never be finalized. */
+export type FinalizeUnfinalizableReason =
+  | 'message-invalid'
+  | 'invalid-chain'
+  | 'settlement-layer'
+  | 'unsupported';
 
 // Finalization readiness states
 // Used for `status()`

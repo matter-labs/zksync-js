@@ -113,6 +113,13 @@ export interface BuildWithdrawalFinalizationInput {
    * preferred over the computed fallback — see that function for why.
    */
   bundleHash?: Hex;
+  /**
+   * The InteropCenter that actually sent the bundle. Must be the resolved address rather than the
+   * canonical constant: the L1 handler checks `message.sender` against the center it expects, so a
+   * client using `overrides.interopCenter` would otherwise send through the override and then build
+   * a proof naming the canonical address, which cannot finalize.
+   */
+  interopCenter?: Address;
 }
 
 /**
@@ -141,7 +148,7 @@ export function buildWithdrawalFinalization(
       l2MessageIndex: proof.id,
       message: {
         txNumberInBatch,
-        sender: L2_INTEROP_CENTER_ADDRESS,
+        sender: input.interopCenter ?? L2_INTEROP_CENTER_ADDRESS,
         data: messageData,
       },
       proof: proof.proof,
@@ -159,7 +166,59 @@ export enum BundleStatus {
   Unbundled = 3,
 }
 
-/** True once the bundle's calls have run — i.e. the withdrawal is finalized. */
+/** `CallStatus` as stored by `InteropHandlerBase.callStatus`. */
+export enum CallStatus {
+  Unprocessed = 0,
+  Executed = 1,
+  Cancelled = 2,
+}
+
+/**
+ * Outcome of a withdrawal bundle.
+ *
+ * - `finalized` — the withdrawal's call ran; the funds are released on L1.
+ * - `failed` — terminally unwound; the call was cancelled and the funds were **not** released.
+ * - `pending` — not resolved yet.
+ */
+export type BundleOutcome = 'finalized' | 'failed' | 'pending';
+
+/**
+ * Classifies a withdrawal bundle from its on-chain status.
+ *
+ * `FullyExecuted` is the only status that means "done" on its own. `Unbundled` is *terminal but not
+ * a success*: `unbundleBundle` lets the unbundler mark each call `Executed` or `Cancelled`, so a
+ * withdrawal whose single call was cancelled never delivered the funds. Treating `Unbundled` as
+ * finalized would make `status()` report `FINALIZED` for a withdrawal that paid out nothing, and
+ * silence any further `finalize()` attempt.
+ *
+ * @param bundleStatus Value of `bundleStatus(bundleHash)`.
+ * @param callStatus Value of `callStatus(bundleHash, 0)` — a withdrawal bundle has exactly one
+ * call. Only consulted when `bundleStatus` is `Unbundled`.
+ */
+export function classifyBundleOutcome(
+  bundleStatus: BundleStatus,
+  callStatus?: CallStatus,
+): BundleOutcome {
+  if (bundleStatus === BundleStatus.FullyExecuted) return 'finalized';
+  if (bundleStatus !== BundleStatus.Unbundled) return 'pending';
+
+  switch (callStatus) {
+    case CallStatus.Executed:
+      return 'finalized';
+    case CallStatus.Cancelled:
+      return 'failed';
+    default:
+      // Left `Unprocessed` by the unbundler: a later `unbundleBundle` can still execute it.
+      return 'pending';
+  }
+}
+
+/**
+ * True once the withdrawal's funds are released on L1.
+ *
+ * @deprecated Cannot distinguish a cancelled unbundle from a successful one — pass the call status
+ * to {@link classifyBundleOutcome} instead.
+ */
 export function isBundleFinalized(status: BundleStatus): boolean {
-  return status === BundleStatus.FullyExecuted || status === BundleStatus.Unbundled;
+  return status === BundleStatus.FullyExecuted;
 }
