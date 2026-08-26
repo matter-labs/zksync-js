@@ -37,10 +37,23 @@ export function createWithdrawalProtocolService(
     }
   }
 
+  /**
+   * Both probes are allowed to fail, so neither is permitted to throw: a client that does not
+   * implement them (a partial/mock client, or a provider that rejects the call) must degrade to
+   * `legacy-withdrawal` rather than break withdrawals outright.
+   */
+  async function protocolVersion() {
+    try {
+      return await client.getChainProtocolVersion();
+    } catch {
+      return undefined;
+    }
+  }
+
   function detect(): Promise<WithdrawalProtocolDetection> {
     cached ??= detectWithdrawalProtocol(
       {
-        protocolVersion: () => client.getChainProtocolVersion(),
+        protocolVersion,
         hasCodeAt,
       },
       override,

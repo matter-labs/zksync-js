@@ -6,7 +6,7 @@ import {
   BundleStatus,
   CallStatus,
   buildWithdrawalFinalization,
-  classifyBundleOutcome,
+  classifyWithdrawalOutcome,
   isBundleFinalized,
   keccakHex,
   parseBundleHashFromLogs,
@@ -83,7 +83,7 @@ describe('withdrawals/isBundleFinalized', () => {
     expect(isBundleFinalized(BundleStatus.FullyExecuted)).toBe(true);
     // Deliberately NOT true for `Unbundled`: without the call status it cannot tell a successful
     // unbundle from a cancelled one. That is why it is deprecated in favour of
-    // `classifyBundleOutcome`.
+    // `classifyWithdrawalOutcome`.
     expect(isBundleFinalized(BundleStatus.Unbundled)).toBe(false);
   });
 
@@ -169,33 +169,37 @@ describe('withdrawals/buildWithdrawalFinalization bundle hash', () => {
   });
 });
 
-describe('withdrawals/classifyBundleOutcome', () => {
+describe('withdrawals/classifyWithdrawalOutcome', () => {
   it('treats FullyExecuted as finalized regardless of call status', () => {
-    expect(classifyBundleOutcome(BundleStatus.FullyExecuted)).toBe('finalized');
-    expect(classifyBundleOutcome(BundleStatus.FullyExecuted, CallStatus.Unprocessed)).toBe(
+    expect(classifyWithdrawalOutcome(BundleStatus.FullyExecuted)).toBe('finalized');
+    expect(classifyWithdrawalOutcome(BundleStatus.FullyExecuted, CallStatus.Unprocessed)).toBe(
       'finalized',
     );
   });
 
   it('treats an unbundled-but-executed call as finalized', () => {
-    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Executed)).toBe('finalized');
+    expect(classifyWithdrawalOutcome(BundleStatus.Unbundled, CallStatus.Executed)).toBe(
+      'finalized',
+    );
   });
 
   it('treats an unbundled-and-cancelled call as terminal failure, not success', () => {
     // `unbundleBundle` lets the unbundler cancel a call instead of executing it, so the funds were
     // never released. Reporting this as finalized would tell the user they had been paid.
-    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Cancelled)).toBe('failed');
+    expect(classifyWithdrawalOutcome(BundleStatus.Unbundled, CallStatus.Cancelled)).toBe('failed');
   });
 
   it('treats an unbundled-but-untouched call as still pending', () => {
     // A later `unbundleBundle` can still execute it, so this is not terminal.
-    expect(classifyBundleOutcome(BundleStatus.Unbundled, CallStatus.Unprocessed)).toBe('pending');
-    expect(classifyBundleOutcome(BundleStatus.Unbundled)).toBe('pending');
+    expect(classifyWithdrawalOutcome(BundleStatus.Unbundled, CallStatus.Unprocessed)).toBe(
+      'pending',
+    );
+    expect(classifyWithdrawalOutcome(BundleStatus.Unbundled)).toBe('pending');
   });
 
   it('treats unreceived and verified as pending', () => {
-    expect(classifyBundleOutcome(BundleStatus.Unreceived)).toBe('pending');
-    expect(classifyBundleOutcome(BundleStatus.Verified)).toBe('pending');
+    expect(classifyWithdrawalOutcome(BundleStatus.Unreceived)).toBe('pending');
+    expect(classifyWithdrawalOutcome(BundleStatus.Verified)).toBe('pending');
   });
 });
 

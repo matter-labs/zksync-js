@@ -89,6 +89,17 @@ describe('withdrawals/detectWithdrawalProtocol', () => {
     expect(detection.protocol).toBe('interop-bundle');
   });
 
+  it('degrades to the legacy protocol when both probes fail', async () => {
+    // A partial client (no `getChainProtocolVersion`, no `getCode`) or a provider that rejects
+    // both calls must not break withdrawals — the adapters swallow those failures, and detection
+    // must then settle on the pre-v32 protocol rather than throwing.
+    const detection = await detectWithdrawalProtocol({
+      protocolVersion: () => Promise.resolve(undefined),
+      hasCodeAt: () => Promise.resolve(false),
+    });
+    expect(detection.protocol).toBe('legacy-withdrawal');
+  });
+
   it('reports the legacy protocol when the probe finds no code', async () => {
     const detection = await detectWithdrawalProtocol(probes({ code: [] }));
     expect(detection.protocol).toBe('legacy-withdrawal');

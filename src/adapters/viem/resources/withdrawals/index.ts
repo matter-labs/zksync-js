@@ -407,7 +407,7 @@ export function createWithdrawalsResource(
         const key = pack.key;
 
         try {
-          const outcome = await svc.bundleOutcome(pack.finalization);
+          const outcome = await svc.withdrawalOutcome(pack.finalization);
           if (outcome === 'finalized') return { phase: 'FINALIZED', l2TxHash, key };
           // The destination unwound the bundle and cancelled its call: nothing was paid out and
           // nothing more can be done, so this must not be reported as pending.
@@ -556,7 +556,7 @@ export function createWithdrawalsResource(
         const { finalization } = pack;
 
         try {
-          const outcome = await svc.bundleOutcome(finalization);
+          const outcome = await svc.withdrawalOutcome(finalization);
           // `failed` is terminal too: re-sending would only revert with BundleAlreadyProcessed.
           if (outcome === 'finalized' || outcome === 'failed') {
             const statusNow = await status(l2TxHash);

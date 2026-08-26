@@ -174,13 +174,14 @@ export enum CallStatus {
 }
 
 /**
- * Outcome of a withdrawal bundle.
+ * Outcome of a withdrawal, on either protocol.
  *
- * - `finalized` — the withdrawal's call ran; the funds are released on L1.
- * - `failed` — terminally unwound; the call was cancelled and the funds were **not** released.
+ * - `finalized` — the funds are released on L1.
+ * - `failed` — terminally unwound without paying out. Reachable only on `interop-bundle`, where the
+ *   destination can cancel the withdrawal's call; the legacy protocol has no equivalent.
  * - `pending` — not resolved yet.
  */
-export type BundleOutcome = 'finalized' | 'failed' | 'pending';
+export type WithdrawalOutcome = 'finalized' | 'failed' | 'pending';
 
 /**
  * Classifies a withdrawal bundle from its on-chain status.
@@ -195,10 +196,10 @@ export type BundleOutcome = 'finalized' | 'failed' | 'pending';
  * @param callStatus Value of `callStatus(bundleHash, 0)` — a withdrawal bundle has exactly one
  * call. Only consulted when `bundleStatus` is `Unbundled`.
  */
-export function classifyBundleOutcome(
+export function classifyWithdrawalOutcome(
   bundleStatus: BundleStatus,
   callStatus?: CallStatus,
-): BundleOutcome {
+): WithdrawalOutcome {
   if (bundleStatus === BundleStatus.FullyExecuted) return 'finalized';
   if (bundleStatus !== BundleStatus.Unbundled) return 'pending';
 
@@ -217,7 +218,7 @@ export function classifyBundleOutcome(
  * True once the withdrawal's funds are released on L1.
  *
  * @deprecated Cannot distinguish a cancelled unbundle from a successful one — pass the call status
- * to {@link classifyBundleOutcome} instead.
+ * to {@link classifyWithdrawalOutcome} instead.
  */
 export function isBundleFinalized(status: BundleStatus): boolean {
   return status === BundleStatus.FullyExecuted;

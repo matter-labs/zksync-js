@@ -33,10 +33,10 @@ import { messengerLogIndex } from '../../../../../core/resources/withdrawals/log
 import type { CallStatus } from '../../../../../core/resources/withdrawals/finalization';
 import {
   buildWithdrawalFinalization,
-  classifyBundleOutcome,
+  classifyWithdrawalOutcome,
   parseBundleHashFromLogs,
   BundleStatus,
-  type BundleOutcome,
+  type WithdrawalOutcome,
 } from '../../../../../core/resources/withdrawals/finalization';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { classifyReadinessFromRevert } from '../../../errors/revert';
@@ -86,11 +86,16 @@ export interface FinalizationServices {
   isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean>;
 
   /**
-   * Classify the withdrawal's on-chain outcome. Distinguishes a terminally-failed bundle (unwound
-   * with its call cancelled) from one that is merely not finalized yet — which
-   * {@link isWithdrawalFinalized} collapses into `false`.
+   * Classify the withdrawal's on-chain outcome, on either protocol: read from
+   * `L1Nullifier.isWithdrawalFinalized` on `legacy-withdrawal`, and from the interop handler's
+   * bundle/call status on `interop-bundle`.
+   *
+   * Distinguishes a terminally-failed withdrawal (v32 only: the bundle was unwound with its call
+   * cancelled) from one that is merely not finalized yet — which {@link isWithdrawalFinalized}
+   * collapses into `false`. `failed` is unreachable on the legacy protocol, which has no equivalent
+   * of an unbundle.
    */
-  bundleOutcome(finalization: WithdrawalFinalization): Promise<BundleOutcome>;
+  withdrawalOutcome(finalization: WithdrawalFinalization): Promise<WithdrawalOutcome>;
 
   /** Simulate finalization on L1 to check readiness. */
   simulateFinalizeReadiness(finalization: WithdrawalFinalization): Promise<FinalizeReadiness>;
@@ -279,9 +284,12 @@ export function createFinalizationServices(
     };
   }
 
-  async function bundleOutcome(finalization: WithdrawalFinalization): Promise<BundleOutcome> {
+  async function withdrawalOutcome(
+    finalization: WithdrawalFinalization,
+  ): Promise<WithdrawalOutcome> {
     const target = await finalizationTarget(finalization.protocol);
 
+    // Pre-v32: the nullifier's boolean is the whole answer — there is no unbundle to fail.
     if (finalization.protocol === 'legacy-withdrawal') {
       const done = await wrapAs(
         'RPC',
@@ -326,7 +334,7 @@ export function createFinalizationServices(
 
     // Only `Unbundled` needs the per-call status: the unbundler may have cancelled the withdrawal's
     // call rather than executing it, in which case nothing was paid out.
-    if (status !== BundleStatus.Unbundled) return classifyBundleOutcome(status);
+    if (status !== BundleStatus.Unbundled) return classifyWithdrawalOutcome(status);
 
     const callStatus = Number(
       await wrapAs(
@@ -346,17 +354,17 @@ export function createFinalizationServices(
       ),
     ) as CallStatus;
 
-    return classifyBundleOutcome(status, callStatus);
+    return classifyWithdrawalOutcome(status, callStatus);
   }
 
   async function isWithdrawalFinalized(finalization: WithdrawalFinalization): Promise<boolean> {
-    return (await bundleOutcome(finalization)) === 'finalized';
+    return (await withdrawalOutcome(finalization)) === 'finalized';
   }
 
   return {
     fetchFinalization,
     isWithdrawalFinalized,
-    bundleOutcome,
+    withdrawalOutcome,
 
     async fetchFinalizeDepositParams(l2TxHash: Hex) {
       const resolved = await fetchFinalization(l2TxHash);
