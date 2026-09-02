@@ -9,6 +9,7 @@ import {
 import {
   createWithdrawalsResource,
   type WithdrawalsResource as WithdrawalsResourceType,
+  type WithdrawalsResourceOptions,
 } from './resources/withdrawals/index';
 import { createTokensResource } from './resources/tokens/index';
 import type { TokensResource as TokensResourceType } from '../../core/types/flows/token';
@@ -20,6 +21,8 @@ import type { InteropConfig } from './resources/interop/types';
 export interface ViemSdkOptions {
   /** Configuration required for interop operations. */
   interop?: InteropConfig;
+  /** Options for the withdrawals resource, e.g. forcing the withdrawal protocol. */
+  withdrawals?: WithdrawalsResourceOptions;
 }
 
 // Main SDK interface (Viem)
@@ -38,7 +41,7 @@ export function createViemSdk(client: ViemClient, options?: ViemSdkOptions): Vie
 
   return {
     deposits: createDepositsResource(client, tokens, contracts),
-    withdrawals: createWithdrawalsResource(client, tokens, contracts),
+    withdrawals: createWithdrawalsResource(client, tokens, contracts, options?.withdrawals),
     tokens,
     contracts,
     interop,

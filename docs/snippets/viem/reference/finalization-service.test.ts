@@ -9,7 +9,6 @@ import { ETH_ADDRESS } from '../../../../src/core/constants';
 import { l1Chain, l2Chain } from '../chains';
 import type { FinalizationServices, ViemSdk  } from '../../../../src/adapters/viem';
 import type { Account } from 'viem';
-import type { WithdrawalKey } from '../../../../src/core/types/flows/withdrawals';
 
 describe('viem finalization service', () => {
 
@@ -48,24 +47,22 @@ await sdk.withdrawals.wait(handle, { for: 'l2' });
 await sdk.withdrawals.wait(handle, { for: 'ready', pollMs: 6000 });
 
 // ANCHOR: finalize-with-svc
-// 1) Build finalize params + discover the L1 Nullifier to call
-const { params } = await svc.fetchFinalizeDepositParams(handle.l2TxHash);
-const key: WithdrawalKey = {
-  chainIdL2: params.chainId,
-  l2BatchNumber: params.l2BatchNumber,
-  l2MessageIndex: params.l2MessageIndex,
-};
+// 1) Derive the finalization args + the L1 contract to call. Works on both protocols: pre-v32
+//    chains resolve to `L1Nullifier.finalizeDeposit`, v32+ chains to
+//    `L1InteropHandler.executeBundle`.
+const { finalization, key } = await svc.fetchFinalization(handle.l2TxHash);
+
 // 2) (Optional) check finalization
-const already = await svc.isWithdrawalFinalized(key);
+const already = await svc.isWithdrawalFinalized(finalization);
 if (already) {
-  console.log('Already finalized on L1');
+  console.log('Already finalized on L1', key);
 } else {
   // 3) Dry-run on L1 to confirm readiness (no gas spent)
-  const readiness = await svc.simulateFinalizeReadiness(params);
+  const readiness = await svc.simulateFinalizeReadiness(finalization);
 
   if (readiness.kind === 'READY') {
     // 4) Submit finalize tx
-    const { hash, wait } = await svc.finalizeDeposit(params);
+    const { hash, wait } = await svc.finalize(finalization);
     console.log('L1 finalize tx:', hash);
     const rcpt = await wait();
     console.log('Finalized in block:', rcpt.blockNumber);

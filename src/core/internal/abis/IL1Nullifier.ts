@@ -1,3 +1,7 @@
+// The pre-v32 (`legacy-withdrawal`) L1Nullifier. v32 is NOT a superset of this: it removed
+// `finalizeDeposit`, `finalizeWithdrawal`, `isWithdrawalFinalized`, `claimFailedDeposit`,
+// `chainBalance`, `l2BridgeAddress`, `legacyBridge`, `transferTokenToNTV` and
+// `nullifyChainBalanceByNTV`. See `IL1NullifierV32.ts`.
 const IL1NullifierABI = [
   {
     anonymous: false,

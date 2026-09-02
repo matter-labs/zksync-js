@@ -15,6 +15,43 @@ Withdrawals are a **two-step process**:
 > If you **never finalize**, your funds remain locked — visible as “ready to withdraw,” but unavailable on L1.
 > Anyone can finalize on your behalf, but typically **you** should do it.
 
+## Protocol Versions (v31 vs v32)
+
+Protocol **v32** replaced both ends of the withdrawal flow, and neither change is backwards
+compatible:
+
+| Step         | Protocol v31 and below                            | Protocol v32 and above                              |
+| ------------ | ------------------------------------------------- | --------------------------------------------------- |
+| Initiate ETH | `L2BaseToken.withdraw(l1Receiver)`                | `InteropCenter.sendBundle(...)`                     |
+| Initiate ERC-20 | `L2AssetRouter.withdraw(assetId, transferData)` | `InteropCenter.sendBundle(...)`                     |
+| Finalize     | `L1Nullifier.finalizeDeposit(params)`             | `L1InteropHandler.executeBundle(bundle, proof)`     |
+| Check status | `L1Nullifier.isWithdrawalFinalized(...)`          | `L1InteropHandler.bundleStatus(bundleHash)`         |
+
+From v32 on, a withdrawal *is* an interop bundle: a single indirect call to the L2 asset router,
+destined for the L1 chain. Base-token and ERC-20 withdrawals share that one path.
+
+**The SDK handles this for you.** It detects the chain's withdrawal protocol once per client and
+picks the matching path, so `create`, `status`, `wait` and `finalize` behave identically on both.
+Detection uses, in order:
+
+1. The chain's protocol version, read from its `ChainTypeManager`. Note this is the *per-chain*
+   version, not the CTM's latest — during a rolling ecosystem upgrade the two differ.
+2. If that cannot be read, whether the v32-only `InteropAttributeParser` (`0x…010015`) has bytecode
+   on L2. That contract is force-deployed on every v32 chain, EraVM and ZKsync OS alike.
+
+If neither probe can run (for example the chain's Bridgehub is not reachable from your L1 provider),
+force it explicitly:
+
+```ts
+const sdk = createEthersSdk(client, { withdrawals: { protocol: 'interop-bundle' } });
+```
+
+> [!WARNING]
+> A withdrawal **initiated** before a chain's v32 upgrade cannot be finalized after it: v32 removed
+> `L1Nullifier.finalizeDeposit` entirely, and the pre-upgrade L2→L1 message is not an interop bundle.
+> Finalize in-flight withdrawals before the upgrade lands. The SDK reports this case with an explicit
+> error rather than an opaque revert.
+
 ## Why Finalization Matters
 
 * **Funds remain locked** until finalized.

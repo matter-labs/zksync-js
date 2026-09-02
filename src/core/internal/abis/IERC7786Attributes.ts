@@ -40,6 +40,19 @@ const IERC7786AttributesABI = [
   },
   {
     type: 'function',
+    name: 'interopBundleSalt',
+    inputs: [
+      {
+        name: '_salt',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
     name: 'unbundlerAddress',
     inputs: [
       {

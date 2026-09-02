@@ -36,6 +36,7 @@ import {
 } from '../../core/abi';
 import { createErrorHandlers } from './errors/error-ops';
 import { createError } from '../../core/errors/factory';
+import { unpackSemver } from '../../core/resources/protocol/semver';
 
 const { wrap } = createErrorHandlers('client');
 
@@ -46,6 +47,15 @@ const ChainTypeManagerABI = [
     name: 'getSemverProtocolVersion',
     inputs: [],
     outputs: [{ type: 'uint32' }, { type: 'uint32' }, { type: 'uint32' }],
+    stateMutability: 'view',
+  },
+  {
+    // Per-chain version. `getSemverProtocolVersion` reports the CTM's own (latest) version, which
+    // runs ahead of individual chains mid-upgrade — so capability gating must use this one.
+    type: 'function',
+    name: 'getProtocolVersion',
+    inputs: [{ name: '_chainId', type: 'uint256' }],
+    outputs: [{ type: 'uint256' }],
     stateMutability: 'view',
   },
 ] as const;
@@ -87,6 +97,18 @@ export interface ViemClient {
   baseToken(chainId: bigint): Promise<Address>;
   /** Read semver protocol version for the CTM of a chain. */
   getProtocolVersion(chainId?: bigint): Promise<ProtocolVersion>;
+
+  /**
+   * Read the protocol version of a specific chain, as recorded by its CTM.
+   *
+   * Prefer this over {@link getProtocolVersion} when gating behaviour on chain capabilities: the
+   * CTM-wide value moves as soon as the ecosystem is upgraded, while a given chain adopts the new
+   * version only once its own upgrade executes.
+   *
+   * Returns `undefined` rather than throwing when the version cannot be read (no registered CTM,
+   * unreachable Bridgehub, restricted RPC), so callers can fall back to other probes.
+   */
+  getChainProtocolVersion(chainId?: bigint): Promise<ProtocolVersion | undefined>;
 }
 
 type InitArgs = {
@@ -279,6 +301,37 @@ export function createViemClient(args: InitArgs): ViemClient {
     return semver;
   }
 
+  async function getChainProtocolVersion(chainId?: bigint): Promise<ProtocolVersion | undefined> {
+    try {
+      const targetChainId = chainId ?? BigInt(await l2.getChainId());
+      const { bridgehub } = await ensureAddresses();
+
+      const chainTypeManager = (await l1.readContract({
+        address: bridgehub,
+        abi: IBridgehubABI as Abi,
+        functionName: 'chainTypeManager',
+        args: [targetChainId],
+      })) as Address;
+
+      if (chainTypeManager.toLowerCase() === FORMAL_ETH_ADDRESS.toLowerCase()) return undefined;
+
+      const packed = (await l1.readContract({
+        address: chainTypeManager,
+        abi: ChainTypeManagerABI as Abi,
+        functionName: 'getProtocolVersion',
+        args: [targetChainId],
+      })) as bigint;
+      // A chain that was never registered reads back as 0; treat that as "unknown" rather than as
+      // protocol 0.0.0, which would otherwise be mistaken for a very old chain.
+      if (packed === 0n) return undefined;
+
+      return unpackSemver(packed);
+    } catch {
+      // Deliberately soft: the caller falls back to a bytecode probe.
+      return undefined;
+    }
+  }
+
   let lazyL2: WalletClient<Transport, Chain, Account> | undefined;
   function getL2Wallet(): WalletClient<Transport, Chain, Account> {
     if (l2Wallet) return l2Wallet;
@@ -304,6 +357,7 @@ export function createViemClient(args: InitArgs): ViemClient {
     refresh,
     baseToken,
     getProtocolVersion,
+    getChainProtocolVersion,
     getL2Wallet,
   };
 }

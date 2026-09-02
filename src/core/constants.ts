@@ -41,6 +41,17 @@ export const L2_INTEROP_HANDLER_ADDRESS: Address = '0x00000000000000000000000000
 export const L2_INTEROP_ROOT_STORAGE_ADDRESS: Address =
   '0x0000000000000000000000000000000000010008';
 
+/**
+ * The address of the L2 InteropAttributeParser contract.
+ *
+ * Introduced by protocol v32 and force-deployed on **every** v32 chain (both EraVM and ZKsync OS),
+ * which makes "is there code here?" a reliable probe for the v32 withdrawal protocol when the
+ * protocol version cannot be read. The atomic-interop built-ins are not usable this way: they are
+ * force-deployed on ZKsync OS only.
+ */
+export const L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS: Address =
+  '0x0000000000000000000000000000000000010015';
+
 /** L2 Message Verification contract address. */
 export const L2_MESSAGE_VERIFICATION_ADDRESS: Address =
   '0x0000000000000000000000000000000000010009';

@@ -8,9 +8,9 @@ import type {
   WithdrawalWaitable,
   WithdrawRoute,
   WithdrawalStatus,
-  FinalizeDepositParams,
+  ResolvedWithdrawalFinalization,
 } from '../../../../core/types/flows/withdrawals';
-import type { Address, Hex } from '../../../../core/types/primitives';
+import type { Hex } from '../../../../core/types/primitives';
 import type {
   Abi,
   EstimateContractGasParameters,
@@ -29,7 +29,13 @@ import type {
 } from './routes/types';
 import { routeEthBase } from './routes/eth';
 import { routeErc20NonBase } from './routes/erc20-nonbase';
+import { routeInteropBundle } from './routes/interop-bundle';
 import { createFinalizationServices, type FinalizationServices } from './services/finalization';
+import {
+  createWithdrawalProtocolService,
+  type WithdrawalProtocolService,
+} from './services/protocol';
+import type { WithdrawalProtocol } from '../../../../core/resources/withdrawals/protocol';
 import { OP_WITHDRAWALS } from '../../../../core/types/errors';
 import { phaseFromReadiness } from '../../../../core/resources/withdrawals/status';
 import type { ReceiptWithL2ToL1 } from '../../../../core/rpc/types';
@@ -41,10 +47,26 @@ import type { ContractsResource } from '../contracts';
 // --------------------
 // Withdrawal Route map
 // --------------------
+/**
+ * Protocol v31 routes: one dedicated `withdraw` entry point per token kind.
+ */
 export const ROUTES: Record<WithdrawRoute, WithdrawRouteStrategy> = {
   base: routeEthBase(), // BaseTokenSystem.withdraw, chain base = ETH
   'erc20-nonbase': routeErc20NonBase(), // AssetRouter.withdraw for non-base ERC-20s
 };
+
+/**
+ * Protocol v32+ routes: both token kinds go through the same InteropCenter bundle, so the route
+ * still selects the *shape* of the withdrawal (base vs ERC-20) but the builder is shared.
+ */
+const INTEROP_ROUTES: Record<WithdrawRoute, WithdrawRouteStrategy> = {
+  base: routeInteropBundle(),
+  'erc20-nonbase': routeInteropBundle(),
+};
+
+function routeStrategy(protocol: WithdrawalProtocol, route: WithdrawRoute): WithdrawRouteStrategy {
+  return protocol === 'interop-bundle' ? INTEROP_ROUTES[route] : ROUTES[route];
+}
 
 export interface WithdrawalsResource {
   // Get a quote for a withdrawal operation
@@ -119,13 +141,29 @@ export interface WithdrawalsResource {
   >;
 }
 
+export interface WithdrawalsResourceOptions {
+  /**
+   * Force a withdrawal protocol instead of detecting it.
+   *
+   * Only needed when detection cannot run — e.g. the chain's Bridgehub is not reachable from the
+   * configured L1 provider, so neither the protocol version nor a bytecode probe is conclusive.
+   */
+  protocol?: WithdrawalProtocol;
+}
+
 export function createWithdrawalsResource(
   client: ViemClient,
   tokens?: TokensResource,
   contracts?: ContractsResource,
+  options?: WithdrawalsResourceOptions,
 ): WithdrawalsResource {
+  // Which withdrawal protocol this chain speaks; cached for the client's lifetime.
+  const protocolService: WithdrawalProtocolService = createWithdrawalProtocolService(
+    client,
+    options?.protocol,
+  );
   // Finalization services
-  const svc: FinalizationServices = createFinalizationServices(client);
+  const svc: FinalizationServices = createFinalizationServices(client, protocolService);
   // error handlers
   const { wrap, toResult } = createErrorHandlers('withdrawals');
   const tokensResource = tokens ?? createTokensResource(client);
@@ -133,10 +171,12 @@ export function createWithdrawalsResource(
 
   // Build a withdrawal plan (route + steps) without executing it
   async function buildPlan(p: WithdrawParams): Promise<WithdrawPlan<ViemPlanWriteRequest>> {
-    const ctx = await commonCtx(p, client, tokensResource, contractsResource);
+    const protocol = await protocolService.protocol();
+    const ctx = await commonCtx(p, client, tokensResource, contractsResource, protocol);
+    const strategy = routeStrategy(protocol, ctx.route);
 
-    await ROUTES[ctx.route].preflight?.(p, ctx);
-    const { steps, approvals, fees } = await ROUTES[ctx.route].build(p, ctx);
+    await strategy.preflight?.(p, ctx);
+    const { steps, approvals, fees } = await strategy.build(p, ctx);
 
     return {
       route: ctx.route,
@@ -357,28 +397,29 @@ export function createWithdrawalsResource(
         if (!l2Rcpt) return { phase: 'L2_PENDING', l2TxHash };
 
         // Derive finalize params/key — if unavailable, not ready yet
-        let pack: { params: FinalizeDepositParams; nullifier: Address } | undefined;
+        let pack: ResolvedWithdrawalFinalization | undefined;
         try {
-          pack = await svc.fetchFinalizeDepositParams(l2TxHash);
+          pack = await svc.fetchFinalization(l2TxHash);
         } catch {
           return { phase: 'PENDING', l2TxHash };
         }
 
-        const key = {
-          chainIdL2: pack.params.chainId,
-          l2BatchNumber: pack.params.l2BatchNumber,
-          l2MessageIndex: pack.params.l2MessageIndex,
-        };
+        const key = pack.key;
 
         try {
-          const done = await svc.isWithdrawalFinalized(key);
-          if (done) return { phase: 'FINALIZED', l2TxHash, key };
+          const outcome = await svc.withdrawalOutcome(pack.finalization);
+          if (outcome === 'finalized') return { phase: 'FINALIZED', l2TxHash, key };
+          // The destination unwound the bundle and cancelled its call: nothing was paid out and
+          // nothing more can be done, so this must not be reported as pending.
+          if (outcome === 'failed') {
+            return { phase: 'UNFINALIZABLE', l2TxHash, key, reason: 'bundle-cancelled' };
+          }
         } catch {
           // ignore; continue to readiness simulation
         }
 
         // check finalization would succeed right now
-        const readiness = await svc.simulateFinalizeReadiness(pack.params);
+        const readiness = await svc.simulateFinalizeReadiness(pack.finalization);
         const { phase, reason } = phaseFromReadiness(readiness);
 
         return { phase, reason, l2TxHash, key };
@@ -500,7 +541,7 @@ export function createWithdrawalsResource(
       async () => {
         const pack = await (async () => {
           try {
-            return await svc.fetchFinalizeDepositParams(l2TxHash);
+            return await svc.fetchFinalization(l2TxHash);
           } catch (e: unknown) {
             throw createError('STATE', {
               resource: 'withdrawals',
@@ -512,16 +553,12 @@ export function createWithdrawalsResource(
           }
         })();
 
-        const { params } = pack;
-        const key = {
-          chainIdL2: params.chainId,
-          l2BatchNumber: params.l2BatchNumber,
-          l2MessageIndex: params.l2MessageIndex,
-        };
+        const { finalization } = pack;
 
         try {
-          const done = await svc.isWithdrawalFinalized(key);
-          if (done) {
+          const outcome = await svc.withdrawalOutcome(finalization);
+          // `failed` is terminal too: re-sending would only revert with BundleAlreadyProcessed.
+          if (outcome === 'finalized' || outcome === 'failed') {
             const statusNow = await status(l2TxHash);
             return { status: statusNow };
           }
@@ -529,7 +566,7 @@ export function createWithdrawalsResource(
           // ignore; continue to readiness simulation
         }
 
-        const readiness = await svc.simulateFinalizeReadiness(params);
+        const readiness = await svc.simulateFinalizeReadiness(finalization);
         if (readiness.kind === 'FINALIZED') {
           const statusNow = await status(l2TxHash);
           return { status: statusNow };
@@ -545,7 +582,7 @@ export function createWithdrawalsResource(
 
         // READY → send finalize tx on L1
         try {
-          const tx = await svc.finalizeDeposit(params);
+          const tx = await svc.finalize(finalization);
           finalizeCache.set(l2TxHash, tx.hash);
           const rcpt = await tx.wait();
           const statusNow = await status(l2TxHash);
@@ -555,7 +592,7 @@ export function createWithdrawalsResource(
           if (statusNow.phase === 'FINALIZED') return { status: statusNow };
 
           try {
-            const again = await svc.simulateFinalizeReadiness(params);
+            const again = await svc.simulateFinalizeReadiness(finalization);
             if (again.kind === 'NOT_READY') {
               throw createError('STATE', {
                 resource: 'withdrawals',
@@ -630,3 +667,5 @@ export function createWithdrawalsResource(
 
 export { createFinalizationServices };
 export type { FinalizationServices };
+export { createWithdrawalProtocolService };
+export type { WithdrawalProtocolService };

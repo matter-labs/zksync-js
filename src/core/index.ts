@@ -7,6 +7,7 @@ export {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L1_SOPH_TOKEN_ADDRESS,
+  L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
 } from './constants';
 
 export * as abi from './abi';
@@ -24,6 +25,11 @@ export * from './utils/hash';
 // Core resources (routes, events, logs)
 export * from './resources/deposits/route';
 export * from './resources/withdrawals/route';
+export * from './resources/withdrawals/protocol';
+export * from './resources/withdrawals/status';
+export * from './resources/withdrawals/bundle';
+export * from './resources/withdrawals/finalization';
+export * from './resources/protocol/semver';
 export * from './utils/events';
 export * from './resources/withdrawals/logs';
 
