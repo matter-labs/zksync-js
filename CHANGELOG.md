@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.22](https://github.com/matter-labs/zksync-js/compare/v0.0.21...v0.0.22) (2026-09-02)
+
+
+### Features
+
+* **withdrawals:** support both the v31 and v32 withdrawal protocols ([#117](https://github.com/matter-labs/zksync-js/issues/117)) ([f065f00](https://github.com/matter-labs/zksync-js/commit/f065f00eae5f0adb7ce7d370a62234938b2bb94b))
+
 ## [0.0.21](https://github.com/matter-labs/zksync-js/compare/v0.0.20...v0.0.21) (2026-08-21)
 
 
