@@ -4,8 +4,10 @@ import type {
   Hash,
   TransactionRequest,
   RpcAccountStateOverride,
+  RpcTransactionRequest,
 } from 'viem';
 import type { GasEstimator, CoreTransactionRequest } from '../../core/adapters/interfaces';
+import { ZKSYNC_OS_PRIORITY_TX_TYPE } from '../../core/constants';
 
 export function toCoreTx(tx: TransactionRequest): CoreTransactionRequest {
   return {
@@ -61,6 +63,21 @@ export function viemToGasEstimator(client: PublicClient): GasEstimator {
         maxFeePerGas: tx.maxFeePerGas,
         maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
       });
+    },
+
+    async estimatePriorityTxGas(tx: CoreTransactionRequest): Promise<bigint> {
+      const result = await client.request({
+        method: 'eth_estimateGas',
+        params: [
+          {
+            from: tx.from as Address,
+            to: tx.to,
+            data: tx.data as Hash,
+            type: ZKSYNC_OS_PRIORITY_TX_TYPE,
+          } as unknown as RpcTransactionRequest,
+        ],
+      });
+      return BigInt(result as string);
     },
 
     async estimateFeesPerGas(): Promise<{

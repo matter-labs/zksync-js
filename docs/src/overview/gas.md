@@ -62,6 +62,21 @@ For non-base asset-router deposits, the quote depends on whether the bridged ass
 
 When the bridged asset already exists on L2, the SDK asks `L1AssetRouter.getDepositCalldata(...)` for the exact L2 finalize-deposit calldata, computes the exact canonical priority-transaction encoding length, and applies the same validator-floor formula shown above.
 
+The validator floor only covers L1-side validation. The real L2 execution (`finalizeDeposit` on the L2 asset router plus the vault mint) is quoted from the node: the SDK runs `eth_estimateGas` for that call with the L1 asset router's aliased L2 address as sender and the ZKsync OS priority transaction type (`0x7f`), which makes the node simulate a real L1→L2 transaction including pubdata. The estimate is buffered by 20% and never goes below the validator floor:
+
+```typescript
+l2GasLimit = max(validatorFloor, nodeEstimate * 1.2)
+```
+
+When the node cannot estimate priority transactions, the SDK falls back to a measured bridge-mint model instead of the bare floor:
+
+```typescript
+modeledGas = 140_000 + 300 * gasPerPubdata
+l2GasLimit = max(validatorFloor, modeledGas * 1.4)
+```
+
+The constants come from a registered-token deposit on zksync-os-server v0.23 at 800 gas per pubdata byte: 137,321 gas of L2 execution and 367,200 gas consumed by the priority transaction, while the bare validator floor (364,285) ran out of gas.
+
 This keeps the quote asset-specific because calldata length depends on the actual bridge payload.
 
 #### First Deployment Path

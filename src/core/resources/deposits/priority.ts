@@ -12,9 +12,12 @@ import {
   L1_TX_NATIVE_PER_GAS,
   MAX_NATIVE_COMPUTATIONAL_ZKSYNC_OS,
   PRIORITY_TX_MAX_GAS_LIMIT,
+  REGISTERED_TOKEN_BRIDGE_MINT_EXECUTION_GAS,
+  REGISTERED_TOKEN_BRIDGE_MINT_PUBDATA_BYTES,
   TX_MEMORY_OVERHEAD_GAS,
   TX_SLOT_OVERHEAD_L2_GAS,
 } from '../../constants';
+import { applyGasBuffer } from './gas';
 
 export type PriorityTxGasBreakdown = {
   encodedLength: bigint;
@@ -24,6 +27,13 @@ export type PriorityTxGasBreakdown = {
   derivedL2GasLimit: bigint;
   priorityTxMaxGasLimit: bigint;
   priorityTxMaxGasLimitExceeded: boolean;
+};
+
+/** The L2 call a priority tx performs, as seen from L2 (aliased L1 sender). */
+export type PriorityTxL2Leg = {
+  from: Address;
+  to: Address;
+  data: `0x${string}`;
 };
 
 const PRIORITY_TX_ENCODING_STEP_BYTES = 544n;
@@ -140,5 +150,30 @@ export function clampPriorityL2GasLimit(input: {
       calldataLength: BigInt(Math.max(input.l2Calldata.length - 2, 0) / 2),
       gasPerPubdata: input.gasPerPubdata,
     }),
+  );
+}
+
+/**
+ * `l2GasLimit` for finalizing a deposit of a token that already exists on L2.
+ * The validator floor only covers L1-side validation, so the real execution comes from the node's
+ * priority-tx estimate, or from the measured bridge-mint model when the node cannot provide one.
+ */
+export function resolveRegisteredTokenPriorityL2GasLimit(input: {
+  chainIdL2: bigint;
+  priorityFloorGasLimit: bigint;
+  gasPerPubdata: bigint;
+  nodeEstimate?: bigint;
+}): bigint {
+  if (input.nodeEstimate != null && input.nodeEstimate > 0n) {
+    return maxBigInt(input.priorityFloorGasLimit, applyGasBuffer(input.nodeEstimate));
+  }
+
+  const modeledGas =
+    REGISTERED_TOKEN_BRIDGE_MINT_EXECUTION_GAS +
+    REGISTERED_TOKEN_BRIDGE_MINT_PUBDATA_BYTES * input.gasPerPubdata;
+
+  return maxBigInt(
+    input.priorityFloorGasLimit,
+    applyPriorityL2GasLimitBuffer({ chainIdL2: input.chainIdL2, gasLimit: modeledGas }),
   );
 }

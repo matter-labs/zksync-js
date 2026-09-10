@@ -4,6 +4,7 @@ import {
   applyPriorityL2GasLimitBuffer,
   clampPriorityL2GasLimit,
   minimalPriorityTxL2Gas,
+  resolveRegisteredTokenPriorityL2GasLimit,
 } from '../priority';
 
 describe('deposit/priority applyPriorityL2GasLimitBuffer', () => {
@@ -59,5 +60,48 @@ describe('deposit/priority clampPriorityL2GasLimit', () => {
     expect(clampPriorityL2GasLimit({ gasLimit: 1n, l2Calldata, gasPerPubdata: 800n })).toBe(
       421_000n,
     );
+  });
+});
+
+describe('deposit/priority resolveRegisteredTokenPriorityL2GasLimit', () => {
+  // Observed on zksync-os-server v0.23: validator floor 364_285 (ran out of gas), real usage 367_200,
+  // node priority-tx estimate 529_136.
+  const observed = {
+    chainIdL2: 506n,
+    priorityFloorGasLimit: 364_285n,
+    gasPerPubdata: 800n,
+  };
+
+  it('buffers the node priority-tx estimate by 20%', () => {
+    expect(resolveRegisteredTokenPriorityL2GasLimit({ ...observed, nodeEstimate: 529_136n })).toBe(
+      634_963n,
+    );
+  });
+
+  it('never quotes below the validator floor', () => {
+    expect(resolveRegisteredTokenPriorityL2GasLimit({ ...observed, nodeEstimate: 100_000n })).toBe(
+      364_285n,
+    );
+  });
+
+  it('falls back to the measured bridge-mint model without a node estimate', () => {
+    // (140_000 + 300 * 800) * 1.4
+    expect(resolveRegisteredTokenPriorityL2GasLimit(observed)).toBe(532_000n);
+    expect(resolveRegisteredTokenPriorityL2GasLimit({ ...observed, nodeEstimate: 0n })).toBe(
+      532_000n,
+    );
+  });
+
+  it('scales the fallback model with gasPerPubdata', () => {
+    // (140_000 + 300 * 2_000) * 1.4
+    expect(resolveRegisteredTokenPriorityL2GasLimit({ ...observed, gasPerPubdata: 2_000n })).toBe(
+      1_036_000n,
+    );
+  });
+
+  it('keeps a higher validator floor over the fallback model', () => {
+    expect(
+      resolveRegisteredTokenPriorityL2GasLimit({ ...observed, priorityFloorGasLimit: 900_000n }),
+    ).toBe(900_000n);
   });
 });

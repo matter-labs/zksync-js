@@ -24,5 +24,8 @@ export interface GasEstimator {
 
   getGasPrice(): Promise<bigint>;
 
+  /** Estimate `tx` as an L1->L2 priority tx; rejects when the node cannot simulate that tx type. */
+  estimatePriorityTxGas?(tx: CoreTransactionRequest): Promise<bigint>;
+
   call(tx: { to: Address; data?: string; value?: bigint; from?: Address }): Promise<string>;
 }

@@ -28,7 +28,9 @@ import {
 } from '../../../core/constants.ts';
 import {
   applyPriorityL2GasLimitBuffer,
+  clampPriorityL2GasLimit,
   derivePriorityBodyGasEstimateCap,
+  resolveRegisteredTokenPriorityL2GasLimit,
 } from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import type { TokensResource, ResolvedToken } from '../../../core/types/flows/token.ts';
@@ -230,7 +232,7 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     });
   }
 
-  it('uses the derived priority-floor gas limit when the bridged ETH token is already deployed on L2', async () => {
+  it('uses the node priority-tx estimate over the floor when the bridged ETH token is already deployed on L2', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness, {
       l2GasLimit: undefined,
@@ -248,10 +250,22 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       RECEIVER,
     );
 
-    const expectedL2GasLimit = applyPriorityL2GasLimitBuffer({
-      chainIdL2: ctx.chainIdL2,
-      gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+    const priorityFloorGasLimit = clampPriorityL2GasLimit({
+      gasLimit: applyPriorityL2GasLimitBuffer({
+        chainIdL2: ctx.chainIdL2,
+        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      }),
+      l2Calldata: DEPLOYED_ETH_L2_CALLDATA,
+      gasPerPubdata: ctx.gasPerPubdata,
     });
+    const nodeEstimate = 529_136n;
+    const expectedL2GasLimit = resolveRegisteredTokenPriorityL2GasLimit({
+      chainIdL2: ctx.chainIdL2,
+      priorityFloorGasLimit,
+      gasPerPubdata: ctx.gasPerPubdata,
+      nodeEstimate,
+    });
+    harness.setPriorityEstimateGas(nodeEstimate);
 
     setBridgehubBaseCost(harness, ctx, baseCost, {
       l2GasLimit: expectedL2GasLimit,

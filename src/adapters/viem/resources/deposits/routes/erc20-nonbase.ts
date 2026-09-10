@@ -26,9 +26,11 @@ import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
+  applyL1ToL2Alias,
   applyPriorityL2GasLimitBuffer,
   clampPriorityL2GasLimit,
   derivePriorityBodyGasEstimateCap,
+  type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 import { buildApprovalRequest } from './approval';
@@ -46,6 +48,7 @@ const ntvCodec = createNTVCodec({
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 };
 
@@ -136,6 +139,11 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
+      priorityTxL2Leg: {
+        from: applyL1ToL2Alias(input.ctx.l1AssetRouter),
+        to: L2_ASSET_ROUTER_ADDRESS,
+        data: l2Calldata,
+      },
       priorityFloorGasLimit: clampPriorityL2GasLimit({
         gasLimit: applyPriorityL2GasLimitBuffer({
           chainIdL2: input.ctx.chainIdL2,
@@ -229,6 +237,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         ctx,
         l1Token: p.token,
         priorityFloorGasLimit: priorityGasModel.priorityFloorGasLimit,
+        priorityTxL2Leg: priorityGasModel.priorityTxL2Leg,
         undeployedGasLimit: priorityGasModel.undeployedGasLimit,
         modelTx: {
           to: receiver,
