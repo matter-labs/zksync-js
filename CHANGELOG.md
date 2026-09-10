@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.23](https://github.com/matter-labs/zksync-js/compare/v0.0.22...v0.0.23) (2026-09-10)
+
+
+### Bug Fixes
+
+* support protocol v33 bridging for ERC-20 deposits and withdrawals ([#126](https://github.com/matter-labs/zksync-js/issues/126)) ([242b753](https://github.com/matter-labs/zksync-js/commit/242b753076afcc45bcab309e8eb6a29dbe6dfa55))
+
 ## [0.0.22](https://github.com/matter-labs/zksync-js/compare/v0.0.21...v0.0.22) (2026-09-02)
 
 
