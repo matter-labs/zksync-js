@@ -199,22 +199,25 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const allowance = (await wrapAs(
         'RPC',
         OP_DEPOSITS.ethNonBase.allowanceBase,
-        () => erc20Base.allowance(ctx.sender, ctx.l1AssetRouter),
+        () => erc20Base.allowance(ctx.sender, ctx.l1NativeTokenVault),
         {
-          ctx: { where: 'erc20.allowance', token: baseToken, spender: ctx.l1AssetRouter },
+          ctx: { where: 'erc20.allowance', token: baseToken, spender: ctx.l1NativeTokenVault },
           message: 'Failed to read base-token allowance.',
         },
       )) as bigint;
 
       if (allowance < mintValue) {
-        approvals.push({ token: baseToken, spender: ctx.l1AssetRouter, amount: mintValue });
+        approvals.push({ token: baseToken, spender: ctx.l1NativeTokenVault, amount: mintValue });
         steps.push({
-          key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
+          key: `approve:${baseToken}:${ctx.l1NativeTokenVault}`,
           kind: 'approve',
           description: `Approve base token for fees (mintValue)`,
           tx: {
             to: baseToken,
-            data: erc20Base.interface.encodeFunctionData('approve', [ctx.l1AssetRouter, mintValue]),
+            data: erc20Base.interface.encodeFunctionData('approve', [
+              ctx.l1NativeTokenVault,
+              mintValue,
+            ]),
             from: ctx.sender,
             ...ctx.gasOverrides,
           },

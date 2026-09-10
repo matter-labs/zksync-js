@@ -573,6 +573,7 @@ export type DepositTestContext<T extends AdapterHarness> = {
   chainIdL2: bigint;
   bridgehub: Address;
   l1AssetRouter: Address;
+  l1NativeTokenVault: Address;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
   refundRecipient: Address;
@@ -606,6 +607,7 @@ export function makeDepositContext<T extends AdapterHarness>(
     chainIdL2: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
     l1AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+    l1NativeTokenVault: ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
     l2GasLimit: 600_000n,
     gasPerPubdata: 800n,
     refundRecipient: ADAPTER_TEST_ADDRESSES.signer,

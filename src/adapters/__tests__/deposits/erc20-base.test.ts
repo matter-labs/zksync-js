@@ -38,7 +38,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
       harness,
       ADAPTER_TEST_ADDRESSES.baseTokenFor324,
       ctx.sender,
-      ctx.l1AssetRouter,
+      ctx.l1NativeTokenVault,
       expectedMint,
     );
 
@@ -77,7 +77,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
       harness,
       ADAPTER_TEST_ADDRESSES.baseTokenFor324,
       ctx.sender,
-      ctx.l1AssetRouter,
+      ctx.l1NativeTokenVault,
       expectedMint - 1n,
     );
 
@@ -87,7 +87,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     expect(res.approvals.length).toBe(1);
     const [approval] = res.approvals;
     expect(approval.token.toLowerCase()).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
-    expect(approval.spender.toLowerCase()).toBe(ctx.l1AssetRouter.toLowerCase());
+    expect(approval.spender.toLowerCase()).toBe(ctx.l1NativeTokenVault.toLowerCase());
     expect(approval.amount).toBe(expectedMint);
     expect(res.fees?.mintValue).toBe(expectedMint);
     expect(res.steps.length).toBe(2);
@@ -96,7 +96,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     expect(approve.kind).toBe('approve');
     const approveInfo = parseApproveTx(kind, approve.tx);
     expect(approveInfo.to).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
-    expect(approveInfo.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+    expect(approveInfo.spender).toBe(ctx.l1NativeTokenVault.toLowerCase());
     expect(approveInfo.amount).toBe(expectedMint);
 
     const bridge = res.steps[1];
@@ -120,7 +120,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
         harness,
         ADAPTER_TEST_ADDRESSES.baseTokenFor324,
         ctx.sender,
-        ctx.l1AssetRouter,
+        ctx.l1NativeTokenVault,
         expectedMint - 1n,
       );
       harness.setSimulateError(noReturnApproveError());
@@ -135,7 +135,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
 
       const approveInfo = parseApproveTx('viem', res.steps[0].tx);
       expect(approveInfo.to).toBe(ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase());
-      expect(approveInfo.spender).toBe(ctx.l1AssetRouter.toLowerCase());
+      expect(approveInfo.spender).toBe(ctx.l1NativeTokenVault.toLowerCase());
       expect(approveInfo.amount).toBe(expectedMint);
     });
 
@@ -151,7 +151,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
         harness,
         ADAPTER_TEST_ADDRESSES.baseTokenFor324,
         ctx.sender,
-        ctx.l1AssetRouter,
+        ctx.l1NativeTokenVault,
         expectedMint - 1n,
       );
       harness.setSimulateError(new Error('execution reverted'));
@@ -184,7 +184,7 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
         harness,
         ADAPTER_TEST_ADDRESSES.baseTokenFor324,
         ctx.sender,
-        ctx.l1AssetRouter,
+        ctx.l1NativeTokenVault,
         expectedMint,
       );
       harness.setEstimateGas(new Error('no gas'));
