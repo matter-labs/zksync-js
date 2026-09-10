@@ -112,8 +112,17 @@ export function createTokensResource(client: ViemClient): TokensResource {
         return await client.baseToken(chainId);
       }
 
-      const { l2AssetRouter } = await client.contracts();
-      const l1Token = await l2AssetRouter.read.l1TokenAddress([l2Token]);
+      const { l2NativeTokenVault, l1NativeTokenVault } = await client.contracts();
+      const assetId = await l2NativeTokenVault.read.assetId([l2Token]);
+      if (BigInt(assetId) === 0n) {
+        throw new Error(`Token ${l2Token} is not registered in the L2 NativeTokenVault.`);
+      }
+      const l1Token = await l1NativeTokenVault.read.tokenAddress([assetId]);
+      if (BigInt(l1Token) === 0n) {
+        throw new Error(
+          `Token ${l2Token} has no L1 counterpart registered in the L1 NativeTokenVault.`,
+        );
+      }
       return l1Token;
     });
   }

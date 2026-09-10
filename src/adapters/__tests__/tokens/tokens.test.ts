@@ -7,6 +7,7 @@ import {
   ADAPTER_TEST_ADDRESSES,
   describeForAdapters,
   createAdapterHarness,
+  recordContractReads,
 } from '../adapter-harness';
 import {
   ETH_ADDRESS,
@@ -15,13 +16,12 @@ import {
   L2_BASE_TOKEN_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
 } from '../../../core/constants';
-import { IL2AssetRouterABI, L1NativeTokenVaultABI, L2NativeTokenVaultABI } from '../../../core/abi';
+import { L1NativeTokenVaultABI, L2NativeTokenVaultABI } from '../../../core/abi';
 import { createNTVCodec } from '../../../core/codec/ntv';
 import type { AdapterHarness } from '../adapter-harness';
 
 const L1NTV = new Interface(L1NativeTokenVaultABI as any);
 const L2NTV = new Interface(L2NativeTokenVaultABI as any);
-const L2AR = new Interface(IL2AssetRouterABI as any);
 
 const ntvCodec = createNTVCodec({
   encode: (types, values) => AbiCoder.defaultAbiCoder().encode(types, values) as `0x${string}`,
@@ -60,7 +60,6 @@ describeForAdapters('tokens resource', (kind) => {
     harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'l2TokenAddress', l2Token, [
       l1Token,
     ]);
-    harness.registry.set(L2_ASSET_ROUTER_ADDRESS, L2AR, 'l1TokenAddress', l1Token, [l2Token]);
     harness.registry.set(
       L2_NATIVE_TOKEN_VAULT_ADDRESS,
       L2NTV,
@@ -88,6 +87,73 @@ describeForAdapters('tokens resource', (kind) => {
       ADAPTER_TEST_ADDRESSES.baseTokenFor324.toLowerCase(),
     );
     expect(resolved.wethL2.toLowerCase()).toBe(L2_BASE_TOKEN_ADDRESS.toLowerCase());
+  });
+
+  it('resolves an L2 ERC20 through the NativeTokenVault, never the removed L2AssetRouter.l1TokenAddress', async () => {
+    const harness = createAdapterHarness(kind);
+    const tokens = makeTokens(harness);
+    const reads = recordContractReads(harness);
+
+    const l1Token = '0x0000000000000000000000000000000000000111' as const;
+    const l2Token = '0x0000000000000000000000000000000000000222' as const;
+    const assetId = '0xaaa0000000000000000000000000000000000000000000000000000000000001' as const;
+    const baseTokenAssetId =
+      '0xbbb0000000000000000000000000000000000000000000000000000000000002' as const;
+
+    harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'assetId', assetId, [l2Token]);
+    harness.registry.set(
+      ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
+      L1NTV,
+      'tokenAddress',
+      l1Token,
+      [assetId],
+    );
+    harness.registry.set(ADAPTER_TEST_ADDRESSES.l1NativeTokenVault, L1NTV, 'assetId', assetId, [
+      l1Token,
+    ]);
+    harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'originChainId', 1n, [assetId]);
+    harness.registry.set(
+      L2_NATIVE_TOKEN_VAULT_ADDRESS,
+      L2NTV,
+      'BASE_TOKEN_ASSET_ID',
+      baseTokenAssetId,
+    );
+    harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'L1_CHAIN_ID', 1n);
+    harness.registry.set(
+      ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
+      L1NTV,
+      'WETH_TOKEN',
+      ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+    );
+    harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'WETH_TOKEN', L2_BASE_TOKEN_ADDRESS);
+
+    expect((await tokens.toL1Address(l2Token)).toLowerCase()).toBe(l1Token);
+
+    const resolved = await tokens.resolve(l2Token, { chain: 'l2' });
+    expect(resolved.kind).toBe('erc20');
+    expect(resolved.l1.toLowerCase()).toBe(l1Token);
+    expect(resolved.l2.toLowerCase()).toBe(l2Token);
+    expect(resolved.assetId.toLowerCase()).toBe(assetId);
+
+    expect(reads.some((r) => r.address === L2_ASSET_ROUTER_ADDRESS.toLowerCase())).toBe(false);
+    expect(reads.some((r) => r.fn === 'l1TokenAddress' || r.selector === '0xf54266a2')).toBe(false);
+    expect(
+      reads
+        .filter((r) => r.address === L2_NATIVE_TOKEN_VAULT_ADDRESS.toLowerCase())
+        .map((r) => r.fn),
+    ).toContain('assetId');
+  });
+
+  it('rejects an L2 token the L2 NativeTokenVault does not know', async () => {
+    const harness = createAdapterHarness(kind);
+    const tokens = makeTokens(harness);
+    const l2Token = '0x0000000000000000000000000000000000000333' as const;
+
+    harness.registry.set(L2_NATIVE_TOKEN_VAULT_ADDRESS, L2NTV, 'assetId', `0x${'00'.repeat(32)}`, [
+      l2Token,
+    ]);
+
+    await expect(tokens.toL1Address(l2Token)).rejects.toThrow(/not registered/);
   });
 
   it('detects ETH-based chains via baseTokenAssetId', async () => {

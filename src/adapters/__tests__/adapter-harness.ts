@@ -784,6 +784,42 @@ export function setBridgehubBaseToken<T extends AdapterHarness>(
   ]);
 }
 
+export type RecordedContractRead = { address: string; selector?: string; fn?: string };
+
+/** Records every mocked contract read on both chains; ethers yields selectors, viem function names. */
+export function recordContractReads(harness: AdapterHarness): RecordedContractRead[] {
+  const reads: RecordedContractRead[] = [];
+  const registry = harness.registry;
+  const getEncoded = registry.getEncoded.bind(registry);
+  const getValue = registry.getValue.bind(registry);
+  registry.getEncoded = (address, data) => {
+    const selector = data.slice(0, 10).toLowerCase();
+    reads.push({ address: lower(address), selector, fn: selectorToFn(selector) });
+    return getEncoded(address, data);
+  };
+  registry.getValue = (address, fn, args) => {
+    reads.push({ address: lower(address), fn });
+    return getValue(address, fn, args);
+  };
+  return reads;
+}
+
+const KNOWN_INTERFACES = [
+  IBridgehub,
+  IL1AssetRouter,
+  IL1Nullifier,
+  IERC20,
+  L2NativeTokenVault,
+  IInteropCenter,
+];
+function selectorToFn(selector: string): string | undefined {
+  for (const iface of KNOWN_INTERFACES) {
+    const fn = iface.getFunction(selector);
+    if (fn) return fn.name;
+  }
+  return undefined;
+}
+
 export function setErc20Allowance<T extends AdapterHarness>(
   harness: T,
   token: Address,
