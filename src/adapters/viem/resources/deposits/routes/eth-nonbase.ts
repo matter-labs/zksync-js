@@ -29,8 +29,11 @@ import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
+  applyL1ToL2Alias,
   applyPriorityL2GasLimitBuffer,
+  clampPriorityL2GasLimit,
   derivePriorityBodyGasEstimateCap,
+  type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 import { buildApprovalRequest } from './approval';
@@ -48,6 +51,7 @@ const ntvCodec = createNTVCodec({
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 };
 
@@ -95,9 +99,18 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
-      priorityFloorGasLimit: applyPriorityL2GasLimitBuffer({
-        chainIdL2: input.ctx.chainIdL2,
-        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      priorityTxL2Leg: {
+        from: applyL1ToL2Alias(input.ctx.l1AssetRouter),
+        to: L2_ASSET_ROUTER_ADDRESS,
+        data: l2Calldata,
+      },
+      priorityFloorGasLimit: clampPriorityL2GasLimit({
+        gasLimit: applyPriorityL2GasLimitBuffer({
+          chainIdL2: input.ctx.chainIdL2,
+          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        }),
+        l2Calldata,
+        gasPerPubdata: input.ctx.gasPerPubdata,
       }),
     };
 
@@ -184,6 +197,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         ctx,
         modelTx: l2TxModel,
         priorityFloorGasLimit: priorityGasModel.priorityFloorGasLimit,
+        priorityTxL2Leg: priorityGasModel.priorityTxL2Leg,
         undeployedGasLimit: priorityGasModel.undeployedGasLimit,
       });
 
@@ -205,10 +219,10 @@ export function routeEthNonBase(): DepositRouteStrategy {
             address: baseToken,
             abi: IERC20ABI as Abi,
             functionName: 'allowance',
-            args: [ctx.sender, ctx.l1AssetRouter],
+            args: [ctx.sender, ctx.l1NativeTokenVault],
           }),
         {
-          ctx: { where: 'erc20.allowance', token: baseToken, spender: ctx.l1AssetRouter },
+          ctx: { where: 'erc20.allowance', token: baseToken, spender: ctx.l1NativeTokenVault },
           message: 'Failed to read base-token allowance.',
         },
       )) as bigint;
@@ -223,7 +237,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
             buildApprovalRequest({
               ctx,
               token: baseToken,
-              spender: ctx.l1AssetRouter,
+              spender: ctx.l1NativeTokenVault,
               amount: mintValue,
             }),
           {
@@ -232,9 +246,9 @@ export function routeEthNonBase(): DepositRouteStrategy {
           },
         );
 
-        approvals.push({ token: baseToken, spender: ctx.l1AssetRouter, amount: mintValue });
+        approvals.push({ token: baseToken, spender: ctx.l1NativeTokenVault, amount: mintValue });
         steps.push({
-          key: `approve:${baseToken}:${ctx.l1AssetRouter}`,
+          key: `approve:${baseToken}:${ctx.l1NativeTokenVault}`,
           kind: 'approve',
           description: `Approve base token for fees (mintValue)`,
           tx: approveTx,

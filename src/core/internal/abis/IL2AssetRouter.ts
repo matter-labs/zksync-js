@@ -122,13 +122,6 @@ const IL2AssetRouterABI = [
   },
   {
     type: 'function',
-    name: 'l1TokenAddress',
-    inputs: [{ name: '_l2Token', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     name: 'l2TokenAddress',
     inputs: [{ name: '_l1Token', type: 'address', internalType: 'address' }],
     outputs: [{ name: '', type: 'address', internalType: 'address' }],

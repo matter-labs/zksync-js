@@ -137,9 +137,18 @@ export function createTokensResource(client: EthersClient): TokensResource {
         return await client.baseToken(BigInt(chainId));
       }
 
-      // Query L2 AssetRouter for L1 token address
-      const { l2AssetRouter } = await client.contracts();
-      const l1Token = (await l2AssetRouter.l1TokenAddress(l2Token)) as Hex;
+      // Query L2 NTV for the assetId, then L1 NTV for the token behind it
+      const { l2NativeTokenVault, l1NativeTokenVault } = await client.contracts();
+      const assetId = (await l2NativeTokenVault.assetId(l2Token)) as Hex;
+      if (BigInt(assetId) === 0n) {
+        throw new Error(`Token ${l2Token} is not registered in the L2 NativeTokenVault.`);
+      }
+      const l1Token = (await l1NativeTokenVault.tokenAddress(assetId)) as Hex;
+      if (BigInt(l1Token) === 0n) {
+        throw new Error(
+          `Token ${l2Token} has no L1 counterpart registered in the L1 NativeTokenVault.`,
+        );
+      }
       return l1Token;
     });
   }

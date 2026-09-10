@@ -117,6 +117,22 @@ export const L1_TX_DELTA_FACTORY_DEPS_PUBDATA = 64n;
 export const TX_SLOT_OVERHEAD_L2_GAS = 10_000n;
 export const PRIORITY_TX_MAX_GAS_LIMIT = 72_000_000n;
 
+// ZKsync OS (protocol v33+) priority-tx minimum, TransactionValidator zksyncOS=true branch
+export const L1_TX_INTRINSIC_L2_GAS_ZKSYNC_OS = 21_000n;
+export const L1_TX_CALLDATA_FLOOR_PRICE_L2_GAS_ZKSYNC_OS = 40n;
+export const L1_TX_INTRINSIC_PUBDATA_ZKSYNC_OS = 351n;
+export const MAX_NATIVE_COMPUTATIONAL_ZKSYNC_OS = 1n << 35n;
+export const L1_TX_NATIVE_PER_GAS = 100_000_000n;
+
+// ZKsync OS `eth_estimateGas` with this tx type simulates a real L1 priority tx (pubdata included).
+export const ZKSYNC_OS_PRIORITY_TX_TYPE = '0x7f';
+
+// Fallback model for finalizeDeposit of an already-registered token when the node cannot
+// estimate priority txs. Measured on zksync-os-server v0.23 at 800 gas/pubdata: L2 execution
+// 137,321 gas, priority tx consumed 367,200 gas (~287 pubdata bytes).
+export const REGISTERED_TOKEN_BRIDGE_MINT_EXECUTION_GAS = 140_000n;
+export const REGISTERED_TOKEN_BRIDGE_MINT_PUBDATA_BYTES = 300n;
+
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.
  * Used with {@link L1_FEE_ESTIMATION_COEF_DENOMINATOR}.

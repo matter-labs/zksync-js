@@ -8,7 +8,10 @@ import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
-import { applyPriorityL2GasLimitBuffer } from '../../../../../core/resources/deposits/priority.ts';
+import {
+  applyPriorityL2GasLimitBuffer,
+  clampPriorityL2GasLimit,
+} from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
 const EMPTY_BYTES = '0x';
@@ -33,9 +36,13 @@ export function routeEthDirect(): DepositRouteStrategy {
 
       const quotedL2GasLimit =
         ctx.l2GasLimit ??
-        applyPriorityL2GasLimitBuffer({
-          chainIdL2: ctx.chainIdL2,
-          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        clampPriorityL2GasLimit({
+          gasLimit: applyPriorityL2GasLimitBuffer({
+            chainIdL2: ctx.chainIdL2,
+            gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+          }),
+          l2Calldata,
+          gasPerPubdata: ctx.gasPerPubdata,
         });
 
       const l2GasParams = await quoteL2Gas({

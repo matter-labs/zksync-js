@@ -124,6 +124,8 @@ type EthersHarness = {
   onEstimateGas(cb: ((tx: unknown) => void) | undefined): void;
   setL2EstimateGas(value: bigint | Error | undefined): void;
   onL2EstimateGas(cb: ((tx: unknown) => void) | undefined): void;
+  setPriorityEstimateGas(value: bigint | Error | undefined): void;
+  lastPriorityEstimateTx(): unknown;
 };
 
 type ViemHarness = {
@@ -140,9 +142,25 @@ type ViemHarness = {
   queueSimulateResponses(responses: SimulateResponder[], target?: 'l1' | 'l2'): void;
   setEstimateGas(value: bigint | Error | undefined, target?: 'l1' | 'l2'): void;
   queueEstimateGas(values: Array<bigint | Error>, target?: 'l1' | 'l2'): void;
+  setPriorityEstimateGas(value: bigint | Error | undefined): void;
+  lastPriorityEstimateTx(): unknown;
 };
 
 export type AdapterHarness = EthersHarness | ViemHarness;
+
+type PriorityEstimateState = {
+  priorityEstimateGasValue?: bigint | Error;
+  lastPriorityEstimateTx?: unknown;
+};
+
+// Raw `eth_estimateGas` is only issued for ZKsync OS priority-tx estimates.
+function answerPriorityEstimate(state: PriorityEstimateState, params: unknown[] | undefined) {
+  state.lastPriorityEstimateTx = params?.[0];
+  const value = state.priorityEstimateGasValue;
+  if (value instanceof Error) throw value;
+  if (isBigint(value)) return `0x${value.toString(16)}`;
+  throw new Error('mock: priority estimate not configured');
+}
 
 type EthersL1State = {
   registry: CallRegistry;
@@ -182,7 +200,7 @@ function makeEthersL1(state: EthersL1State) {
   };
 }
 
-type EthersL2State = {
+type EthersL2State = PriorityEstimateState & {
   bridgehub: Address;
   registry: CallRegistry;
   estimateGasValue?: bigint | Error;
@@ -209,8 +227,9 @@ function makeEthersL2(state: EthersL2State) {
         throw new Error(`ethers mock l2: no mapping for ${lower(tx.to)}|${tx.data.slice(0, 10)}`);
       return out;
     },
-    async send(method: string, _params: unknown[]) {
+    async send(method: string, params: unknown[]) {
       if (method === 'zks_getBridgehubContract') return state.bridgehub;
+      if (method === 'eth_estimateGas') return answerPriorityEstimate(state, params);
       throw new Error(`ethers mock l2: unexpected method ${method}`);
     },
     async estimateGas(tx: unknown) {
@@ -252,7 +271,7 @@ type SimulateResponder =
   | { request: unknown; result?: unknown }
   | ((args: unknown) => { request: unknown; result?: unknown });
 
-type ViemClientState = {
+type ViemClientState = PriorityEstimateState & {
   registry: CallRegistry;
   bridgehub: Address;
   simulateResponse?: SimulateResponder;
@@ -288,8 +307,9 @@ function makeViemClient(state: ViemClientState): PublicClient {
       }
       return value as any;
     },
-    async request({ method }: { method: string; params?: unknown[] }) {
+    async request({ method, params }: { method: string; params?: unknown[] }) {
       if (method === 'zks_getBridgehubContract') return state.bridgehub;
+      if (method === 'eth_estimateGas') return answerPriorityEstimate(state, params);
       throw new Error(`viem mock: unexpected method ${method}`);
     },
     async simulateContract(args: unknown) {
@@ -472,6 +492,12 @@ export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {
     onL2EstimateGas(cb) {
       l2State.estimateGasSpy = cb;
     },
+    setPriorityEstimateGas(value) {
+      l2State.priorityEstimateGasValue = value;
+    },
+    lastPriorityEstimateTx() {
+      return l2State.lastPriorityEstimateTx;
+    },
   };
 }
 
@@ -531,6 +557,12 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
       const state = target === 'l1' ? l1State : l2State;
       state.estimateGasQueue = [...(state.estimateGasQueue ?? []), ...values];
     },
+    setPriorityEstimateGas(value) {
+      l2State.priorityEstimateGasValue = value;
+    },
+    lastPriorityEstimateTx() {
+      return l2State.lastPriorityEstimateTx;
+    },
   };
 }
 
@@ -541,6 +573,7 @@ export type DepositTestContext<T extends AdapterHarness> = {
   chainIdL2: bigint;
   bridgehub: Address;
   l1AssetRouter: Address;
+  l1NativeTokenVault: Address;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
   refundRecipient: Address;
@@ -574,6 +607,7 @@ export function makeDepositContext<T extends AdapterHarness>(
     chainIdL2: 324n,
     bridgehub: ADAPTER_TEST_ADDRESSES.bridgehub,
     l1AssetRouter: ADAPTER_TEST_ADDRESSES.l1AssetRouter,
+    l1NativeTokenVault: ADAPTER_TEST_ADDRESSES.l1NativeTokenVault,
     l2GasLimit: 600_000n,
     gasPerPubdata: 800n,
     refundRecipient: ADAPTER_TEST_ADDRESSES.signer,
@@ -748,6 +782,42 @@ export function setBridgehubBaseToken<T extends AdapterHarness>(
   harness.registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'baseToken', value, [
     ctx.chainIdL2,
   ]);
+}
+
+export type RecordedContractRead = { address: string; selector?: string; fn?: string };
+
+/** Records every mocked contract read on both chains; ethers yields selectors, viem function names. */
+export function recordContractReads(harness: AdapterHarness): RecordedContractRead[] {
+  const reads: RecordedContractRead[] = [];
+  const registry = harness.registry;
+  const getEncoded = registry.getEncoded.bind(registry);
+  const getValue = registry.getValue.bind(registry);
+  registry.getEncoded = (address, data) => {
+    const selector = data.slice(0, 10).toLowerCase();
+    reads.push({ address: lower(address), selector, fn: selectorToFn(selector) });
+    return getEncoded(address, data);
+  };
+  registry.getValue = (address, fn, args) => {
+    reads.push({ address: lower(address), fn });
+    return getValue(address, fn, args);
+  };
+  return reads;
+}
+
+const KNOWN_INTERFACES = [
+  IBridgehub,
+  IL1AssetRouter,
+  IL1Nullifier,
+  IERC20,
+  L2NativeTokenVault,
+  IInteropCenter,
+];
+function selectorToFn(selector: string): string | undefined {
+  for (const iface of KNOWN_INTERFACES) {
+    const fn = iface.getFunction(selector);
+    if (fn) return fn.name;
+  }
+  return undefined;
 }
 
 export function setErc20Allowance<T extends AdapterHarness>(

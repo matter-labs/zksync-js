@@ -11,6 +11,10 @@ import {
   quoteL2Gas as coreQuoteL2Gas,
   type GasQuote,
 } from '../../../../../core/resources/deposits/gas';
+import {
+  resolveRegisteredTokenPriorityL2GasLimit,
+  type PriorityTxL2Leg,
+} from '../../../../../core/resources/deposits/priority.ts';
 import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
 
 export type { GasQuote };
@@ -42,11 +46,24 @@ type DetermineNonBaseL2GasInput = {
   knownL2Token?: Address;
   modelTx?: TransactionRequest;
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 };
 
 const DEFAULT_SAFE_NONBASE_L2_GAS_LIMIT = 3_000_000n;
 const ZERO_L2_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+async function estimatePriorityTxL2Gas(
+  ctx: BuildCtx,
+  leg: PriorityTxL2Leg | undefined,
+): Promise<bigint | undefined> {
+  if (!leg) return undefined;
+  try {
+    return await ethersToGasEstimator(ctx.client.l2).estimatePriorityTxGas?.(leg);
+  } catch {
+    return undefined;
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
@@ -133,7 +150,12 @@ async function determineNonBaseL2Gas(
       return quoteL2Gas({
         ctx,
         route,
-        overrideGasLimit: input.priorityFloorGasLimit,
+        overrideGasLimit: resolveRegisteredTokenPriorityL2GasLimit({
+          chainIdL2: ctx.chainIdL2,
+          priorityFloorGasLimit: input.priorityFloorGasLimit,
+          gasPerPubdata: ctx.gasPerPubdata,
+          nodeEstimate: await estimatePriorityTxL2Gas(ctx, input.priorityTxL2Leg),
+        }),
       });
     }
 
@@ -163,6 +185,7 @@ export async function determineErc20L2Gas(input: {
   l1Token: Address;
   modelTx?: TransactionRequest;
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
@@ -176,6 +199,7 @@ export async function determineEthNonBaseL2Gas(input: {
   ctx: BuildCtx;
   modelTx?: TransactionRequest;
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 }): Promise<GasQuote | undefined> {
   return determineNonBaseL2Gas({
@@ -185,6 +209,7 @@ export async function determineEthNonBaseL2Gas(input: {
     knownL2Token: input.ctx.resolvedToken?.l2,
     modelTx: input.modelTx,
     priorityFloorGasLimit: input.priorityFloorGasLimit,
+    priorityTxL2Leg: input.priorityTxL2Leg,
     undeployedGasLimit: input.undeployedGasLimit,
   });
 }

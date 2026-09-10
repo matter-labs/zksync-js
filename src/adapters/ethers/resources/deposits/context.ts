@@ -21,6 +21,7 @@ export interface BuildCtx extends CommonCtx {
   baseIsEth: boolean;
 
   l1AssetRouter: Address;
+  l1NativeTokenVault: Address;
 
   gasOverrides?: TxGasOverrides;
   l2GasLimit?: bigint;
@@ -36,7 +37,7 @@ export async function commonCtx(
   tokens: TokensResource,
   contracts: ContractsResource,
 ) {
-  const { bridgehub, l1AssetRouter } = await contracts.addresses();
+  const { bridgehub, l1AssetRouter, l1NativeTokenVault } = await contracts.addresses();
   const { chainId } = await client.l2.getNetwork();
   const sender = (await client.signer.getAddress()) as Address;
 
@@ -68,6 +69,7 @@ export async function commonCtx(
     baseTokenL1,
     baseIsEth,
     l1AssetRouter,
+    l1NativeTokenVault,
     route,
     bridgehub,
     chainIdL2: BigInt(chainId),

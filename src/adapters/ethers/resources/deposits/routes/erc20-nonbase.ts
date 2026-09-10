@@ -3,11 +3,7 @@
 import type { DepositRouteStrategy } from './types';
 import { AbiCoder, Contract, Interface, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
-import {
-  encodeNativeTokenVaultTransferData,
-  encodeSecondBridgeDataV1,
-  encodeSecondBridgeErc20Args,
-} from '../../utils';
+import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import { IERC20ABI, IL2AssetRouterABI } from '../../../../../core/abi.ts';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
@@ -25,8 +21,11 @@ import {
 import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import type { Hex } from '../../../../../core/types/primitives';
 import {
+  applyL1ToL2Alias,
   applyPriorityL2GasLimitBuffer,
+  clampPriorityL2GasLimit,
   derivePriorityBodyGasEstimateCap,
+  type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
 
@@ -41,6 +40,7 @@ const ntvCodec = createNTVCodec({
 
 type PriorityGasModel = {
   priorityFloorGasLimit?: bigint;
+  priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 };
 
@@ -50,30 +50,22 @@ async function encodeSecondBridgeErc20DepositCalldata(input: {
   amount: bigint;
   receiver: `0x${string}`;
 }): Promise<`0x${string}`> {
-  if (!input.ctx.resolvedToken) {
-    return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
-  }
-
-  const { chainId } = await input.ctx.client.l1.getNetwork();
-  const expectedL1AssetId = ntvCodec.encodeAssetId(
-    BigInt(chainId),
-    L2_NATIVE_TOKEN_VAULT_ADDRESS,
-    input.token,
-  );
-  const assetId = input.ctx.resolvedToken.assetId.toLowerCase();
-  const isL1Origin = assetId === ZERO_ASSET_ID || assetId === expectedL1AssetId.toLowerCase();
-
-  if (isL1Origin) {
-    return encodeSecondBridgeErc20Args(input.token, input.amount, input.receiver);
-  }
-
+  const registeredAssetId = input.ctx.resolvedToken?.assetId;
+  const assetId =
+    registeredAssetId && registeredAssetId.toLowerCase() !== ZERO_ASSET_ID
+      ? registeredAssetId
+      : ntvCodec.encodeAssetId(
+          BigInt((await input.ctx.client.l1.getNetwork()).chainId),
+          L2_NATIVE_TOKEN_VAULT_ADDRESS,
+          input.token,
+        );
   const transferData = encodeNativeTokenVaultTransferData(
     input.amount,
     input.receiver,
     input.token,
   );
 
-  return encodeSecondBridgeDataV1(input.ctx.resolvedToken.assetId, transferData) as `0x${string}`;
+  return encodeSecondBridgeDataV1(assetId, transferData) as `0x${string}`;
 }
 
 async function getPriorityGasModel(input: {
@@ -124,9 +116,18 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
-      priorityFloorGasLimit: applyPriorityL2GasLimitBuffer({
-        chainIdL2: input.ctx.chainIdL2,
-        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      priorityTxL2Leg: {
+        from: applyL1ToL2Alias(input.ctx.l1AssetRouter),
+        to: L2_ASSET_ROUTER_ADDRESS,
+        data: l2Calldata,
+      },
+      priorityFloorGasLimit: clampPriorityL2GasLimit({
+        gasLimit: applyPriorityL2GasLimitBuffer({
+          chainIdL2: input.ctx.chainIdL2,
+          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        }),
+        l2Calldata,
+        gasPerPubdata: input.ctx.gasPerPubdata,
       }),
     };
 
@@ -200,6 +201,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         ctx,
         l1Token: p.token,
         priorityFloorGasLimit: priorityGasModel.priorityFloorGasLimit,
+        priorityTxL2Leg: priorityGasModel.priorityTxL2Leg,
         undeployedGasLimit: priorityGasModel.undeployedGasLimit,
         modelTx: {
           to: receiver,
@@ -219,27 +221,31 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       const approvals: ApprovalNeed[] = [];
       const steps: PlanStep<TransactionRequest>[] = [];
       const assetRouter = ctx.l1AssetRouter;
+      const nativeTokenVault = ctx.l1NativeTokenVault;
 
       const erc20Deposit = new Contract(p.token, IERC20ABI, l1Signer);
       const allowanceToken: bigint = (await wrapAs(
         'RPC',
         OP_DEPOSITS.nonbase.allowanceToken,
-        () => erc20Deposit.allowance(ctx.sender, assetRouter),
+        () => erc20Deposit.allowance(ctx.sender, nativeTokenVault),
         {
-          ctx: { where: 'erc20.allowance', token: p.token, spender: assetRouter },
+          ctx: { where: 'erc20.allowance', token: p.token, spender: nativeTokenVault },
           message: 'Failed to read deposit-token allowance.',
         },
       )) as bigint;
 
       if (allowanceToken < p.amount) {
-        approvals.push({ token: p.token, spender: assetRouter, amount: p.amount });
+        approvals.push({ token: p.token, spender: nativeTokenVault, amount: p.amount });
         steps.push({
-          key: `approve:${p.token}:${assetRouter}`,
+          key: `approve:${p.token}:${nativeTokenVault}`,
           kind: 'approve',
-          description: `Approve ${p.amount} for router (deposit token)`,
+          description: `Approve ${p.amount} for the native token vault (deposit token)`,
           tx: {
             to: p.token,
-            data: erc20Deposit.interface.encodeFunctionData('approve', [assetRouter, p.amount]),
+            data: erc20Deposit.interface.encodeFunctionData('approve', [
+              nativeTokenVault,
+              p.amount,
+            ]),
             from: ctx.sender,
             ...ctx.gasOverrides,
           },
@@ -252,21 +258,24 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         const allowanceBase: bigint = (await wrapAs(
           'RPC',
           OP_DEPOSITS.nonbase.allowanceBase,
-          () => erc20Base.allowance(ctx.sender, assetRouter),
+          () => erc20Base.allowance(ctx.sender, nativeTokenVault),
           {
-            ctx: { where: 'erc20.allowance', token: baseToken, spender: assetRouter },
+            ctx: { where: 'erc20.allowance', token: baseToken, spender: nativeTokenVault },
             message: 'Failed to read base-token allowance.',
           },
         )) as bigint;
         if (allowanceBase < mintValue) {
-          approvals.push({ token: baseToken, spender: assetRouter, amount: mintValue });
+          approvals.push({ token: baseToken, spender: nativeTokenVault, amount: mintValue });
           steps.push({
-            key: `approve:${baseToken}:${assetRouter}`,
+            key: `approve:${baseToken}:${nativeTokenVault}`,
             kind: 'approve',
             description: `Approve base token for mintValue`,
             tx: {
               to: baseToken,
-              data: erc20Base.interface.encodeFunctionData('approve', [assetRouter, mintValue]),
+              data: erc20Base.interface.encodeFunctionData('approve', [
+                nativeTokenVault,
+                mintValue,
+              ]),
               from: ctx.sender,
               ...ctx.gasOverrides,
             },
