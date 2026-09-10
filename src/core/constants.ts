@@ -117,6 +117,13 @@ export const L1_TX_DELTA_FACTORY_DEPS_PUBDATA = 64n;
 export const TX_SLOT_OVERHEAD_L2_GAS = 10_000n;
 export const PRIORITY_TX_MAX_GAS_LIMIT = 72_000_000n;
 
+// ZKsync OS (protocol v33+) priority-tx minimum, TransactionValidator zksyncOS=true branch
+export const L1_TX_INTRINSIC_L2_GAS_ZKSYNC_OS = 21_000n;
+export const L1_TX_CALLDATA_FLOOR_PRICE_L2_GAS_ZKSYNC_OS = 40n;
+export const L1_TX_INTRINSIC_PUBDATA_ZKSYNC_OS = 351n;
+export const MAX_NATIVE_COMPUTATIONAL_ZKSYNC_OS = 1n << 35n;
+export const L1_TX_NATIVE_PER_GAS = 100_000_000n;
+
 /**
  * Numerator used in scaling the gas limit to help ensure acceptance of L1->L2 txs.
  * Used with {@link L1_FEE_ESTIMATION_COEF_DENOMINATOR}.

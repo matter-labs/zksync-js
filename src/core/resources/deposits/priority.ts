@@ -2,10 +2,15 @@ import type { Address } from '../../types/primitives';
 import {
   L1_TX_DELTA_FACTORY_DEPS_L2_GAS,
   L1_TX_DELTA_FACTORY_DEPS_PUBDATA,
+  L1_TX_CALLDATA_FLOOR_PRICE_L2_GAS_ZKSYNC_OS,
   L1_TX_DELTA_544_ENCODING_BYTES,
   L1_TX_INTRINSIC_L2_GAS,
+  L1_TX_INTRINSIC_L2_GAS_ZKSYNC_OS,
   L1_TX_INTRINSIC_PUBDATA,
+  L1_TX_INTRINSIC_PUBDATA_ZKSYNC_OS,
   L1_TX_MIN_L2_GAS_BASE,
+  L1_TX_NATIVE_PER_GAS,
+  MAX_NATIVE_COMPUTATIONAL_ZKSYNC_OS,
   PRIORITY_TX_MAX_GAS_LIMIT,
   TX_MEMORY_OVERHEAD_GAS,
   TX_SLOT_OVERHEAD_L2_GAS,
@@ -104,4 +109,36 @@ export function applyPriorityL2GasLimitBuffer(input: {
   gasLimit: bigint;
 }): bigint {
   return (input.gasLimit * (100n + PRIORITY_L2_GAS_BUFFER)) / 100n;
+}
+
+/**
+ * Minimum `l2GasLimit` the L1 Mailbox accepts for a priority tx on ZKsync OS (protocol v33+).
+ * Below it `requestL2TransactionDirect` reverts with `ValidateTxnNotEnoughGas()`.
+ */
+export function minimalPriorityTxL2Gas(input: {
+  calldataLength: bigint;
+  gasPerPubdata: bigint;
+}): bigint {
+  const intrinsic =
+    L1_TX_INTRINSIC_L2_GAS_ZKSYNC_OS +
+    L1_TX_CALLDATA_FLOOR_PRICE_L2_GAS_ZKSYNC_OS * input.calldataLength;
+  const pubdata =
+    L1_TX_INTRINSIC_PUBDATA_ZKSYNC_OS * input.gasPerPubdata +
+    ceilDiv(MAX_NATIVE_COMPUTATIONAL_ZKSYNC_OS, L1_TX_NATIVE_PER_GAS);
+
+  return maxBigInt(intrinsic, pubdata);
+}
+
+export function clampPriorityL2GasLimit(input: {
+  gasLimit: bigint;
+  l2Calldata: `0x${string}`;
+  gasPerPubdata: bigint;
+}): bigint {
+  return maxBigInt(
+    input.gasLimit,
+    minimalPriorityTxL2Gas({
+      calldataLength: BigInt(Math.max(input.l2Calldata.length - 2, 0) / 2),
+      gasPerPubdata: input.gasPerPubdata,
+    }),
+  );
 }

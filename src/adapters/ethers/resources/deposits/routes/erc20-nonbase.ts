@@ -26,6 +26,7 @@ import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 import type { Hex } from '../../../../../core/types/primitives';
 import {
   applyPriorityL2GasLimitBuffer,
+  clampPriorityL2GasLimit,
   derivePriorityBodyGasEstimateCap,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { getPriorityTxGasBreakdown } from './priority';
@@ -124,9 +125,13 @@ async function getPriorityGasModel(input: {
     });
 
     const model: PriorityGasModel = {
-      priorityFloorGasLimit: applyPriorityL2GasLimitBuffer({
-        chainIdL2: input.ctx.chainIdL2,
-        gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+      priorityFloorGasLimit: clampPriorityL2GasLimit({
+        gasLimit: applyPriorityL2GasLimitBuffer({
+          chainIdL2: input.ctx.chainIdL2,
+          gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
+        }),
+        l2Calldata,
+        gasPerPubdata: input.ctx.gasPerPubdata,
       }),
     };
 

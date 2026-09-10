@@ -8,7 +8,10 @@ import {
   setBridgehubBaseCost,
   describeForAdapters,
 } from '../adapter-harness.ts';
-import { applyPriorityL2GasLimitBuffer } from '../../../core/resources/deposits/priority.ts';
+import {
+  applyPriorityL2GasLimitBuffer,
+  minimalPriorityTxL2Gas,
+} from '../../../core/resources/deposits/priority.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { parseDirectBridgeTx } from '../decode-helpers.ts';
 
@@ -110,6 +113,28 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     } else {
       (harness.l2 as any).getChainId = async () => 325n;
     }
+
+    const res = await ROUTES[kind].build({ amount } as any, ctx as any);
+    const info = parseDirectBridgeTx(kind, res.steps[0].tx);
+
+    expect(info.l2GasLimit).toBe(expectedL2GasLimit);
+    expect(res.fees?.l2.gasLimit).toBe(expectedL2GasLimit);
+  });
+
+  it('raises the priority-floor gas limit to the ZKsync OS minimum when the buffered floor is lower', async () => {
+    const harness = factory();
+    const gasPerPubdata = 2_000n;
+    const ctx = makeDepositContext(harness, {
+      chainIdL2: 506n,
+      l2GasLimit: undefined,
+      gasPerPubdata,
+    });
+    const amount = 1_234n;
+    const baseCost = 2_000n;
+    const expectedL2GasLimit = minimalPriorityTxL2Gas({ calldataLength: 0n, gasPerPubdata });
+
+    setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: expectedL2GasLimit });
+    harness.setEstimateGas(200_000n);
 
     const res = await ROUTES[kind].build({ amount } as any, ctx as any);
     const info = parseDirectBridgeTx(kind, res.steps[0].tx);
