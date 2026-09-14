@@ -1,6 +1,6 @@
 # zks_ RPC
 
-Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
+Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, storage slot proofs, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
 
 ## Standard Ethereum RPC (`eth_*`)
 
@@ -74,6 +74,42 @@ Return a normalized proof for the **L2→L1 log** at `index` in `txHash`.
 
 ---
 
+### `getProof(address: Address, keys: Hex[], l1BatchNumber: number) → Promise<BatchStorageProof>`
+
+Return storage slot proofs for the requested `keys`, rooted in the state after `l1BatchNumber`.
+
+**Parameters**
+
+| Name | Type | Required | Description |
+| ---- | ---- | -------- | ----------- |
+| `address` | Address | yes | Account whose storage is being proven. |
+| `keys` | Hex[] | yes | Storage keys to prove. |
+| `l1BatchNumber` | number | yes | L1 batch number the proof should be generated against. |
+
+**Example**
+
+```ts
+const proof = await client.zks.getProof(
+  '0x1234567890abcdef1234567890abcdef12345678',
+  ['0x' + '00'.repeat(32)],
+  2,
+);
+
+for (const slot of proof.storageProofs) {
+  if (slot.proof.type === 'existing') {
+    console.log('existing slot', slot.key, slot.proof.value);
+  } else {
+    console.log('missing slot', slot.key, slot.proof.leftNeighbor.index, slot.proof.rightNeighbor.index);
+  }
+}
+```
+
+> [!INFO]
+> If the node returns `null`, this method throws a typed `STATE` error.
+> That indicates the proof is not available yet, not that the slot is missing.
+
+---
+
 ### `getReceiptWithL2ToL1(txHash: Hex) → Promise<ReceiptWithL2ToL1 | null>`
 
 Fetch the transaction receipt; the returned object **always** includes `l2ToL1Logs` (empty array if none).
@@ -130,6 +166,8 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 {{#include ../../../snippets/core/rpc.test.ts:zks-rpc}}
 
 {{#include ../../../snippets/core/rpc.test.ts:proof-receipt-type}}
+
+{{#include ../../../snippets/core/rpc.test.ts:batch-proof-type}}
 
 {{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 
