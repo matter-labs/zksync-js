@@ -241,7 +241,7 @@ export const OP_DEPOSITS = {
     baseCost: 'deposits.eth-nonbase:l2TransactionBaseCost',
     allowanceBase: 'deposits.eth-nonbase:allowanceBaseToken',
     ethBalance: 'deposits.eth-nonbase:getEthBalance',
-    encodeCalldata: 'deposits.eth-nonbase:encodeSecondBridgeEthArgs',
+    encodeCalldata: 'deposits.eth-nonbase:encodeSecondBridgeEthDepositCalldata',
     estGas: 'deposits.eth-nonbase:estimateGas',
     assertEthAsset: 'deposits.eth-nonbase:assertEthAsset',
     assertNonEthBase: 'deposits.eth-nonbase:assertNonEthBase',

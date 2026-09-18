@@ -15,7 +15,7 @@ import {
   setErc20Allowance,
 } from '../adapter-harness.ts';
 import {
-  decodeSecondBridgeErc20,
+  decodeSecondBridgeDataV1,
   decodeTwoBridgeOuter,
   parseApproveTx,
 } from '../decode-helpers.ts';
@@ -174,7 +174,7 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
     if (kind === 'ethers') {
       const tx = bridge.tx as any;
       const info = decodeTwoBridgeOuter(tx.data);
-      const bridgeArgs = decodeSecondBridgeErc20(info.secondBridgeCalldata);
+      const bridgeArgs = decodeSecondBridgeDataV1(info.secondBridgeCalldata);
 
       expect((tx.to as string).toLowerCase()).toBe(ADAPTER_TEST_ADDRESSES.bridgehub.toLowerCase());
       expect((tx.from as string).toLowerCase()).toBe(ctx.sender.toLowerCase());
@@ -182,12 +182,14 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       expect(BigInt(info.mintValue)).toBe(mintValue);
       expect(BigInt(info.l2Value)).toBe(0n);
       expect(BigInt(info.secondBridgeValue)).toBe(amount);
+      expect(bridgeArgs.assetId.toLowerCase()).toBe(ETH_ASSET_ID.toLowerCase());
       expect(bridgeArgs.token).toBe(ETH_ADDRESS.toLowerCase());
       expect(bridgeArgs.amount).toBe(amount);
       expect(bridgeArgs.receiver).toBe(RECEIVER.toLowerCase());
     } else {
       const tx = bridge.tx as any;
       const req = (tx.args?.[0] ?? {}) as any;
+      const bridgeArgs = decodeSecondBridgeDataV1(req.secondBridgeCalldata);
 
       expect((tx.address as string).toLowerCase()).toBe(
         ADAPTER_TEST_ADDRESSES.bridgehub.toLowerCase(),
@@ -197,6 +199,10 @@ describeForAdapters('adapters/deposits/routeEthNonBase', (kind, factory) => {
       expect(BigInt(req.mintValue ?? 0n)).toBe(mintValue);
       expect(BigInt(req.l2Value ?? 0n)).toBe(0n);
       expect(BigInt(req.secondBridgeValue ?? 0n)).toBe(amount);
+      expect(bridgeArgs.assetId.toLowerCase()).toBe(ETH_ASSET_ID.toLowerCase());
+      expect(bridgeArgs.token).toBe(ETH_ADDRESS.toLowerCase());
+      expect(bridgeArgs.amount).toBe(amount);
+      expect(bridgeArgs.receiver).toBe(RECEIVER.toLowerCase());
     }
   });
 
