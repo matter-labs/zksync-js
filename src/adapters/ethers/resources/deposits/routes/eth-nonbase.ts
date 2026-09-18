@@ -5,7 +5,7 @@ import { AbiCoder, Contract, keccak256 } from 'ethers';
 import type { TransactionRequest } from 'ethers';
 import { IERC20ABI } from '../../../../../core/abi.ts';
 import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
-import { encodeSecondBridgeEthArgs } from '../../utils';
+import { encodeNativeTokenVaultTransferData, encodeSecondBridgeDataV1 } from '../../utils';
 import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/base';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
@@ -43,6 +43,28 @@ type PriorityGasModel = {
   priorityTxL2Leg?: PriorityTxL2Leg;
   undeployedGasLimit?: bigint;
 };
+
+async function encodeSecondBridgeEthDepositCalldata(input: {
+  ctx: Parameters<DepositRouteStrategy['build']>[1];
+  amount: bigint;
+  receiver: `0x${string}`;
+}): Promise<`0x${string}`> {
+  const registeredAssetId = input.ctx.resolvedToken?.assetId;
+  const assetId =
+    registeredAssetId && registeredAssetId.toLowerCase() !== ZERO_ASSET_ID
+      ? registeredAssetId
+      : ntvCodec.encodeAssetId(
+          BigInt((await input.ctx.client.l1.getNetwork()).chainId),
+          L2_NATIVE_TOKEN_VAULT_ADDRESS,
+          ETH_ADDRESS,
+        );
+  const transferData = encodeNativeTokenVaultTransferData(
+    input.amount,
+    input.receiver,
+    ETH_ADDRESS,
+  );
+  return encodeSecondBridgeDataV1(assetId, transferData) as `0x${string}`;
+}
 
 async function getPriorityGasModel(input: {
   ctx: Parameters<DepositRouteStrategy['build']>[1];
@@ -227,10 +249,10 @@ export function routeEthNonBase(): DepositRouteStrategy {
       const secondBridgeCalldata = await wrapAs(
         'INTERNAL',
         OP_DEPOSITS.ethNonBase.encodeCalldata,
-        () => Promise.resolve(encodeSecondBridgeEthArgs(p.amount, receiver)),
+        () => encodeSecondBridgeEthDepositCalldata({ ctx, amount: p.amount, receiver }),
         {
           ctx: {
-            where: 'encodeSecondBridgeEthArgs',
+            where: 'encodeSecondBridgeEthDepositCalldata',
             amount: p.amount.toString(),
             to: receiver,
           },
