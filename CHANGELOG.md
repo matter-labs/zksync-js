@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.24](https://github.com/matter-labs/zksync-js/compare/v0.0.23...v0.0.24) (2026-09-18)
+
+
+### Bug Fixes
+
+* use V1 asset-router encoding for ETH deposits on custom-base-token chains ([#128](https://github.com/matter-labs/zksync-js/issues/128)) ([4a87de1](https://github.com/matter-labs/zksync-js/commit/4a87de10d9ab0266453c163c8a87d6477dd670c8))
+
 ## [0.0.23](https://github.com/matter-labs/zksync-js/compare/v0.0.22...v0.0.23) (2026-09-10)
 
 
