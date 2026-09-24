@@ -4,10 +4,17 @@ import type {
   RpcTransport,
   ReceiptWithL2ToL1,
   ProofNormalized,
+  BatchStorageProof,
   GenesisInput,
   GenesisContractDeployment,
   GenesisStorageEntry,
   BlockMetadata,
+  ExistingStorageProof,
+  L1VerificationData,
+  LeafWithProof,
+  NonExistingStorageProof,
+  StateCommitmentPreimage,
+  StorageProofEntry,
 } from './types';
 import type { Hex, Address } from '../types/primitives';
 import { createError, shapeCause } from '../errors/factory';
@@ -44,6 +51,9 @@ export interface ZksRpc {
     proofTarget?: ProofTarget,
   ): Promise<ProofNormalized>;
 
+  // Fetches storage slot proofs rooted in an L1 batch commitment.
+  getProof(address: Address, keys: Hex[], l1BatchNumber: number): Promise<BatchStorageProof>;
+
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
   getReceiptWithL2ToL1(txHash: Hex): Promise<ReceiptWithL2ToL1 | null>;
 
@@ -57,6 +67,7 @@ export interface ZksRpc {
 const METHODS = {
   getBridgehub: 'zks_getBridgehubContract',
   getL2ToL1LogProof: 'zks_getL2ToL1LogProof',
+  getProof: 'zks_getProof',
   getReceipt: 'eth_getTransactionReceipt',
   getBytecodeSupplier: 'zks_getBytecodeSupplierContract',
   getBlockMetadataByNumber: 'zks_getBlockMetadataByNumber',
@@ -122,12 +133,20 @@ export function normalizeProof(p: unknown): ProofNormalized {
   }
 }
 
-function ensureHex(value: unknown, field: string, context: Record<string, unknown>): Hex {
+function ensureHex(
+  value: unknown,
+  field: string,
+  context: Record<string, unknown>,
+  opts?: { operation: string; messagePrefix: string },
+): Hex {
+  const operation = opts?.operation ?? 'zksrpc.normalizeGenesis';
+  const messagePrefix = opts?.messagePrefix ?? 'Malformed genesis response';
+
   if (typeof value === 'string' && value.startsWith('0x')) return value as Hex;
   throw createError('RPC', {
     resource: 'zksrpc' as Resource,
-    operation: 'zksrpc.normalizeGenesis',
-    message: 'Malformed genesis response: expected 0x-prefixed hex value.',
+    operation,
+    message: `${messagePrefix}: expected 0x-prefixed hex value.`,
     context: { field, valueType: typeof value, ...context },
   });
 }
@@ -196,6 +215,277 @@ function ensureBigInt(
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return !!x && typeof x === 'object' && !Array.isArray(x);
+}
+
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function pick(record: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (hasOwn(record, key)) return record[key];
+  }
+  return undefined;
+}
+
+function ensureRecord(
+  value: unknown,
+  field: string,
+  opts: { operation: string; messagePrefix: string; context?: Record<string, unknown> },
+): Record<string, unknown> {
+  if (isRecord(value)) return value;
+
+  throw createError('RPC', {
+    resource: 'zksrpc' as Resource,
+    operation: opts.operation,
+    message: `${opts.messagePrefix}: expected object.`,
+    context: { field, valueType: typeof value, ...(opts.context ?? {}) },
+  });
+}
+
+function ensureHexArray(
+  value: unknown,
+  field: string,
+  opts: { operation: string; messagePrefix: string; context?: Record<string, unknown> },
+): Hex[] {
+  if (!Array.isArray(value)) {
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: opts.operation,
+      message: `${opts.messagePrefix}: expected array.`,
+      context: { field, valueType: typeof value, ...(opts.context ?? {}) },
+    });
+  }
+
+  return value.map((entry, index) =>
+    ensureHex(entry, `${field}[${index}]`, opts.context ?? {}, opts),
+  );
+}
+
+function normalizeStateCommitmentPreimage(raw: unknown): StateCommitmentPreimage {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, 'stateCommitmentPreimage', { operation, messagePrefix });
+
+  return {
+    nextFreeSlot: ensureBigInt(
+      pick(record, 'nextFreeSlot', 'next_free_slot'),
+      'stateCommitmentPreimage.nextFreeSlot',
+      { operation, messagePrefix },
+    ),
+    blockNumber: ensureBigInt(
+      pick(record, 'blockNumber', 'block_number'),
+      'stateCommitmentPreimage.blockNumber',
+      { operation, messagePrefix },
+    ),
+    last256BlockHashesBlake: ensureHex(
+      pick(record, 'last256BlockHashesBlake', 'last256_block_hashes_blake'),
+      'stateCommitmentPreimage.last256BlockHashesBlake',
+      {},
+      { operation, messagePrefix },
+    ),
+    lastBlockTimestamp: ensureBigInt(
+      pick(record, 'lastBlockTimestamp', 'last_block_timestamp'),
+      'stateCommitmentPreimage.lastBlockTimestamp',
+      { operation, messagePrefix },
+    ),
+  };
+}
+
+function normalizeL1VerificationData(raw: unknown): L1VerificationData {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, 'l1VerificationData', { operation, messagePrefix });
+
+  return {
+    batchNumber: ensureBigInt(
+      pick(record, 'batchNumber', 'batch_number'),
+      'l1VerificationData.batchNumber',
+      { operation, messagePrefix },
+    ),
+    numberOfLayer1Txs: ensureBigInt(
+      pick(record, 'numberOfLayer1Txs', 'number_of_layer1_txs'),
+      'l1VerificationData.numberOfLayer1Txs',
+      { operation, messagePrefix },
+    ),
+    priorityOperationsHash: ensureHex(
+      pick(record, 'priorityOperationsHash', 'priority_operations_hash'),
+      'l1VerificationData.priorityOperationsHash',
+      {},
+      { operation, messagePrefix },
+    ),
+    dependencyRootsRollingHash: ensureHex(
+      pick(record, 'dependencyRootsRollingHash', 'dependency_roots_rolling_hash'),
+      'l1VerificationData.dependencyRootsRollingHash',
+      {},
+      { operation, messagePrefix },
+    ),
+    l2ToL1LogsRootHash: ensureHex(
+      pick(record, 'l2ToL1LogsRootHash', 'l2_to_l1_logs_root_hash'),
+      'l1VerificationData.l2ToL1LogsRootHash',
+      {},
+      { operation, messagePrefix },
+    ),
+    commitment: ensureHex(
+      pick(record, 'commitment'),
+      'l1VerificationData.commitment',
+      {},
+      {
+        operation,
+        messagePrefix,
+      },
+    ),
+  };
+}
+
+function normalizeLeafWithProof(raw: unknown, field: string): LeafWithProof {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, field, { operation, messagePrefix });
+
+  return {
+    index: ensureBigInt(pick(record, 'index'), `${field}.index`, { operation, messagePrefix }),
+    leafKey: ensureHex(
+      pick(record, 'leafKey', 'leaf_key'),
+      `${field}.leafKey`,
+      {},
+      {
+        operation,
+        messagePrefix,
+      },
+    ),
+    value: ensureHex(pick(record, 'value'), `${field}.value`, {}, { operation, messagePrefix }),
+    nextIndex: ensureBigInt(pick(record, 'nextIndex', 'next_index'), `${field}.nextIndex`, {
+      operation,
+      messagePrefix,
+    }),
+    siblings: ensureHexArray(pick(record, 'siblings'), `${field}.siblings`, {
+      operation,
+      messagePrefix,
+    }),
+  };
+}
+
+function normalizeExistingStorageProof(raw: unknown): ExistingStorageProof {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, 'proof', { operation, messagePrefix });
+
+  return {
+    type: 'existing',
+    index: ensureBigInt(pick(record, 'index'), 'proof.index', { operation, messagePrefix }),
+    value: ensureHex(pick(record, 'value'), 'proof.value', {}, { operation, messagePrefix }),
+    nextIndex: ensureBigInt(pick(record, 'nextIndex', 'next_index'), 'proof.nextIndex', {
+      operation,
+      messagePrefix,
+    }),
+    siblings: ensureHexArray(pick(record, 'siblings'), 'proof.siblings', {
+      operation,
+      messagePrefix,
+    }),
+  };
+}
+
+function normalizeNonExistingStorageProof(raw: unknown): NonExistingStorageProof {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, 'proof', { operation, messagePrefix });
+
+  return {
+    type: 'nonExisting',
+    leftNeighbor: normalizeLeafWithProof(
+      pick(record, 'leftNeighbor', 'left_neighbor'),
+      'proof.leftNeighbor',
+    ),
+    rightNeighbor: normalizeLeafWithProof(
+      pick(record, 'rightNeighbor', 'right_neighbor'),
+      'proof.rightNeighbor',
+    ),
+  };
+}
+
+function normalizeStorageProofEntry(raw: unknown, index: number): StorageProofEntry {
+  const operation = 'zksrpc.normalizeStorageProof';
+  const messagePrefix = 'Malformed storage proof response';
+  const record = ensureRecord(raw, 'storageProofs[]', {
+    operation,
+    messagePrefix,
+    context: { index },
+  });
+  const proof = ensureRecord(pick(record, 'proof'), 'storageProofs.proof', {
+    operation,
+    messagePrefix,
+    context: { index },
+  });
+  const type = pick(proof, 'type');
+
+  if (type !== 'existing' && type !== 'nonExisting') {
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation,
+      message: `${messagePrefix}: unsupported proof type.`,
+      context: { index, value: type },
+    });
+  }
+
+  return {
+    key: ensureHex(
+      pick(record, 'key'),
+      `storageProofs[${index}].key`,
+      {},
+      {
+        operation,
+        messagePrefix,
+      },
+    ),
+    proof:
+      type === 'existing'
+        ? normalizeExistingStorageProof(proof)
+        : normalizeNonExistingStorageProof(proof),
+  };
+}
+
+export function normalizeStorageProof(raw: unknown): BatchStorageProof {
+  try {
+    const operation = 'zksrpc.normalizeStorageProof';
+    const messagePrefix = 'Malformed storage proof response';
+    const record = ensureRecord(raw, 'response', { operation, messagePrefix });
+    const storageProofsRaw = pick(record, 'storageProofs', 'storage_proofs');
+
+    if (!Array.isArray(storageProofsRaw)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation,
+        message: `${messagePrefix}: expected array.`,
+        context: {
+          field: 'storageProofs',
+          valueType: typeof storageProofsRaw,
+        },
+      });
+    }
+
+    return {
+      address: ensureHex(pick(record, 'address'), 'address', {}, { operation, messagePrefix }),
+      stateCommitmentPreimage: normalizeStateCommitmentPreimage(
+        pick(record, 'stateCommitmentPreimage', 'state_commitment_preimage'),
+      ),
+      storageProofs: storageProofsRaw.map((entry, index) =>
+        normalizeStorageProofEntry(entry, index),
+      ),
+      l1VerificationData: normalizeL1VerificationData(
+        pick(record, 'l1VerificationData', 'l1_verification_data'),
+      ),
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: 'zksrpc.normalizeStorageProof',
+      message: 'Failed to normalize storage proof response.',
+      context: { receivedType: typeof raw },
+      cause: shapeCause(e),
+    });
+  }
 }
 
 function normalizeContractTuple(tuple: unknown, index: number): GenesisContractDeployment {
@@ -461,6 +751,27 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
             });
           }
           return normalizeProof(proof);
+        },
+      );
+    },
+
+    // Fetches storage slot proofs rooted in an L1 batch commitment.
+    async getProof(address, keys, l1BatchNumber) {
+      return withRpcOp(
+        'zksrpc.getProof',
+        'Failed to fetch storage proof.',
+        { address, keys, l1BatchNumber },
+        async () => {
+          const proof: unknown = await transport(METHODS.getProof, [address, keys, l1BatchNumber]);
+          if (!proof) {
+            throw createError('STATE', {
+              resource: 'zksrpc' as Resource,
+              operation: 'zksrpc.getProof',
+              message: 'Storage proof not yet available. Please try again later.',
+              context: { address, keys, l1BatchNumber },
+            });
+          }
+          return normalizeStorageProof(proof);
         },
       );
     },

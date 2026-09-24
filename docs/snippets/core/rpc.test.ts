@@ -4,11 +4,24 @@ import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, type ViemClient } from '../../../src/adapters/viem';
 import { Address, Hex, type ZksRpc as ZksType } from '../../../src/core';
-import { GenesisContractDeployment, GenesisInput as GenesisType, GenesisStorageEntry, L2ToL1Log, ProofNormalized as ProofN, ReceiptWithL2ToL1 as RWithLog, BlockMetadata as MetadataType } from '../../../src/core/rpc/types';
-import { ProofTarget } from '../../../src/core/rpc/zks';
-
+import {
+  BatchStorageProof as BatchStorageProofT,
+  BlockMetadata as MetadataType,
+  ExistingStorageProof as ExistingStorageProofT,
+  GenesisContractDeployment,
+  GenesisInput as GenesisType,
+  GenesisStorageEntry,
+  L1VerificationData as L1VerificationDataT,
+  L2ToL1Log,
+  LeafWithProof as LeafWithProofT,
+  NonExistingStorageProof as NonExistingStorageProofT,
+  ProofNormalized as ProofN,
+  ReceiptWithL2ToL1 as RWithLog,
+  StateCommitmentPreimage as StateCommitmentPreimageT,
+  StorageProofEntry as StorageProofEntryT,
+} from '../../../src/core/rpc/types';
 import { l1Chain, l2Chain } from '../viem/chains';
-import type { Exact } from "./types";
+import type { Exact } from './types';
 
 // ANCHOR: zks-rpc
 export interface ZksRpc {
@@ -16,6 +29,8 @@ export interface ZksRpc {
   getBridgehubAddress(): Promise<Address>;
   // Fetches the Bytecode Supplier contract address.
   getBytecodeSupplierAddress(): Promise<Address>;
+  // Fetches storage slot proofs rooted in an L1 batch commitment.
+  getProof(address: Address, keys: Hex[], l1BatchNumber: number): Promise<BatchStorageProof>;
   // Fetches a proof for an L2→L1 log emitted in the given transaction.
   getL2ToL1LogProof(txHash: Hex, index: number, proofTarget?: ProofTarget): Promise<ProofNormalized>;
   // Fetches the transaction receipt, including the `l2ToL1Logs` field.
@@ -63,6 +78,58 @@ type ReceiptWithL2ToL1 = {
 };
 // ANCHOR_END: proof-receipt-type
 
+// ANCHOR: batch-proof-type
+type StateCommitmentPreimage = {
+  nextFreeSlot: bigint;
+  blockNumber: bigint;
+  last256BlockHashesBlake: Hex;
+  lastBlockTimestamp: bigint;
+};
+
+type L1VerificationData = {
+  batchNumber: bigint;
+  numberOfLayer1Txs: bigint;
+  priorityOperationsHash: Hex;
+  dependencyRootsRollingHash: Hex;
+  l2ToL1LogsRootHash: Hex;
+  commitment: Hex;
+};
+
+type LeafWithProof = {
+  index: bigint;
+  leafKey: Hex;
+  value: Hex;
+  nextIndex: bigint;
+  siblings: Hex[];
+};
+
+type ExistingStorageProof = {
+  type: 'existing';
+  index: bigint;
+  value: Hex;
+  nextIndex: bigint;
+  siblings: Hex[];
+};
+
+type NonExistingStorageProof = {
+  type: 'nonExisting';
+  leftNeighbor: LeafWithProof;
+  rightNeighbor: LeafWithProof;
+};
+
+type StorageProofEntry = {
+  key: Hex;
+  proof: ExistingStorageProof | NonExistingStorageProof;
+};
+
+type BatchStorageProof = {
+  address: Address;
+  stateCommitmentPreimage: StateCommitmentPreimage;
+  storageProofs: StorageProofEntry[];
+  l1VerificationData: L1VerificationData;
+};
+// ANCHOR_END: batch-proof-type
+
 // ANCHOR: genesis-type
 export type GenesisInput = {
   initialContracts: GenesisContractDeployment[];
@@ -99,6 +166,13 @@ beforeAll(() => {
 it('checks to see if the zks rpc types are updated', async () => {
     const _rpcType: Exact<ZksRpc, ZksType> = true;
     const _proofType: Exact<ProofNormalized, ProofN> = true;
+    const _stateCommitmentPreimageType: Exact<StateCommitmentPreimage, StateCommitmentPreimageT> = true;
+    const _l1VerificationDataType: Exact<L1VerificationData, L1VerificationDataT> = true;
+    const _leafWithProofType: Exact<LeafWithProof, LeafWithProofT> = true;
+    const _existingStorageProofType: Exact<ExistingStorageProof, ExistingStorageProofT> = true;
+    const _nonExistingStorageProofType: Exact<NonExistingStorageProof, NonExistingStorageProofT> = true;
+    const _storageProofEntryType: Exact<StorageProofEntry, StorageProofEntryT> = true;
+    const _batchStorageProofType: Exact<BatchStorageProof, BatchStorageProofT> = true;
     const _receiptType: Exact<ReceiptWithL2ToL1, RWithLog> = true;
     const _genesisType: Exact<GenesisInput, GenesisType> = true;
     const _metadataType: Exact<BlockMetadata, MetadataType> = true;
