@@ -158,6 +158,27 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     });
   }
 
+  it('quotes the base cost at the maxFeePerGas the L1 tx carries when only the tip is overridden', async () => {
+    const harness = factory();
+    // market fees are maxFeePerGas 5 / tip 1, so a 10 wei tip needs a 14 wei fee cap
+    const ctx = makeDepositContext(harness, {
+      gasOverrides: { maxPriorityFeePerGas: 10n },
+      fee: { gasPriceForBaseCost: 14n },
+    });
+    const amount = 1_000n;
+    const baseCost = 3_000n;
+    setBridgehubBaseCost(harness, ctx, baseCost);
+    // L1 estimation fails, the tx must still be capped at the price the base cost assumed
+    harness.setEstimateGas(new Error('boom'));
+
+    const res = await ROUTES[kind].build({ amount } as any, ctx as any);
+    const tx = res.steps[0].tx as { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
+
+    expect(res.fees?.l2.baseCost).toBe(baseCost);
+    expect(tx.maxFeePerGas).toBe(14n);
+    expect(tx.maxPriorityFeePerGas).toBe(10n);
+  });
+
   it('wraps base cost call failures as ZKsyncError', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness);

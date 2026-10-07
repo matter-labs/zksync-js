@@ -25,7 +25,7 @@ import {
   SAFE_L1_BRIDGE_GAS,
 } from '../../../../../core/constants.ts';
 
-import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { determineEthNonBaseL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
@@ -226,7 +226,12 @@ export function routeEthNonBase(): DepositRouteStrategy {
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
       // L2TransactionBase cost
-      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const l2BaseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2Gas.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = l2BaseCost + ctx.operatorTip;
 
       // -- Approvals --
@@ -360,6 +365,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         value: bridgehubValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1Gas = await quoteL1Gas({
         ctx,
@@ -368,6 +374,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
       });
 
+      bridgeTx = { ...bridgeTx, ...l1Fees };
       if (l1Gas) {
         bridgeTx = {
           ...bridgeTx,

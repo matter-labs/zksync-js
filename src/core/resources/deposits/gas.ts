@@ -10,7 +10,7 @@ import {
 import { IBridgehubABI } from '../../abi';
 import type { Address } from '../../types/primitives';
 import type { GasEstimator, CoreTransactionRequest } from '../../adapters/interfaces';
-import type { TxOverrides } from '../../types/fees';
+import type { TxGasOverrides, TxOverrides } from '../../types/fees';
 import type { DepositRoute } from '../../types/flows/deposits';
 import { isEraVmChain } from './chains';
 
@@ -101,6 +101,50 @@ async function fetchFees(estimator: GasEstimator): Promise<{
   } catch {
     return { maxFeePerGas: 0n, maxPriorityFeePerGas: 0n };
   }
+}
+
+export type L1Fees = {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+};
+
+export type QuoteL1FeesInput = {
+  estimator: GasEstimator;
+  overrides?: TxGasOverrides;
+};
+
+// Resolves the EIP-1559 fees the deposit's L1 bridge tx is sent with.
+// Mailbox recomputes the L2 base cost from tx.gasprice, which never exceeds maxFeePerGas, so
+// the base cost must be quoted at this maxFeePerGas and the tx must carry it.
+export async function quoteL1Fees(input: QuoteL1FeesInput): Promise<L1Fees> {
+  const { estimator, overrides } = input;
+  const maxFeeOverride = overrides?.maxFeePerGas;
+  const tipOverride = overrides?.maxPriorityFeePerGas;
+
+  if (maxFeeOverride != null && tipOverride != null) {
+    return { maxFeePerGas: maxFeeOverride, maxPriorityFeePerGas: tipOverride };
+  }
+
+  const market = await fetchFees(estimator);
+
+  if (maxFeeOverride != null) {
+    const tip = market.maxPriorityFeePerGas;
+    return {
+      maxFeePerGas: maxFeeOverride,
+      maxPriorityFeePerGas: tip < maxFeeOverride ? tip : maxFeeOverride,
+    };
+  }
+
+  if (tipOverride != null) {
+    // Keep the market's base fee headroom, but on top of the tip that will actually be paid.
+    const headroom =
+      market.maxFeePerGas > market.maxPriorityFeePerGas
+        ? market.maxFeePerGas - market.maxPriorityFeePerGas
+        : 0n;
+    return { maxFeePerGas: headroom + tipOverride, maxPriorityFeePerGas: tipOverride };
+  }
+
+  return market;
 }
 
 export type QuoteL1GasInput = {
@@ -223,15 +267,14 @@ export type QuoteL2BaseCostInput = {
   chainIdL2: bigint;
   l2GasLimit: bigint;
   gasPerPubdata: bigint;
+  // maxFeePerGas of the L1 tx, see quoteL1Fees
+  l1GasPrice: bigint;
 };
 
 // Quotes L2 base cost for a deposit tx.
 // Calls L1 Bridgehub contract - l2TransactionBaseCost function.
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
-  const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata } = input;
-
-  const market = await fetchFees(estimator);
-  const l1GasPrice = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n;
+  const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata, l1GasPrice } = input;
 
   if (l1GasPrice === 0n) {
     throw new Error('Could not fetch L1 gas price for Bridgehub base cost calculation.');

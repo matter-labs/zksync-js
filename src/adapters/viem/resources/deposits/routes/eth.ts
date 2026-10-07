@@ -9,7 +9,7 @@ import { buildDirectRequestStruct } from '../../utils';
 import { IBridgehubABI } from '../../../../../core/abi.ts';
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
-import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { quoteL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
@@ -63,7 +63,12 @@ export function routeEthDirect(): DepositRouteStrategy {
       }
 
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
 
       const mintValue = baseCost + ctx.operatorTip + l2Value;
 
@@ -109,6 +114,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         value: mintValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1Gas = await quoteL1Gas({
         ctx,
@@ -116,7 +122,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         overrides: ctx.gasOverrides,
       });
 
-      let bridgeTx: ViemPlanWriteRequest = { ...sim.request };
+      let bridgeTx: ViemPlanWriteRequest = { ...sim.request, ...l1Fees };
       if (l1Gas) {
         bridgeTx = {
           ...bridgeTx,

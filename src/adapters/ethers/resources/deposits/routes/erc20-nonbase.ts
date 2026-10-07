@@ -12,7 +12,7 @@ import { isETH } from '../../../../../core/utils/addr';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 
 import { quoteL2BaseCost } from '../services/fee.ts';
-import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
+import { quoteL1Fees, quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import {
   L2_ASSET_ROUTER_ADDRESS,
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
@@ -214,7 +214,12 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       if (!l2GasParams) throw new Error('Failed to establish L2 gas parameters.');
 
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = baseCost + ctx.operatorTip;
 
       //  -- Approvals --
@@ -310,6 +315,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         value: txValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1GasParams = await quoteL1Gas({
         ctx,

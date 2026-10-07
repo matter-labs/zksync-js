@@ -10,7 +10,7 @@ import type { ApprovalNeed, PlanStep } from '../../../../../core/types/flows/bas
 import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { isETH } from '../../../../../core/utils/addr';
-import { determineEthNonBaseL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { determineEthNonBaseL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import {
   ETH_ADDRESS,
@@ -210,7 +210,12 @@ export function routeEthNonBase(): DepositRouteStrategy {
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = baseCost + ctx.operatorTip;
 
       // --- Approvals ---
@@ -286,6 +291,7 @@ export function routeEthNonBase(): DepositRouteStrategy {
         value: bridgehubValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1GasParams = await quoteL1Gas({
         ctx,

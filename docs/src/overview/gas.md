@@ -108,6 +108,12 @@ So the gas-limit model and the gas-price model are separate:
 - `l2GasLimit` is the execution budget.
 - `l1GasPrice` and `gasPerPubdata` determine how that budget is priced.
 
+`Mailbox` recomputes the base cost from the L1 transaction's effective gas price and reverts with `MsgValueTooLow` if `mintValue` falls short. The effective gas price never exceeds `maxFeePerGas`, so the SDK uses the `maxFeePerGas` the L1 bridge transaction is sent with as `l1GasPrice`, and always sets it on that transaction:
+
+- With no fee fields in `l1TxOverrides`, both `maxFeePerGas` and `maxPriorityFeePerGas` come from the provider's fee estimate.
+- If you override only `maxPriorityFeePerGas`, `maxFeePerGas` is the provider's estimate with your tip in place of the estimated tip.
+- If you override `maxFeePerGas`, it is used as `l1GasPrice`; the estimated tip is capped at it unless you override the tip too.
+
 ## Manual Overrides
 
 If you pass `l2GasLimit`, the SDK uses your override instead of the route-specific model.

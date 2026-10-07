@@ -6,7 +6,7 @@ import { buildDirectRequestStruct } from '../../utils';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
-import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { quoteL1Fees, quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
   applyPriorityL2GasLimitBuffer,
@@ -57,7 +57,12 @@ export function routeEthDirect(): DepositRouteStrategy {
       }
 
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = baseCost + ctx.operatorTip + l2Value;
 
       const req = buildDirectRequestStruct({
@@ -79,6 +84,7 @@ export function routeEthDirect(): DepositRouteStrategy {
         value: mintValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1GasParams = await quoteL1Gas({
         ctx,

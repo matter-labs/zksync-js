@@ -7,9 +7,11 @@ import type { TxGasOverrides } from '../../../../../core/types/fees';
 import type { Address } from '../../../../../core/types/primitives';
 import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants.ts';
 import {
+  quoteL1Fees as coreQuoteL1Fees,
   quoteL1Gas as coreQuoteL1Gas,
   quoteL2Gas as coreQuoteL2Gas,
   type GasQuote,
+  type L1Fees,
 } from '../../../../../core/resources/deposits/gas';
 import {
   resolveRegisteredTokenPriorityL2GasLimit,
@@ -17,7 +19,7 @@ import {
 } from '../../../../../core/resources/deposits/priority.ts';
 import { viemToGasEstimator, toCoreTx } from '../../../../viem/estimator';
 
-export type { GasQuote };
+export type { GasQuote, L1Fees };
 
 export type QuoteL1GasInput = {
   ctx: BuildCtx;
@@ -62,6 +64,18 @@ async function estimatePriorityTxL2Gas(
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Resolve the fees the deposit's L1 bridge tx is sent with.
+ * The L2 base cost must be quoted at the returned maxFeePerGas.
+ */
+export async function quoteL1Fees(input: { ctx: BuildCtx }): Promise<L1Fees> {
+  const { ctx } = input;
+  return coreQuoteL1Fees({
+    estimator: viemToGasEstimator(ctx.client.l1),
+    overrides: ctx.gasOverrides,
+  });
+}
 
 /**
  * Quote L1 gas for a deposit transaction.

@@ -18,7 +18,7 @@ import {
 } from '../../../../../core/constants.ts';
 import { createNTVCodec } from '../../../../../core/codec/ntv.ts';
 
-import { quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
+import { quoteL1Fees, quoteL1Gas, determineErc20L2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
@@ -239,7 +239,12 @@ export function routeErc20NonBase(): DepositRouteStrategy {
       if (!l2Gas) throw new Error('Failed to establish L2 gas parameters.');
 
       // L2TransactionBase cost
-      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const l2BaseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2Gas.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = l2BaseCost + ctx.operatorTip;
 
       // -- Approvals --
@@ -359,6 +364,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         value: msgValue,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1Gas = await quoteL1Gas({
         ctx,
@@ -401,6 +407,7 @@ export function routeErc20NonBase(): DepositRouteStrategy {
         bridgeTx = { ...sim.request };
       }
 
+      bridgeTx = { ...bridgeTx, ...l1Fees };
       if (l1Gas) {
         bridgeTx = {
           ...bridgeTx,
