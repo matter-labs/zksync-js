@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.25](https://github.com/matter-labs/zksync-js/compare/v0.0.24...v0.0.25) (2026-10-07)
+
+
+### Bug Fixes
+
+* quote deposit base cost at the L1 tx's maxFeePerGas ([#130](https://github.com/matter-labs/zksync-js/issues/130)) ([eb2f9ab](https://github.com/matter-labs/zksync-js/commit/eb2f9abd51710dc4cf004f212468db742efdca86))
+
 ## [0.0.24](https://github.com/matter-labs/zksync-js/compare/v0.0.23...v0.0.24) (2026-09-18)
 
 
