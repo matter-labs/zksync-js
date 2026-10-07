@@ -14,6 +14,8 @@ const { wrapAs } = createErrorHandlers('deposits');
 export type QuoteL2BaseCostInput = {
   ctx: BuildCtx;
   l2GasLimit: bigint;
+  // maxFeePerGas the L1 tx is sent with, see quoteL1Fees
+  l1GasPrice: bigint;
 };
 
 const encode: AbiEncoder = (abi, fn, args) => {
@@ -23,7 +25,7 @@ const encode: AbiEncoder = (abi, fn, args) => {
 // Quotes the L2 base cost for a deposit transaction.
 // Calls `l2TransactionBaseCost` on Bridgehub contract.
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
-  const { ctx, l2GasLimit } = input;
+  const { ctx, l2GasLimit, l1GasPrice } = input;
   const estimator = ethersToGasEstimator(ctx.client.l1);
 
   return wrapAs(
@@ -37,6 +39,7 @@ export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigi
         chainIdL2: ctx.chainIdL2,
         l2GasLimit,
         gasPerPubdata: ctx.gasPerPubdata,
+        l1GasPrice,
       }),
     { ctx: { chainIdL2: ctx.chainIdL2 } },
   );

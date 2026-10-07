@@ -13,7 +13,7 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL2Gas, quoteL1Gas } from '../services/gas.ts';
+import { quoteL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
@@ -87,7 +87,12 @@ export function routeErc20Base(): DepositRouteStrategy {
       if (!l2Gas) throw new Error('Failed to estimate L2 gas parameters.');
 
       // L2TransactionBase cost
-      const l2BaseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2Gas.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const l2BaseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2Gas.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = l2BaseCost + ctx.operatorTip + p.amount;
 
       // -- Approvals --
@@ -201,6 +206,7 @@ export function routeErc20Base(): DepositRouteStrategy {
         value: 0n,
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1Gas = await quoteL1Gas({
         ctx,
@@ -209,14 +215,11 @@ export function routeErc20Base(): DepositRouteStrategy {
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
       });
 
-      if (l1Gas) {
-        bridgeTx = {
-          ...bridgeTx,
-          gas: l1Gas.gasLimit,
-          maxFeePerGas: l1Gas.maxFeePerGas,
-          maxPriorityFeePerGas: l1Gas.maxPriorityFeePerGas,
-        };
-      }
+      bridgeTx = {
+        ...bridgeTx,
+        ...l1Fees,
+        ...(l1Gas ? { gas: l1Gas.gasLimit } : {}),
+      };
 
       steps.push({
         key: 'bridgehub:direct:erc20-base',

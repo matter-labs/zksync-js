@@ -11,8 +11,10 @@ export function toCoreTx(tx: TransactionRequest): CoreTransactionRequest {
     data: tx.data as string,
     value: tx.value ? BigInt(tx.value) : undefined,
     gasLimit: tx.gasLimit ? BigInt(tx.gasLimit) : undefined,
-    maxFeePerGas: tx.maxFeePerGas ? BigInt(tx.maxFeePerGas) : undefined,
-    maxPriorityFeePerGas: tx.maxPriorityFeePerGas ? BigInt(tx.maxPriorityFeePerGas) : undefined,
+    // zero fees are explicit on zero-base-fee chains; dropping them would re-fetch the market tip
+    maxFeePerGas: tx.maxFeePerGas != null ? BigInt(tx.maxFeePerGas) : undefined,
+    maxPriorityFeePerGas:
+      tx.maxPriorityFeePerGas != null ? BigInt(tx.maxPriorityFeePerGas) : undefined,
   };
 }
 

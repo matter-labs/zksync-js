@@ -8,7 +8,7 @@ import { createErrorHandlers } from '../../../errors/error-ops';
 import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
-import { quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { quoteL1Fees, quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
@@ -90,7 +90,12 @@ export function routeErc20Base(): DepositRouteStrategy {
       if (!l2GasParams) throw new Error('Failed to estimate L2 gas parameters.');
 
       // L2TransactionBase cost
-      const baseCost = await quoteL2BaseCost({ ctx, l2GasLimit: l2GasParams.gasLimit });
+      const l1Fees = await quoteL1Fees({ ctx });
+      const baseCost = await quoteL2BaseCost({
+        ctx,
+        l2GasLimit: l2GasParams.gasLimit,
+        l1GasPrice: l1Fees.maxFeePerGas,
+      });
       const mintValue = baseCost + ctx.operatorTip + p.amount;
 
       // --- Approvals ---
@@ -151,6 +156,7 @@ export function routeErc20Base(): DepositRouteStrategy {
         value: 0n, // base token is ERC-20 ⇒ msg.value MUST be 0
         from: ctx.sender,
         ...ctx.gasOverrides,
+        ...l1Fees,
       };
       const l1GasParams = await quoteL1Gas({
         ctx,

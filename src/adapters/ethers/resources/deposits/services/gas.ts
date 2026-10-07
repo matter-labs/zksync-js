@@ -7,17 +7,22 @@ import type { TxGasOverrides } from '../../../../../core/types/fees';
 import type { Address } from '../../../../../core/types/primitives';
 import { FORMAL_ETH_ADDRESS } from '../../../../../core/constants.ts';
 import {
+  quoteL1Fees as coreQuoteL1Fees,
   quoteL1Gas as coreQuoteL1Gas,
   quoteL2Gas as coreQuoteL2Gas,
   type GasQuote,
+  type L1Fees,
 } from '../../../../../core/resources/deposits/gas';
 import {
   resolveRegisteredTokenPriorityL2GasLimit,
   type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
+import { createErrorHandlers } from '../../../errors/error-ops';
 
-export type { GasQuote };
+const { wrapAs } = createErrorHandlers('deposits');
+
+export type { GasQuote, L1Fees };
 
 export type QuoteL1GasInput = {
   ctx: BuildCtx;
@@ -68,6 +73,24 @@ async function estimatePriorityTxL2Gas(
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Resolve the fees the deposit's L1 bridge tx is sent with.
+ * The L2 base cost must be quoted at the returned maxFeePerGas.
+ */
+export async function quoteL1Fees(input: { ctx: BuildCtx }): Promise<L1Fees> {
+  const { ctx } = input;
+  return wrapAs(
+    'RPC',
+    'deposits.fees.l1',
+    () =>
+      coreQuoteL1Fees({
+        estimator: ethersToGasEstimator(ctx.client.l1),
+        overrides: ctx.gasOverrides,
+      }),
+    { ctx: { chainIdL2: ctx.chainIdL2 } },
+  );
+}
 
 /**
  * Quote L1 gas for a deposit transaction.
