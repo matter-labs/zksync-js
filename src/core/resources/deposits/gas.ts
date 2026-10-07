@@ -16,6 +16,11 @@ import { isEraVmChain } from './chains';
 
 export type AbiEncoder = (abi: unknown, functionName: string, args: unknown[]) => string;
 
+export type L1Fees = {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+};
+
 export type GasQuote = {
   gasLimit: bigint;
   maxFeePerGas: bigint;
@@ -25,6 +30,7 @@ export type GasQuote = {
 };
 
 const CREATE_REESTIMATE_BUFFER = 15n;
+const ZERO_FEES: L1Fees = { maxFeePerGas: 0n, maxPriorityFeePerGas: 0n };
 const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 
 export function applyGasBuffer(gasLimit: bigint, bufferPct: bigint = BUFFER): bigint {
@@ -73,10 +79,7 @@ function makeGasQuote(p: {
 }
 
 // Fetches current fee data from the estimator.
-async function fetchFees(estimator: GasEstimator): Promise<{
-  maxFeePerGas: bigint;
-  maxPriorityFeePerGas: bigint;
-}> {
+async function fetchFees(estimator: GasEstimator): Promise<L1Fees | undefined> {
   try {
     const fees = await estimator.estimateFeesPerGas();
     if (fees.maxFeePerGas != null) {
@@ -99,14 +102,9 @@ async function fetchFees(estimator: GasEstimator): Promise<{
     const gp = await estimator.getGasPrice();
     return { maxFeePerGas: gp, maxPriorityFeePerGas: 0n };
   } catch {
-    return { maxFeePerGas: 0n, maxPriorityFeePerGas: 0n };
+    return undefined;
   }
 }
-
-export type L1Fees = {
-  maxFeePerGas: bigint;
-  maxPriorityFeePerGas: bigint;
-};
 
 export type QuoteL1FeesInput = {
   estimator: GasEstimator;
@@ -128,11 +126,15 @@ export async function quoteL1Fees(input: QuoteL1FeesInput): Promise<L1Fees> {
   const market = await fetchFees(estimator);
 
   if (maxFeeOverride != null) {
-    const tip = market.maxPriorityFeePerGas;
+    const tip = market?.maxPriorityFeePerGas ?? 0n;
     return {
       maxFeePerGas: maxFeeOverride,
       maxPriorityFeePerGas: tip < maxFeeOverride ? tip : maxFeeOverride,
     };
+  }
+
+  if (market == null) {
+    throw new Error('Could not fetch L1 gas price for Bridgehub base cost calculation.');
   }
 
   if (tipOverride != null) {
@@ -158,10 +160,10 @@ export type QuoteL1GasInput = {
 export async function quoteL1Gas(input: QuoteL1GasInput): Promise<GasQuote | undefined> {
   const { estimator, tx, overrides, fallbackGasLimit } = input;
 
-  let market: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | undefined;
+  let market: L1Fees | undefined;
   const getMarket = async () => {
     if (market) return market;
-    market = await fetchFees(estimator);
+    market = (await fetchFees(estimator)) ?? ZERO_FEES;
     return market;
   };
 
@@ -209,7 +211,7 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
   const { estimator, route, tx, gasPerPubdata, l2GasLimit, overrideGasLimit, stateOverrides } =
     input;
 
-  const market = await fetchFees(estimator);
+  const market = (await fetchFees(estimator)) ?? ZERO_FEES;
   const maxFeePerGas = market.maxFeePerGas || market.maxPriorityFeePerGas || 0n;
 
   const txGasLimit = tx?.gasLimit != null ? BigInt(tx.gasLimit) : undefined;
@@ -275,10 +277,6 @@ export type QuoteL2BaseCostInput = {
 // Calls L1 Bridgehub contract - l2TransactionBaseCost function.
 export async function quoteL2BaseCost(input: QuoteL2BaseCostInput): Promise<bigint> {
   const { estimator, encode, bridgehub, chainIdL2, l2GasLimit, gasPerPubdata, l1GasPrice } = input;
-
-  if (l1GasPrice === 0n) {
-    throw new Error('Could not fetch L1 gas price for Bridgehub base cost calculation.');
-  }
 
   const data = encode(IBridgehubABI, 'l2TransactionBaseCost', [
     chainIdL2,

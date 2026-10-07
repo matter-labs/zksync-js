@@ -374,15 +374,11 @@ export function routeEthNonBase(): DepositRouteStrategy {
         fallbackGasLimit: SAFE_L1_BRIDGE_GAS,
       });
 
-      bridgeTx = { ...bridgeTx, ...l1Fees };
-      if (l1Gas) {
-        bridgeTx = {
-          ...bridgeTx,
-          gas: l1Gas.gasLimit,
-          maxFeePerGas: l1Gas.maxFeePerGas,
-          maxPriorityFeePerGas: l1Gas.maxPriorityFeePerGas,
-        };
-      }
+      bridgeTx = {
+        ...bridgeTx,
+        ...l1Fees,
+        ...(l1Gas ? { gas: l1Gas.gasLimit } : {}),
+      };
 
       steps.push({
         key: 'bridgehub:two-bridges:eth-nonbase',

@@ -179,6 +179,32 @@ describeForAdapters('adapters/deposits/routeEthDirect', (kind, factory) => {
     expect(tx.maxPriorityFeePerGas).toBe(10n);
   });
 
+  for (const tip of [undefined, 0n]) {
+    for (const estimationFails of [false, true]) {
+      it(`keeps a zero fee cap with ${tip == null ? 'an omitted' : 'a zero'} tip when gas estimation ${estimationFails ? 'fails' : 'succeeds'}`, async () => {
+        const harness = factory();
+        const ctx = makeDepositContext(harness, {
+          gasOverrides: { maxFeePerGas: 0n, maxPriorityFeePerGas: tip },
+          fee: { gasPriceForBaseCost: 0n },
+        });
+        const amount = 1_000n;
+        const baseCost = 3_000n;
+        setBridgehubBaseCost(harness, ctx, baseCost);
+        harness.setEstimateGas(estimationFails ? new Error('no gas estimate') : 200_000n);
+
+        const res = await ROUTES[kind].build({ amount } as any, ctx as any);
+        const tx = res.steps[0].tx as {
+          maxFeePerGas?: bigint;
+          maxPriorityFeePerGas?: bigint;
+        };
+
+        expect(res.fees?.l2.baseCost).toBe(baseCost);
+        expect(tx.maxFeePerGas).toBe(0n);
+        expect(tx.maxPriorityFeePerGas).toBe(0n);
+      });
+    }
+  }
+
   it('wraps base cost call failures as ZKsyncError', async () => {
     const harness = factory();
     const ctx = makeDepositContext(harness);

@@ -18,6 +18,9 @@ import {
   type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { ethersToGasEstimator, toCoreTx } from '../../../../ethers/estimator';
+import { createErrorHandlers } from '../../../errors/error-ops';
+
+const { wrapAs } = createErrorHandlers('deposits');
 
 export type { GasQuote, L1Fees };
 
@@ -77,10 +80,16 @@ async function estimatePriorityTxL2Gas(
  */
 export async function quoteL1Fees(input: { ctx: BuildCtx }): Promise<L1Fees> {
   const { ctx } = input;
-  return coreQuoteL1Fees({
-    estimator: ethersToGasEstimator(ctx.client.l1),
-    overrides: ctx.gasOverrides,
-  });
+  return wrapAs(
+    'RPC',
+    'deposits.fees.l1',
+    () =>
+      coreQuoteL1Fees({
+        estimator: ethersToGasEstimator(ctx.client.l1),
+        overrides: ctx.gasOverrides,
+      }),
+    { ctx: { chainIdL2: ctx.chainIdL2 } },
+  );
 }
 
 /**

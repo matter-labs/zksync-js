@@ -114,6 +114,8 @@ So the gas-limit model and the gas-price model are separate:
 - If you override only `maxPriorityFeePerGas`, `maxFeePerGas` is the provider's estimate with your tip in place of the estimated tip.
 - If you override `maxFeePerGas`, it is used as `l1GasPrice`; the estimated tip is capped at it unless you override the tip too.
 
+Successful zero-fee estimates and explicit zero fee caps are preserved for L1 networks that accept zero fees, such as local development chains. If fee discovery fails and you have not supplied `maxFeePerGas`, quoting fails with an `RPC` error.
+
 ## Manual Overrides
 
 If you pass `l2GasLimit`, the SDK uses your override instead of the route-specific model.

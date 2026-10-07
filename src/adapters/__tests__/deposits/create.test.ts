@@ -12,6 +12,7 @@ import {
 import { ETH_ADDRESS, FORMAL_ETH_ADDRESS } from '../../../core/constants.ts';
 import type { Address, Hex } from '../../../core/types/primitives.ts';
 import type { ResolvedToken, TokensResource } from '../../../core/types/flows/token.ts';
+import { isZKsyncError } from '../../../core/types/errors.ts';
 
 const ETH_BASE_TOKEN_ASSET_ID = `0x${'11'.repeat(32)}` as Hex;
 const ETH_ASSET_ID = `0x${'22'.repeat(32)}` as Hex;
@@ -84,6 +85,55 @@ function overrideL2ChainId(harness: AdapterHarness, chainId: bigint) {
 
   (harness.l2 as any).getChainId = async () => chainId;
 }
+
+describe('adapters/deposits/resource.prepare fees', () => {
+  for (const kind of ['ethers', 'viem'] as const) {
+    it(`${kind} accepts successful zero-fee discovery without overrides`, async () => {
+      const harness = createAdapterHarness(kind);
+      const fees = { maxFeePerGas: 0n, maxPriorityFeePerGas: 0n };
+      if (harness.kind === 'ethers') {
+        harness.l1.getFeeData = async () => ({ gasPrice: 0n, ...fees });
+      } else {
+        harness.l1.estimateFeesPerGas = async () => fees;
+      }
+      const deposits = createDepositsResource(harness, makeEthBaseTokens());
+      const ctx = makeDepositContext(harness, { fee: { gasPriceForBaseCost: 0n } });
+      setBridgehubBaseCost(harness, ctx, 3_000n);
+
+      const plan = await deposits.prepare({
+        token: FORMAL_ETH_ADDRESS,
+        amount: 1_000n,
+        l2GasLimit: ctx.l2GasLimit,
+      });
+
+      expect(plan.summary.fees?.l2?.baseCost).toBe(3_000n);
+      expect(plan.steps[0].tx).toMatchObject(fees);
+    });
+
+    it(`${kind} preserves RPC classification when fee discovery fails`, async () => {
+      const harness = createAdapterHarness(kind);
+      const unavailable = async () => {
+        throw new Error('fee RPC unavailable');
+      };
+      if (harness.kind === 'ethers') {
+        harness.l1.getFeeData = unavailable;
+      } else {
+        harness.l1.estimateFeesPerGas = unavailable;
+        harness.l1.getGasPrice = unavailable;
+      }
+      const deposits = createDepositsResource(harness, makeEthBaseTokens());
+      const params = { token: FORMAL_ETH_ADDRESS, amount: 1_000n, l2GasLimit: 600_000n };
+      const envelope = { type: 'RPC', operation: 'deposits.fees.l1' } as const;
+
+      await expect(deposits.prepare(params)).rejects.toMatchObject({ envelope });
+      const result = await deposits.tryPrepare(params);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(isZKsyncError(result.error, envelope)).toBe(true);
+      }
+    });
+  }
+});
 
 describe('adapters/deposits/resource.create direct eth', () => {
   for (const kind of ['ethers', 'viem'] as const) {

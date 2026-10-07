@@ -122,15 +122,11 @@ export function routeEthDirect(): DepositRouteStrategy {
         overrides: ctx.gasOverrides,
       });
 
-      let bridgeTx: ViemPlanWriteRequest = { ...sim.request, ...l1Fees };
-      if (l1Gas) {
-        bridgeTx = {
-          ...bridgeTx,
-          gas: l1Gas.gasLimit,
-          maxFeePerGas: l1Gas.maxFeePerGas,
-          maxPriorityFeePerGas: l1Gas.maxPriorityFeePerGas,
-        };
-      }
+      const bridgeTx: ViemPlanWriteRequest = {
+        ...sim.request,
+        ...l1Fees,
+        ...(l1Gas ? { gas: l1Gas.gasLimit } : {}),
+      };
 
       const steps: PlanStep<ViemPlanWriteRequest>[] = [
         {

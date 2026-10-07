@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import type { GasEstimator } from '../../../adapters/interfaces';
-import { quoteL1Fees, resolveCreateDepositL1GasLimit } from '../gas';
+import { quoteL1Fees, quoteL1Gas, quoteL2Gas, resolveCreateDepositL1GasLimit } from '../gas';
 
 describe('deposit/gas resolveCreateDepositL1GasLimit', () => {
   it('keeps the prepared bridge gas floor on EraVM chains', () => {
@@ -76,6 +76,27 @@ describe('deposit/gas quoteL1Fees', () => {
     expect(await quoteL1Fees({ estimator: marketEstimator() })).toEqual(MARKET);
   });
 
+  it('accepts a successful zero-fee estimate', async () => {
+    const fees = { maxFeePerGas: 0n, maxPriorityFeePerGas: 0n };
+    expect(await quoteL1Fees({ estimator: marketEstimator(fees) })).toEqual(fees);
+  });
+
+  it('accepts a successful zero gas-price fallback', async () => {
+    const estimator: GasEstimator = {
+      ...marketEstimator(),
+      async estimateFeesPerGas() {
+        return {};
+      },
+      async getGasPrice() {
+        return 0n;
+      },
+    };
+    expect(await quoteL1Fees({ estimator })).toEqual({
+      maxFeePerGas: 0n,
+      maxPriorityFeePerGas: 0n,
+    });
+  });
+
   it('raises maxFeePerGas by the overridden tip so the base cost covers it', async () => {
     const fees = await quoteL1Fees({
       estimator: marketEstimator(),
@@ -101,5 +122,49 @@ describe('deposit/gas quoteL1Fees', () => {
     });
     expect(fees).toEqual({ maxFeePerGas: 3n, maxPriorityFeePerGas: 2n });
     expect(estimator.feeCalls).toBe(0);
+  });
+
+  for (const overrides of [undefined, { maxPriorityFeePerGas: 0n }]) {
+    it(`throws when fee discovery fails ${overrides ? 'with only a tip override' : 'without overrides'}`, async () => {
+      const estimator: GasEstimator = {
+        ...marketEstimator(),
+        async estimateFeesPerGas() {
+          return {};
+        },
+        async getGasPrice() {
+          throw new Error('no gas price');
+        },
+      };
+      await expect(quoteL1Fees({ estimator, overrides: overrides as any })).rejects.toThrow(
+        /Could not fetch L1 gas price/,
+      );
+    });
+  }
+});
+
+describe('deposit/gas fee discovery fallback', () => {
+  it('keeps gas quotes available when fee discovery fails', async () => {
+    const estimator: GasEstimator = {
+      ...marketEstimator(),
+      async estimateFeesPerGas() {
+        throw new Error('no fee estimate');
+      },
+      async getGasPrice() {
+        throw new Error('no gas price');
+      },
+      async estimateGas() {
+        return 100n;
+      },
+    };
+    const tx = { to: '0x1111111111111111111111111111111111111111' as const };
+    expect(await quoteL1Gas({ estimator, tx })).toMatchObject({
+      gasLimit: 120n,
+      maxFeePerGas: 0n,
+      maxPriorityFeePerGas: 0n,
+      maxCost: 0n,
+    });
+    expect(
+      await quoteL2Gas({ estimator, route: 'eth-base', overrideGasLimit: 100n }),
+    ).toMatchObject({ gasLimit: 100n, maxFeePerGas: 0n, maxCost: 0n });
   });
 });
