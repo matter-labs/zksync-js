@@ -162,6 +162,22 @@ describe('services/verification.waitForL2ExecutionFromL1Tx', () => {
     expect(String(caught)).toMatch(/was not found after waiting/);
   });
 
+  it('throws VERIFICATION error when waitForTransaction returns a failed L2 receipt', async () => {
+    const l1Logs = [makeNprLog({ txHash: H.l2tx as `0x${string}` })];
+    const l1 = makeL1Provider({ logs: l1Logs });
+    const l2 = makeL2Provider({ wait: { status: 0 }, get: null });
+
+    let caught: unknown;
+    try {
+      await waitForL2ExecutionFromL1Tx(l1, l2, H.l1tx as `0x${string}`);
+      expect('should have thrown').toBe('but did not');
+    } catch (e) {
+      caught = e;
+    }
+    expect(isZKsyncError(caught)).toBe(true);
+    expect(String(caught)).toMatch(/execution failed/);
+  });
+
   it('throws VERIFICATION error when L2 tx execution failed (status !== 1)', async () => {
     const l1Logs = [makeNprLog({ txHash: H.l2tx as `0x${string}` })];
     const l1 = makeL1Provider({ logs: l1Logs });
