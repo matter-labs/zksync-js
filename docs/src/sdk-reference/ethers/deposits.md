@@ -124,6 +124,7 @@ Accepts either the `DepositHandle` from `create()` or a raw L1 transaction hash.
 | `UNKNOWN`     | No L1 hash provided                       |
 | `L1_PENDING`  | L1 receipt not yet found                  |
 | `L1_INCLUDED` | Included on L1; L2 hash not derivable yet |
+| `L1_FAILED`   | L1 receipt present and the transaction reverted |
 | `L2_PENDING`  | L2 hash known; waiting for L2 receipt     |
 | `L2_EXECUTED` | L2 receipt found with `status === 1`      |
 | `L2_FAILED`   | L2 receipt found with `status !== 1`      |
