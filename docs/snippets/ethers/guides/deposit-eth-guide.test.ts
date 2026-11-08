@@ -67,7 +67,7 @@ async function main() {
 
   // ANCHOR: status
     const status = await sdk.deposits.status(handle);  /* input can be handle or l1TxHash */
-  // status.phase: 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+  // status.phase: 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L1_FAILED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
   // ANCHOR_END: status
   console.log('STATUS response: ', status);
 
