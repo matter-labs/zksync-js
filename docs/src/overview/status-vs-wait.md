@@ -36,7 +36,7 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 
 * No L2 receipt ⇒ `L2_PENDING`
 * Finalization key derivable but not ready ⇒ `PENDING`
-* Finalization would always revert (e.g. a malformed message) ⇒ `UNFINALIZABLE`; polling will not help, and `wait(...)` throws rather than spinning
+* The L2 transaction reverted, or finalization would always revert (e.g. a malformed message) ⇒ `UNFINALIZABLE`; polling will not help, and `wait(...)` throws rather than spinning
 * Already finalized ⇒ `FINALIZED`
 
 <details>

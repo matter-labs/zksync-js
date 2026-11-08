@@ -396,6 +396,12 @@ export function createWithdrawalsResource(
         }
         if (!l2Rcpt) return { phase: 'L2_PENDING', l2TxHash };
 
+        // A reverted withdrawal emits no L2→L1 message, so finalization can never succeed.
+        // Reporting PENDING would leave wait() polling until timeout.
+        if (l2Rcpt.status === 'reverted') {
+          return { phase: 'UNFINALIZABLE', l2TxHash, reason: 'l2-reverted' };
+        }
+
         // Derive finalize params/key — if unavailable, not ready yet
         let pack: ResolvedWithdrawalFinalization | undefined;
         try {
