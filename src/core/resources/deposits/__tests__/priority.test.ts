@@ -108,7 +108,7 @@ describe('deposit/priority resolveRegisteredTokenPriorityL2GasLimit', () => {
 });
 
 describe('deposit/priority resolveBaseTokenPriorityL2GasLimit', () => {
-  const base = { priorityFloorGasLimit: 355_437n, gasPerPubdata: 800n };
+  const base = { priorityFloorGasLimit: 355_437n, gasPerPubdata: 800n, chargesPubdata: true };
 
   it('uses the buffered node estimate when it exceeds the floor', () => {
     expect(resolveBaseTokenPriorityL2GasLimit({ ...base, nodeEstimate: 400_000n })).toBe(480_000n);
@@ -124,8 +124,22 @@ describe('deposit/priority resolveBaseTokenPriorityL2GasLimit', () => {
   });
 
   it('never drops the fallback below the floor', () => {
+    expect(resolveBaseTokenPriorityL2GasLimit({ ...base, priorityFloorGasLimit: 600_000n })).toBe(
+      600_000n,
+    );
+  });
+
+  it('keeps the floor without an estimate when the chain does not charge pubdata', () => {
+    expect(resolveBaseTokenPriorityL2GasLimit({ ...base, chargesPubdata: false })).toBe(355_437n);
+  });
+
+  it('uses the estimate even when the chain does not charge pubdata', () => {
     expect(
-      resolveBaseTokenPriorityL2GasLimit({ priorityFloorGasLimit: 600_000n, gasPerPubdata: 800n }),
-    ).toBe(600_000n);
+      resolveBaseTokenPriorityL2GasLimit({
+        ...base,
+        chargesPubdata: false,
+        nodeEstimate: 400_000n,
+      }),
+    ).toBe(480_000n);
   });
 });

@@ -8,6 +8,7 @@ import {
   setBridgehubBaseCost,
   setErc20Allowance,
   describeForAdapters,
+  setChainPricing,
 } from '../adapter-harness.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { parseDirectBridgeTx, parseApproveTx } from '../decode-helpers.ts';
@@ -286,13 +287,44 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
       expect(estimated.from.toLowerCase()).toBe(ctx.sender.toLowerCase());
     });
 
-    it('falls back to the new-account pubdata model when the node cannot estimate', async () => {
+    it('falls back to the new-account pubdata model on a rollup when the node cannot estimate', async () => {
+      const harness = factory();
+      setChainPricing(harness, 324n, { zksyncOS: true, pubdataPricingMode: 0 });
+      harness.setPriorityEstimateGas(new Error('unsupported tx type'));
+
+      const { info } = await buildL2GasLimit(harness, 1_000n, NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
+
+      expect(info.l2GasLimit).toBe(NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
+    });
+
+    it('takes the cautious rollup fallback when the chain pricing cannot be read from L1', async () => {
       const harness = factory();
       harness.setPriorityEstimateGas(new Error('unsupported tx type'));
 
       const { info } = await buildL2GasLimit(harness, 1_000n, NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
 
       expect(info.l2GasLimit).toBe(NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
+    });
+
+    it('keeps the floor on a validium when the node cannot estimate', async () => {
+      const harness = factory();
+      setChainPricing(harness, 324n, { zksyncOS: true, pubdataPricingMode: 1 });
+      harness.setPriorityEstimateGas(new Error('unsupported tx type'));
+
+      const { info } = await buildL2GasLimit(harness, 1_000n, floorGasLimit);
+
+      expect(info.l2GasLimit).toBe(floorGasLimit);
+    });
+
+    it('uses the floor on an EraVM chain without asking the node', async () => {
+      const harness = factory();
+      setChainPricing(harness, 324n, { zksyncOS: false, pubdataPricingMode: 0 });
+      harness.setPriorityEstimateGas(900_000n);
+
+      const { info } = await buildL2GasLimit(harness, 1_000n, floorGasLimit);
+
+      expect(info.l2GasLimit).toBe(floorGasLimit);
+      expect(harness.lastPriorityEstimateTx()).toBeUndefined();
     });
   });
 });

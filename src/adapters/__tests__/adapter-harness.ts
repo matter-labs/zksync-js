@@ -33,6 +33,7 @@ import {
   L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 import { isBigint } from '../../core/utils';
+import { ZK_CHAIN_PRICING_GETTERS_ABI } from '../../core/resources/deposits/priority.ts';
 
 const IBridgehub = new Interface(IBridgehubABI as any);
 const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
@@ -40,6 +41,7 @@ const IL1Nullifier = new Interface(IL1NullifierABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const L2NativeTokenVault = new Interface(L2NativeTokenVaultABI as any);
 const IInteropCenter = new Interface(IInteropCenterABI as any);
+const ZKChainPricingGetters = new Interface(ZK_CHAIN_PRICING_GETTERS_ABI as any);
 const IChainTypeManager = new Interface([
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
 ]);
@@ -785,6 +787,26 @@ export function setBridgehubBaseCost<T extends AdapterHarness>(
     'l2TransactionBaseCost',
     value,
     [chainId, gasPrice, l2Gas, gasPerPubdata],
+  );
+}
+
+const TEST_ZK_CHAIN = '0xf000000000000000000000000000000000000000' as Address;
+
+/** Seeds what a chain's L1 contract reports about deposit pricing. */
+export function setChainPricing(
+  harness: AdapterHarness,
+  chainIdL2: bigint,
+  pricing: { zksyncOS: boolean; pubdataPricingMode: 0 | 1 },
+) {
+  harness.registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'getZKChain', TEST_ZK_CHAIN, [
+    chainIdL2,
+  ]);
+  harness.registry.set(TEST_ZK_CHAIN, ZKChainPricingGetters, 'getZKsyncOS', pricing.zksyncOS);
+  harness.registry.set(
+    TEST_ZK_CHAIN,
+    ZKChainPricingGetters,
+    'getPubdataPricingMode',
+    pricing.pubdataPricingMode,
   );
 }
 

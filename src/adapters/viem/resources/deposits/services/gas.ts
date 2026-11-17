@@ -1,6 +1,13 @@
 // src/adapters/viem/resources/deposits/services/gas.ts
 
-import { zeroAddress, type TransactionRequest } from 'viem';
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  zeroAddress,
+  type Abi,
+  type TransactionRequest,
+} from 'viem';
+import { IBridgehubABI } from '../../../../../core/abi.ts';
 import type { BuildCtx } from '../context';
 import type { DepositRoute } from '../../../../../core/types/flows/deposits';
 import type { TxGasOverrides } from '../../../../../core/types/fees';
@@ -15,8 +22,11 @@ import {
 } from '../../../../../core/resources/deposits/gas';
 import {
   applyL1ToL2Alias,
+  PUBDATA_PRICING_MODE_ROLLUP,
   resolveBaseTokenPriorityL2GasLimit,
   resolveRegisteredTokenPriorityL2GasLimit,
+  ZK_CHAIN_PRICING_GETTERS_ABI,
+  type ChainPricing,
   type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
 import { viemToGasEstimator, toCoreTx } from '../../../../viem/estimator';
@@ -82,6 +92,54 @@ async function resolvePriorityTxL2Sender(ctx: BuildCtx): Promise<Address> {
   return applyL1ToL2Alias(ctx.sender);
 }
 
+const chainPricingCache = new WeakMap<object, Map<bigint, ChainPricing>>();
+
+const isContractRevert = (err: unknown) =>
+  err instanceof BaseError && err.walk((e) => e instanceof ContractFunctionRevertedError) != null;
+
+/**
+ * How the target chain prices a deposit, read from its L1 contract and cached per client. A chain
+ * contract that predates `getZKsyncOS` reverts and is treated as EraVM. Returns `undefined` when
+ * L1 cannot be read, so the caller takes the cautious path.
+ */
+async function readChainPricing(ctx: BuildCtx): Promise<ChainPricing | undefined> {
+  const cached = chainPricingCache.get(ctx.client)?.get(ctx.chainIdL2);
+  if (cached) return cached;
+
+  try {
+    const zkChain = (await ctx.client.l1.readContract({
+      address: ctx.bridgehub,
+      abi: IBridgehubABI as Abi,
+      functionName: 'getZKChain',
+      args: [ctx.chainIdL2],
+    })) as Address;
+    const read = (functionName: 'getZKsyncOS' | 'getPubdataPricingMode') =>
+      ctx.client.l1.readContract({
+        address: zkChain,
+        abi: ZK_CHAIN_PRICING_GETTERS_ABI,
+        functionName,
+      });
+
+    let zksyncOS: boolean;
+    try {
+      zksyncOS = (await read('getZKsyncOS')) as boolean;
+    } catch (err) {
+      if (!isContractRevert(err)) throw err;
+      zksyncOS = false;
+    }
+    const chargesPubdata =
+      zksyncOS && Number(await read('getPubdataPricingMode')) === PUBDATA_PRICING_MODE_ROLLUP;
+
+    const pricing = { zksyncOS, chargesPubdata };
+    const perClient = chainPricingCache.get(ctx.client) ?? new Map<bigint, ChainPricing>();
+    perClient.set(ctx.chainIdL2, pricing);
+    chainPricingCache.set(ctx.client, perClient);
+    return pricing;
+  } catch {
+    return undefined;
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -138,8 +196,10 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
 }
 
 /**
- * `l2GasLimit` for a base-token deposit (`requestL2TransactionDirect`): the node's estimate of the
- * real L2 call, floored by the protocol minimum. An explicit `ctx.l2GasLimit` wins.
+ * `l2GasLimit` for a base-token deposit (`requestL2TransactionDirect`). An explicit
+ * `ctx.l2GasLimit` wins. EraVM chains use the protocol floor. ZKsync OS chains use the node's
+ * estimate of the real L2 call, floored by the protocol minimum. When L1 cannot be read, the chain
+ * is treated as a ZKsync OS rollup, which only errs toward a higher limit.
  */
 export async function determineBaseL2GasLimit(input: {
   ctx: BuildCtx;
@@ -151,11 +211,18 @@ export async function determineBaseL2GasLimit(input: {
   const { ctx } = input;
   if (ctx.l2GasLimit != null) return ctx.l2GasLimit;
 
+  const [pricing, from] = await Promise.all([
+    readChainPricing(ctx),
+    resolvePriorityTxL2Sender(ctx),
+  ]);
+  if (pricing && !pricing.zksyncOS) return input.priorityFloorGasLimit;
+
   return resolveBaseTokenPriorityL2GasLimit({
     priorityFloorGasLimit: input.priorityFloorGasLimit,
     gasPerPubdata: ctx.gasPerPubdata,
+    chargesPubdata: pricing?.chargesPubdata ?? true,
     nodeEstimate: await estimatePriorityTxL2Gas(ctx, {
-      from: await resolvePriorityTxL2Sender(ctx),
+      from,
       to: input.l2Contract,
       data: input.l2Calldata,
       value: input.l2Value,
