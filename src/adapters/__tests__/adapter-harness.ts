@@ -104,6 +104,7 @@ type EthersHarness = {
       maxPriorityFeePerGas?: bigint;
     }>;
     getGasPrice: () => Promise<bigint>;
+    getCode: (address: string) => Promise<string>;
   };
   l2: {
     send: (method: string, params: unknown[]) => Promise<unknown>;
@@ -126,6 +127,7 @@ type EthersHarness = {
   onL2EstimateGas(cb: ((tx: unknown) => void) | undefined): void;
   setPriorityEstimateGas(value: bigint | Error | undefined): void;
   lastPriorityEstimateTx(): unknown;
+  setL1Code(code: string | undefined): void;
 };
 
 type ViemHarness = {
@@ -144,6 +146,7 @@ type ViemHarness = {
   queueEstimateGas(values: Array<bigint | Error>, target?: 'l1' | 'l2'): void;
   setPriorityEstimateGas(value: bigint | Error | undefined): void;
   lastPriorityEstimateTx(): unknown;
+  setL1Code(code: string | undefined): void;
 };
 
 export type AdapterHarness = EthersHarness | ViemHarness;
@@ -167,6 +170,7 @@ type EthersL1State = {
   estimateGasValue?: bigint | Error;
   estimateGasQueue?: Array<bigint | Error>;
   estimateGasSpy?: (tx: unknown) => void;
+  code?: string;
 };
 
 function makeEthersL1(state: EthersL1State) {
@@ -196,6 +200,10 @@ function makeEthersL1(state: EthersL1State) {
     },
     async getNetwork() {
       return { chainId: 324n };
+    },
+    // Default to deployed bytecode sentinel, matching the viem mock.
+    async getCode(_address: string) {
+      return state.code ?? '0x01';
     },
   };
 }
@@ -498,6 +506,9 @@ export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {
     lastPriorityEstimateTx() {
       return l2State.lastPriorityEstimateTx;
     },
+    setL1Code(code) {
+      state.code = code;
+    },
   };
 }
 
@@ -562,6 +573,9 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
     },
     lastPriorityEstimateTx() {
       return l2State.lastPriorityEstimateTx;
+    },
+    setL1Code(code) {
+      l1State.code = code;
     },
   };
 }

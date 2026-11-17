@@ -14,6 +14,8 @@ import {
   type L1Fees,
 } from '../../../../../core/resources/deposits/gas';
 import {
+  applyL1ToL2Alias,
+  resolveBaseTokenPriorityL2GasLimit,
   resolveRegisteredTokenPriorityL2GasLimit,
   type PriorityTxL2Leg,
 } from '../../../../../core/resources/deposits/priority.ts';
@@ -70,6 +72,22 @@ async function estimatePriorityTxL2Gas(
   }
 }
 
+/**
+ * L2 `from` of a direct priority request. The Mailbox aliases the sender whenever it is not
+ * `tx.origin`, so any L1 sender with code (smart accounts, multisigs, EIP-7702 accounts driven by a
+ * bundler) is estimated from its alias. A failed code lookup also uses the alias: a fresh alias
+ * account costs more pubdata, so this errs toward a higher limit.
+ */
+async function resolvePriorityTxL2Sender(ctx: BuildCtx): Promise<Address> {
+  try {
+    const code = await ctx.client.l1.getCode(ctx.sender);
+    if (!code || code === '0x') return ctx.sender;
+  } catch {
+    // Fall through to the aliased sender.
+  }
+  return applyL1ToL2Alias(ctx.sender);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -122,6 +140,32 @@ export async function quoteL2Gas(input: QuoteL2GasInput): Promise<GasQuote | und
     l2GasLimit: ctx.l2GasLimit,
     overrideGasLimit,
     stateOverrides: input.stateOverrides,
+  });
+}
+
+/**
+ * `l2GasLimit` for a base-token deposit (`requestL2TransactionDirect`): the node's estimate of the
+ * real L2 call, floored by the protocol minimum. An explicit `ctx.l2GasLimit` wins.
+ */
+export async function determineBaseL2GasLimit(input: {
+  ctx: BuildCtx;
+  l2Contract: Address;
+  l2Value: bigint;
+  l2Calldata: `0x${string}`;
+  priorityFloorGasLimit: bigint;
+}): Promise<bigint> {
+  const { ctx } = input;
+  if (ctx.l2GasLimit != null) return ctx.l2GasLimit;
+
+  return resolveBaseTokenPriorityL2GasLimit({
+    priorityFloorGasLimit: input.priorityFloorGasLimit,
+    gasPerPubdata: ctx.gasPerPubdata,
+    nodeEstimate: await estimatePriorityTxL2Gas(ctx, {
+      from: await resolvePriorityTxL2Sender(ctx),
+      to: input.l2Contract,
+      data: input.l2Calldata,
+      value: input.l2Value,
+    }),
   });
 }
 

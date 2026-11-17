@@ -11,7 +11,12 @@ import {
 } from '../adapter-harness.ts';
 import { isZKsyncError } from '../../../core/types/errors.ts';
 import { parseDirectBridgeTx, parseApproveTx } from '../decode-helpers.ts';
-import { SAFE_L1_BRIDGE_GAS } from '../../../core/constants.ts';
+import { SAFE_L1_BRIDGE_GAS, ZKSYNC_OS_PRIORITY_TX_TYPE } from '../../../core/constants.ts';
+import {
+  applyL1ToL2Alias,
+  applyPriorityL2GasLimitBuffer,
+} from '../../../core/resources/deposits/priority.ts';
+import { applyGasBuffer } from '../../../core/resources/deposits/gas.ts';
 
 type AdapterKind = 'ethers' | 'viem';
 
@@ -217,5 +222,77 @@ describeForAdapters('adapters/deposits/routeErc20Base', (kind, factory) => {
     }
     expect(isZKsyncError(caught)).toBe(true);
     expect(String(caught)).toMatch(/Failed to read base-token allowance/);
+  });
+
+  describe('node priority-tx estimate', () => {
+    const CONTRACT_CODE = '0x6080604052';
+    // Default context: buffered validator floor at 800 gas per pubdata byte. This is the
+    // 355,437 limit that left an ERC-4337 sender's base-token deposit short of pubdata gas.
+    const floorGasLimit = applyPriorityL2GasLimitBuffer({ chainIdL2: 324n, gasLimit: 253_884n });
+    // 590 pubdata bytes at 800 gas per byte, plus the 20% gas buffer.
+    const NEW_ACCOUNTS_FALLBACK_GAS_LIMIT = 566_400n;
+
+    async function buildL2GasLimit(
+      harness: ReturnType<typeof factory>,
+      amount: bigint,
+      expectedL2GasLimit: bigint,
+    ) {
+      const ctx = makeDepositContext(harness, { l2GasLimit: undefined });
+      const baseCost = 2_000n;
+      setBridgehubBaseCost(harness, ctx, baseCost, { l2GasLimit: expectedL2GasLimit });
+      setErc20Allowance(
+        harness,
+        ADAPTER_TEST_ADDRESSES.baseTokenFor324,
+        ctx.sender,
+        ctx.l1NativeTokenVault,
+        baseCost + ctx.operatorTip + amount,
+      );
+      const res = await ROUTES[kind].build(
+        { token: ADAPTER_TEST_ADDRESSES.baseTokenFor324, amount } as any,
+        ctx as any,
+      );
+      return { ctx, info: parseDirectBridgeTx(kind, res.steps[0].tx) };
+    }
+
+    it('raises the L2 gas limit to the buffered estimate, simulated from the aliased contract sender', async () => {
+      const harness = factory();
+      const amount = 1_000n;
+      const nodeEstimate = 400_000n;
+      const expectedL2GasLimit = applyGasBuffer(nodeEstimate);
+      harness.setL1Code(CONTRACT_CODE);
+      harness.setPriorityEstimateGas(nodeEstimate);
+
+      const { ctx, info } = await buildL2GasLimit(harness, amount, expectedL2GasLimit);
+
+      expect(floorGasLimit).toBe(355_437n);
+      expect(expectedL2GasLimit).toBeGreaterThan(floorGasLimit);
+      expect(info.l2GasLimit).toBe(expectedL2GasLimit);
+      const estimated = harness.lastPriorityEstimateTx() as Record<string, string>;
+      expect(estimated.type).toBe(ZKSYNC_OS_PRIORITY_TX_TYPE);
+      expect(estimated.from.toLowerCase()).toBe(applyL1ToL2Alias(ctx.sender).toLowerCase());
+      expect(estimated.to.toLowerCase()).toBe(ctx.sender.toLowerCase());
+      expect(BigInt(estimated.value)).toBe(amount);
+    });
+
+    it('simulates from the sender itself and keeps the floor when an EOA estimate is lower', async () => {
+      const harness = factory();
+      harness.setL1Code('0x');
+      harness.setPriorityEstimateGas(100_000n);
+
+      const { ctx, info } = await buildL2GasLimit(harness, 1_000n, floorGasLimit);
+
+      expect(info.l2GasLimit).toBe(floorGasLimit);
+      const estimated = harness.lastPriorityEstimateTx() as Record<string, string>;
+      expect(estimated.from.toLowerCase()).toBe(ctx.sender.toLowerCase());
+    });
+
+    it('falls back to the new-account pubdata model when the node cannot estimate', async () => {
+      const harness = factory();
+      harness.setPriorityEstimateGas(new Error('unsupported tx type'));
+
+      const { info } = await buildL2GasLimit(harness, 1_000n, NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
+
+      expect(info.l2GasLimit).toBe(NEW_ACCOUNTS_FALLBACK_GAS_LIMIT);
+    });
   });
 });

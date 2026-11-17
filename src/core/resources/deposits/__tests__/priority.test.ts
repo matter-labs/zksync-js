@@ -4,6 +4,7 @@ import {
   applyPriorityL2GasLimitBuffer,
   clampPriorityL2GasLimit,
   minimalPriorityTxL2Gas,
+  resolveBaseTokenPriorityL2GasLimit,
   resolveRegisteredTokenPriorityL2GasLimit,
 } from '../priority';
 
@@ -103,5 +104,28 @@ describe('deposit/priority resolveRegisteredTokenPriorityL2GasLimit', () => {
     expect(
       resolveRegisteredTokenPriorityL2GasLimit({ ...observed, priorityFloorGasLimit: 900_000n }),
     ).toBe(900_000n);
+  });
+});
+
+describe('deposit/priority resolveBaseTokenPriorityL2GasLimit', () => {
+  const base = { priorityFloorGasLimit: 355_437n, gasPerPubdata: 800n };
+
+  it('uses the buffered node estimate when it exceeds the floor', () => {
+    expect(resolveBaseTokenPriorityL2GasLimit({ ...base, nodeEstimate: 400_000n })).toBe(480_000n);
+  });
+
+  it('keeps the floor when the buffered node estimate is lower', () => {
+    expect(resolveBaseTokenPriorityL2GasLimit({ ...base, nodeEstimate: 100_000n })).toBe(355_437n);
+  });
+
+  it('falls back to the new-account pubdata model without a usable estimate', () => {
+    expect(resolveBaseTokenPriorityL2GasLimit(base)).toBe(566_400n);
+    expect(resolveBaseTokenPriorityL2GasLimit({ ...base, nodeEstimate: 0n })).toBe(566_400n);
+  });
+
+  it('never drops the fallback below the floor', () => {
+    expect(
+      resolveBaseTokenPriorityL2GasLimit({ priorityFloorGasLimit: 600_000n, gasPerPubdata: 800n }),
+    ).toBe(600_000n);
   });
 });
