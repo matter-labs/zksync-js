@@ -1,4 +1,5 @@
 import type { Provider, TransactionRequest, JsonRpcProvider } from 'ethers';
+import { toQuantity } from 'ethers';
 import type { GasEstimator, CoreTransactionRequest } from '../../core/adapters/interfaces';
 import type { Address } from '../../core/types/primitives';
 import { ZKSYNC_OS_PRIORITY_TX_TYPE } from '../../core/constants';
@@ -66,7 +67,13 @@ export function ethersToGasEstimator(provider: Provider): GasEstimator {
         throw new Error('Provider does not support "send"; cannot estimate priority tx gas.');
       }
       const result = (await (provider as JsonRpcProvider).send('eth_estimateGas', [
-        { from: tx.from, to: tx.to, data: tx.data, type: ZKSYNC_OS_PRIORITY_TX_TYPE },
+        {
+          from: tx.from,
+          to: tx.to,
+          data: tx.data,
+          ...(tx.value != null ? { value: toQuantity(tx.value) } : {}),
+          type: ZKSYNC_OS_PRIORITY_TX_TYPE,
+        },
       ])) as string;
       return BigInt(result);
     },

@@ -33,6 +33,7 @@ import {
   L2_MESSAGE_VERIFICATION_ADDRESS,
 } from '../../core/constants';
 import { isBigint } from '../../core/utils';
+import { ZK_CHAIN_PRICING_GETTERS_ABI } from '../../core/resources/deposits/priority.ts';
 
 const IBridgehub = new Interface(IBridgehubABI as any);
 const IL1AssetRouter = new Interface(IL1AssetRouterABI as any);
@@ -40,6 +41,7 @@ const IL1Nullifier = new Interface(IL1NullifierABI as any);
 const IERC20 = new Interface(IERC20ABI as any);
 const L2NativeTokenVault = new Interface(L2NativeTokenVaultABI as any);
 const IInteropCenter = new Interface(IInteropCenterABI as any);
+const ZKChainPricingGetters = new Interface(ZK_CHAIN_PRICING_GETTERS_ABI as any);
 const IChainTypeManager = new Interface([
   'function getSemverProtocolVersion() view returns (uint32,uint32,uint32)',
 ]);
@@ -104,6 +106,7 @@ type EthersHarness = {
       maxPriorityFeePerGas?: bigint;
     }>;
     getGasPrice: () => Promise<bigint>;
+    getCode: (address: string) => Promise<string>;
   };
   l2: {
     send: (method: string, params: unknown[]) => Promise<unknown>;
@@ -126,6 +129,7 @@ type EthersHarness = {
   onL2EstimateGas(cb: ((tx: unknown) => void) | undefined): void;
   setPriorityEstimateGas(value: bigint | Error | undefined): void;
   lastPriorityEstimateTx(): unknown;
+  setL1Code(code: string | undefined): void;
 };
 
 type ViemHarness = {
@@ -144,6 +148,7 @@ type ViemHarness = {
   queueEstimateGas(values: Array<bigint | Error>, target?: 'l1' | 'l2'): void;
   setPriorityEstimateGas(value: bigint | Error | undefined): void;
   lastPriorityEstimateTx(): unknown;
+  setL1Code(code: string | undefined): void;
 };
 
 export type AdapterHarness = EthersHarness | ViemHarness;
@@ -167,6 +172,7 @@ type EthersL1State = {
   estimateGasValue?: bigint | Error;
   estimateGasQueue?: Array<bigint | Error>;
   estimateGasSpy?: (tx: unknown) => void;
+  code?: string;
 };
 
 function makeEthersL1(state: EthersL1State) {
@@ -196,6 +202,10 @@ function makeEthersL1(state: EthersL1State) {
     },
     async getNetwork() {
       return { chainId: 324n };
+    },
+    // Default to deployed bytecode sentinel, matching the viem mock.
+    async getCode(_address: string) {
+      return state.code ?? '0x01';
     },
   };
 }
@@ -498,6 +508,9 @@ export function createEthersHarness(opts: BaseOpts = {}): EthersHarness {
     lastPriorityEstimateTx() {
       return l2State.lastPriorityEstimateTx;
     },
+    setL1Code(code) {
+      state.code = code;
+    },
   };
 }
 
@@ -562,6 +575,9 @@ export function createViemHarness(opts: BaseOpts = {}): ViemHarness {
     },
     lastPriorityEstimateTx() {
       return l2State.lastPriorityEstimateTx;
+    },
+    setL1Code(code) {
+      l1State.code = code;
     },
   };
 }
@@ -771,6 +787,26 @@ export function setBridgehubBaseCost<T extends AdapterHarness>(
     'l2TransactionBaseCost',
     value,
     [chainId, gasPrice, l2Gas, gasPerPubdata],
+  );
+}
+
+const TEST_ZK_CHAIN = '0xf000000000000000000000000000000000000000' as Address;
+
+/** Seeds what a chain's L1 contract reports about deposit pricing. */
+export function setChainPricing(
+  harness: AdapterHarness,
+  chainIdL2: bigint,
+  pricing: { zksyncOS: boolean; pubdataPricingMode: 0 | 1 },
+) {
+  harness.registry.set(ADAPTER_TEST_ADDRESSES.bridgehub, IBridgehub, 'getZKChain', TEST_ZK_CHAIN, [
+    chainIdL2,
+  ]);
+  harness.registry.set(TEST_ZK_CHAIN, ZKChainPricingGetters, 'getZKsyncOS', pricing.zksyncOS);
+  harness.registry.set(
+    TEST_ZK_CHAIN,
+    ZKChainPricingGetters,
+    'getPubdataPricingMode',
+    pricing.pubdataPricingMode,
   );
 }
 
