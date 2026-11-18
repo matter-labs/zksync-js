@@ -6,6 +6,7 @@ import type {
   RpcAccountStateOverride,
   RpcTransactionRequest,
 } from 'viem';
+import { toHex } from 'viem';
 import type { GasEstimator, CoreTransactionRequest } from '../../core/adapters/interfaces';
 import { ZKSYNC_OS_PRIORITY_TX_TYPE } from '../../core/constants';
 
@@ -73,6 +74,7 @@ export function viemToGasEstimator(client: PublicClient): GasEstimator {
             from: tx.from as Address,
             to: tx.to,
             data: tx.data as Hash,
+            ...(tx.value != null ? { value: toHex(tx.value) } : {}),
             type: ZKSYNC_OS_PRIORITY_TX_TYPE,
           } as unknown as RpcTransactionRequest,
         ],
