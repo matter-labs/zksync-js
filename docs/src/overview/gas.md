@@ -84,7 +84,7 @@ This keeps the quote asset-specific because calldata length depends on the actua
 For undeployed `erc20-nonbase` and `eth-nonbase` deposits, exact deployment-path estimates can fluctuate across environments and underquote the real L2 execution. The SDK therefore uses a calibrated dynamic cap derived from the validator floor instead of trusting the exact estimate:
 
 ```typescript
-bodyGas = minBodyGas * 6
+bodyGas = minBodyGas * 7
 l2GasLimit = bodyGas + overhead
 ```
 
