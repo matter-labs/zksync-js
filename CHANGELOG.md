@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.26](https://github.com/matter-labs/zksync-js/compare/v0.0.25...v0.0.26) (2026-11-17)
+
+
+### Bug Fixes
+
+* estimate L2 gas for base-token deposits from the node ([#137](https://github.com/matter-labs/zksync-js/issues/137)) ([175edb0](https://github.com/matter-labs/zksync-js/commit/175edb09d1292af42d786154815bc9341cd88713))
+
 ## [0.0.25](https://github.com/matter-labs/zksync-js/compare/v0.0.24...v0.0.25) (2026-10-07)
 
 

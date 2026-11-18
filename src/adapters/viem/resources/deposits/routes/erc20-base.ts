@@ -13,7 +13,7 @@ import { OP_DEPOSITS } from '../../../../../core/types';
 import { normalizeAddrEq, isETH } from '../../../../../core/utils/addr';
 import { SAFE_L1_BRIDGE_GAS } from '../../../../../core/constants.ts';
 
-import { quoteL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
+import { determineBaseL2GasLimit, quoteL2Gas, quoteL1Fees, quoteL1Gas } from '../services/gas.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
@@ -68,16 +68,20 @@ export function routeErc20Base(): DepositRouteStrategy {
         gasPerPubdata: ctx.gasPerPubdata,
       });
 
-      const quotedL2GasLimit =
-        ctx.l2GasLimit ??
-        clampPriorityL2GasLimit({
+      const quotedL2GasLimit = await determineBaseL2GasLimit({
+        ctx,
+        l2Contract,
+        l2Value,
+        l2Calldata,
+        priorityFloorGasLimit: clampPriorityL2GasLimit({
           gasLimit: applyPriorityL2GasLimitBuffer({
             chainIdL2: ctx.chainIdL2,
             gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
           }),
           l2Calldata,
           gasPerPubdata: ctx.gasPerPubdata,
-        });
+        }),
+      });
       const l2Gas = await quoteL2Gas({
         ctx,
         route: 'erc20-base',

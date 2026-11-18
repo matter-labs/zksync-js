@@ -6,7 +6,7 @@ import { buildDirectRequestStruct } from '../../utils';
 import type { PlanStep } from '../../../../../core/types/flows/base';
 import { ETH_ADDRESS } from '../../../../../core/constants.ts';
 import { quoteL2BaseCost } from '../services/fee.ts';
-import { quoteL1Fees, quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
+import { determineBaseL2GasLimit, quoteL1Fees, quoteL1Gas, quoteL2Gas } from '../services/gas.ts';
 import { buildFeeBreakdown } from '../../../../../core/resources/deposits/fee.ts';
 import {
   applyPriorityL2GasLimitBuffer,
@@ -34,16 +34,20 @@ export function routeEthDirect(): DepositRouteStrategy {
         gasPerPubdata: ctx.gasPerPubdata,
       });
 
-      const quotedL2GasLimit =
-        ctx.l2GasLimit ??
-        clampPriorityL2GasLimit({
+      const quotedL2GasLimit = await determineBaseL2GasLimit({
+        ctx,
+        l2Contract,
+        l2Value,
+        l2Calldata,
+        priorityFloorGasLimit: clampPriorityL2GasLimit({
           gasLimit: applyPriorityL2GasLimitBuffer({
             chainIdL2: ctx.chainIdL2,
             gasLimit: priorityFloorBreakdown.derivedL2GasLimit,
           }),
           l2Calldata,
           gasPerPubdata: ctx.gasPerPubdata,
-        });
+        }),
+      });
 
       const l2GasParams = await quoteL2Gas({
         ctx,
