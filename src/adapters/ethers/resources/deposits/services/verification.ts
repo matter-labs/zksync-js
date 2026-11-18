@@ -86,5 +86,14 @@ export async function waitForL2ExecutionFromL1Tx(
     return { l2Receipt: maybe, l2TxHash };
   }
 
+  if (l2Receipt.status !== 1) {
+    throw createError('VERIFICATION', {
+      message: 'L2 transaction execution failed',
+      resource: 'deposits',
+      operation: 'deposits.wait',
+      context: { l1TxHash, l2TxHash, status: l2Receipt.status },
+    });
+  }
+
   return { l2Receipt, l2TxHash };
 }
