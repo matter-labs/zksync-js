@@ -34,12 +34,50 @@ export type PriorityTxL2Leg = {
   from: Address;
   to: Address;
   data: `0x${string}`;
+  value?: bigint;
+};
+
+/**
+ * Getters on a chain's L1 contract (era-contracts `Getters` facet) that decide how a base-token
+ * deposit's L2 gas limit is sized. Kept local: the public ABI registry feeds generated typechain.
+ */
+export const ZK_CHAIN_PRICING_GETTERS_ABI = [
+  {
+    type: 'function',
+    name: 'getZKsyncOS',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'getPubdataPricingMode',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const;
+
+/** `PubdataPricingMode.Rollup` in era-contracts `Config.sol`; `Validium` is 1. */
+export const PUBDATA_PRICING_MODE_ROLLUP = 0;
+
+/** How a chain prices a deposit, read once from its L1 contract. */
+export type ChainPricing = {
+  /** Runs ZKsync OS. EraVM chains cannot simulate priority txs and are sized by the floor. */
+  zksyncOS: boolean;
+  /** Charges pubdata per byte (rollup), so a deposit creating accounts costs more. */
+  chargesPubdata: boolean;
 };
 
 const PRIORITY_TX_ENCODING_STEP_BYTES = 544n;
 const L1_TO_L2_ALIAS_OFFSET = 0x1111000000000000000000000000000000001111n;
 export const DEFAULT_PRIORITY_BODY_GAS_ESTIMATE_MULTIPLIER = 7n;
 const PRIORITY_L2_GAS_BUFFER = 40n;
+// Fallback for base-token deposits when the node cannot estimate priority txs. On ZKsync OS a
+// priority tx's gas is its pubdata at `gasPerPubdata`. Measured on a rollup chain (zksync-os
+// v0.24.7, protocol v33) with eth_call: existing account to itself needs 548 bytes, a deposit
+// creating the recipient account needs up to 590. Validium chains need 88 bytes in every case.
+const BASE_TOKEN_DEPOSIT_NEW_ACCOUNTS_PUBDATA_BYTES = 590n;
 
 const maxBigInt = (a: bigint, b: bigint) => (a > b ? a : b);
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
@@ -150,6 +188,32 @@ export function clampPriorityL2GasLimit(input: {
       calldataLength: BigInt(Math.max(input.l2Calldata.length - 2, 0) / 2),
       gasPerPubdata: input.gasPerPubdata,
     }),
+  );
+}
+
+/**
+ * `l2GasLimit` for a base-token deposit (`requestL2TransactionDirect`) on a ZKsync OS chain.
+ * The validator floor only covers L1-side validation. The L2 call and its pubdata, such as first
+ * writes for a fresh aliased sender, come from the node's priority-tx estimate. Without one, a
+ * chain that charges pubdata (rollup) gets the worst measured case of a deposit creating accounts;
+ * a validium charges a flat amount the floor already covers.
+ */
+export function resolveBaseTokenPriorityL2GasLimit(input: {
+  priorityFloorGasLimit: bigint;
+  gasPerPubdata: bigint;
+  chargesPubdata: boolean;
+  nodeEstimate?: bigint;
+}): bigint {
+  if (input.nodeEstimate != null && input.nodeEstimate > 0n) {
+    // The buffer also absorbs what the node cannot simulate: it refunds to the zero address, so a
+    // fresh custom `refundRecipient` costs one more account creation (~42 pubdata bytes, ~33,600
+    // gas at 800 gas per byte) than the estimate shows. Keep that in mind before trimming it.
+    return maxBigInt(input.priorityFloorGasLimit, applyGasBuffer(input.nodeEstimate));
+  }
+  if (!input.chargesPubdata) return input.priorityFloorGasLimit;
+  return maxBigInt(
+    input.priorityFloorGasLimit,
+    applyGasBuffer(BASE_TOKEN_DEPOSIT_NEW_ACCOUNTS_PUBDATA_BYTES * input.gasPerPubdata),
   );
 }
 
