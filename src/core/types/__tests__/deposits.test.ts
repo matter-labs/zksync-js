@@ -148,6 +148,8 @@ describe('types/flows/deposits — DepositPhase & DepositStatus', () => {
         return 'l1-pending';
       case 'L1_INCLUDED':
         return 'l1-included';
+      case 'L1_FAILED':
+        return 'l1-failed';
       case 'L2_PENDING':
         return 'l2-pending';
       case 'L2_EXECUTED':
@@ -165,6 +167,7 @@ describe('types/flows/deposits — DepositPhase & DepositStatus', () => {
     const phases: DepositPhase[] = [
       'L1_PENDING',
       'L1_INCLUDED',
+      'L1_FAILED',
       'L2_PENDING',
       'L2_EXECUTED',
       'L2_FAILED',

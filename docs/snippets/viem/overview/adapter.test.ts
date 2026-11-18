@@ -76,7 +76,7 @@ const handleOrL1Hash = handle;
 
 // ANCHOR: deposit-status
 const s = await sdk.deposits.status(handleOrL1Hash);
-// s.phase ∈ 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
+// s.phase ∈ 'UNKNOWN' | 'L1_PENDING' | 'L1_INCLUDED' | 'L1_FAILED' | 'L2_PENDING' | 'L2_EXECUTED' | 'L2_FAILED'
 // ANCHOR_END: deposit-status
 expect(s.phase).toEqual("L2_EXECUTED");
 });

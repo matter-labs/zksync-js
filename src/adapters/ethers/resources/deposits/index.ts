@@ -331,6 +331,8 @@ export function createDepositsResource(
           );
         }
         if (!l1Rcpt) return { phase: 'L1_PENDING', l1TxHash };
+        // A reverted L1 deposit has no Bridgehub logs, so the L2 hash will never appear.
+        if (l1Rcpt.status === 0) return { phase: 'L1_FAILED', l1TxHash };
 
         let l2TxHash: Hex | undefined;
         try {
@@ -417,6 +419,14 @@ export function createDepositsResource(
         }
 
         if (!l1Receipt) return null;
+        if (l1Receipt.status === 0 && opts.for === 'l2') {
+          throw createError('VERIFICATION', {
+            resource: 'deposits',
+            operation: 'deposits.wait',
+            message: 'L1 deposit transaction reverted',
+            context: { l1TxHash: l1Hash, status: l1Receipt.status },
+          });
+        }
         if (opts.for === 'l1') return l1Receipt;
 
         // Derive canonical L2 hash + wait for L2 execution

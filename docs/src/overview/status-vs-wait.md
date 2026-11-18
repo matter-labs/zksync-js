@@ -91,6 +91,7 @@ Use `status(...)` for UI refreshes; use `wait(...)` when you need to gate logic 
 | `UNKNOWN`     | No L1 hash present on the handle.                 |
 | `L1_PENDING`  | L1 receipt missing.                               |
 | `L1_INCLUDED` | L1 included; L2 hash not yet derivable from logs. |
+| `L1_FAILED`   | L1 receipt present and the transaction reverted.  |
 | `L2_PENDING`  | L2 hash known but L2 receipt missing.             |
 | `L2_EXECUTED` | L2 receipt present with `status === 1`.           |
 | `L2_FAILED`   | L2 receipt present with `status !== 1`.           |
