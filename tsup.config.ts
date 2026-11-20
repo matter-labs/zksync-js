@@ -5,6 +5,8 @@ const entry = [
   'src/index.ts',
   'src/core/index.ts',
   'src/core/constants.ts',
+  'src/core/types/index.ts',
+  'src/core/types/errors.ts',
   'src/adapters/viem/index.ts',
   'src/adapters/viem/client.ts',
   'src/adapters/viem/sdk.ts',
