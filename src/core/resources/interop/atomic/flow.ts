@@ -5,17 +5,16 @@
 // Every participant derives the same flow from the same legs: the contracts take the legs in
 // strictly ascending order of their bundle hash, each with its source chain alongside, and hash the
 // whole preimage into the flow id. The functions here do that canonicalization and the checks the
-// AtomicFlowManager makes (`_validateAndComputeFlowId`), so a bad flow fails here rather than in a
-// reverted send that has already burned the leg's funds.
+// AtomicFlowManager makes (`_validateAndComputeFlowId`), so a bad flow fails here, before any
+// transaction, instead of reverting the send on-chain.
 
 import type { Address, Hex } from '../../../types/primitives';
 import type { AtomicFlowPreimage, AtomicLeg } from '../../../types/flows/atomic-interop';
 import { ATOMIC_FLOW_PREIMAGE_VERSION, MAX_ATOMIC_FLOW_LEGS } from '../../../constants';
 import { OP_INTEROP } from '../../../types/errors';
 import { createError } from '../../../errors/factory';
-import { isHash66 } from '../../../utils/hash';
+import { isHash66, keccakHex } from '../../../utils/hash';
 import { isAddress } from '../../../utils/addr';
-import { keccak256Hex } from './hash';
 
 const MAX_UINT64 = (1n << 64n) - 1n;
 const MAX_UINT256 = (1n << 256n) - 1n;
@@ -170,7 +169,7 @@ export function validateAtomicFlowPreimage(preimage: AtomicFlowPreimage): void {
  * that feeds the flow id.
  */
 export function computeBundleHash(bundleData: Hex): Hex {
-  return keccak256Hex(bundleData);
+  return keccakHex(bundleData);
 }
 
 /**
@@ -194,5 +193,5 @@ export function computeInteropBundleSalt(sender: Address, salt: Hex): Hex {
       context: { salt },
     });
   }
-  return keccak256Hex(`0x${sender.slice(2)}${salt.slice(2)}`);
+  return keccakHex(`0x${sender.slice(2)}${salt.slice(2)}`);
 }

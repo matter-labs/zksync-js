@@ -3,13 +3,11 @@
 // Adapter-agnostic derivation of the arguments `L1InteropHandler.executeBundle` needs for a
 // protocol v32+ withdrawal.
 
-import { keccak_256 } from '@noble/hashes/sha3';
-import { hexToBytes, bytesToHex } from '@noble/hashes/utils';
-
 import type { Address, Hex } from '../../types/primitives';
 import { BUNDLE_IDENTIFIER, L2_INTEROP_CENTER_ADDRESS } from '../../constants';
 import { createError } from '../../errors/factory';
 import { OP_WITHDRAWALS } from '../../types/errors';
+import { keccakHex } from '../../utils/hash';
 
 /**
  * `MessageInclusionProof` as consumed by `L1InteropHandler.executeBundle`.
@@ -40,10 +38,8 @@ export interface WithdrawalBundleFinalization {
   proof: WithdrawalInclusionProof;
 }
 
-/** keccak256 over raw hex bytes. */
-export function keccakHex(data: Hex): Hex {
-  return `0x${bytesToHex(keccak_256(hexToBytes(data.slice(2))))}`;
-}
+// Re-exported from its old home so existing imports keep working.
+export { keccakHex };
 
 /**
  * Strips the `BUNDLE_IDENTIFIER` prefix the InteropCenter puts in front of every published bundle

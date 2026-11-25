@@ -363,7 +363,6 @@ export const OP_INTEROP = {
     legIndex: 'interop.atomic:legIndex',
     finality: 'interop.atomic:finality',
     settlementReference: 'interop.atomic:settlementReference',
-    proof: 'interop.atomic:proof',
     bundle: 'interop.atomic:bundle',
   },
 } as const;

@@ -14,14 +14,13 @@ import type {
 import { ATOMIC_COMMIT_LEAF_TAG } from '../../../constants';
 import { OP_INTEROP } from '../../../types/errors';
 import { createError } from '../../../errors/factory';
-import { isHash66 } from '../../../utils/hash';
+import { isHash66, keccakHex } from '../../../utils/hash';
 import {
   buildAtomicFlowPreimage,
   computeBundleHash,
   validateAtomicFlowPreimage,
   type BuildAtomicFlowPreimageInput,
 } from './flow';
-import { keccak256Hex } from './hash';
 
 /** The ABI encoders the atomic helpers need, provided by an adapter. */
 export interface AtomicInteropCodec {
@@ -43,7 +42,7 @@ export function createAtomicInteropHelpers(codec: AtomicInteropCodec) {
    */
   const computeFlowId = (preimage: AtomicFlowPreimage): Hex => {
     validateAtomicFlowPreimage(preimage);
-    return keccak256Hex(codec.encodeFlowPreimage(preimage));
+    return keccakHex(codec.encodeFlowPreimage(preimage));
   };
 
   /** The flow made of `legs` (in any order), with its id. */
@@ -88,7 +87,7 @@ export function createAtomicInteropHelpers(codec: AtomicInteropCodec) {
         });
       }
     }
-    return keccak256Hex(codec.encodeCommitLeaf(ATOMIC_COMMIT_LEAF_TAG, flowId, bundleHash));
+    return keccakHex(codec.encodeCommitLeaf(ATOMIC_COMMIT_LEAF_TAG, flowId, bundleHash));
   };
 
   /**
