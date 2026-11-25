@@ -6,6 +6,7 @@ import { createViemClient, type ViemClient } from '../../../src/adapters/viem';
 import { Address, Hex, type ZksRpc as ZksType } from '../../../src/core';
 import { GenesisContractDeployment, GenesisInput as GenesisType, GenesisStorageEntry, L2ToL1Log, ProofNormalized as ProofN, ReceiptWithL2ToL1 as RWithLog, BlockMetadata as MetadataType } from '../../../src/core/rpc/types';
 import { ProofTarget } from '../../../src/core/rpc/zks';
+import type { ImtLeaf, ImtProofResponse as ImtProofType } from '../../../src/core/types/flows/atomic-interop';
 
 import { l1Chain, l2Chain } from '../viem/chains';
 import type { Exact } from "./types";
@@ -24,6 +25,14 @@ export interface ZksRpc {
   getBlockMetadataByNumber(blockNumber: number): Promise<BlockMetadata | null>;
   // Fetches the genesis configuration returned by `zks_getGenesis`.
   getGenesis(): Promise<GenesisInput>;
+  // Atomic interop: proof that `commitValue` is in the commitment tree at the end of the batch
+  // holding `blockNumber`; `null` when no leaf holds it.
+  getImtInclusionProof(commitValue: Hex, blockNumber: bigint | number): Promise<ImtProofResponse | null>;
+  // Atomic interop: proof that `commitValue` is absent at the start of batch `batchNumber`;
+  // `null` when it is present.
+  getImtNonInclusionProof(commitValue: Hex, batchNumber: bigint | number): Promise<ImtProofResponse | null>;
+  // Atomic interop: the `lowNullifierIndex` the `atomicBundle` attribute takes.
+  getImtLowNullifierIndex(value: Hex, blockNumber: bigint | number): Promise<bigint | null>;
 }
 // ANCHOR_END: zks-rpc
 
@@ -71,6 +80,22 @@ export type GenesisInput = {
 };
 // ANCHOR_END: genesis-type
 
+// ANCHOR: imt-proof-type
+type ImtProofResponse = {
+  batchNumber: bigint;
+  // The settlement-layer block whose interop root the proof ends at; the verifying chain must
+  // have imported that root before the proof is submitted.
+  settlementBlockNumber: bigint;
+  // `true` for absence proofs (batch-begin root), `false` for inclusion proofs (batch-end root).
+  provesAgainstBeginRoot: boolean;
+  chainImtRoot: Hex;
+  settlementProof: Hex[];
+  leaf: ImtLeaf; // { value, nextIndex, nextValue }, all bigint
+  imtLeafIndex: bigint;
+  imtProof: Hex[];
+};
+// ANCHOR_END: imt-proof-type
+
 // ANCHOR: metadata-type
 type BlockMetadata = {
   pubdataPricePerByte: bigint;
@@ -102,6 +127,7 @@ it('checks to see if the zks rpc types are updated', async () => {
     const _receiptType: Exact<ReceiptWithL2ToL1, RWithLog> = true;
     const _genesisType: Exact<GenesisInput, GenesisType> = true;
     const _metadataType: Exact<BlockMetadata, MetadataType> = true;
+    const _imtProofType: Exact<ImtProofResponse, ImtProofType> = true;
 });
 
 it('tries to get the bridehub address', async () => {

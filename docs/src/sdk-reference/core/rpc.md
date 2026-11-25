@@ -1,6 +1,6 @@
 # zks_ RPC
 
-Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`).
+Public ZKsync `zks_*` RPC methods exposed on the adapters via `client.zks` (Bridgehub address, Bytecode Supplier address, block metadata, L2→L1 log proofs, receipts with `l2ToL1Logs`, atomic-interop commitment tree proofs).
 
 ## Standard Ethereum RPC (`eth_*`)
 
@@ -124,6 +124,46 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 
 ---
 
+### `getImtInclusionProof(commitValue: Hex, blockNumber: bigint | number) → Promise<ImtProofResponse | null>`
+
+**Atomic interop.** Returns the proof that the leaf holding `commitValue` (a leg's commit value; see
+[atomic interop](./atomic-interop.md)) is in the chain's commitment tree at the **end** of the batch
+that contains `blockNumber`, normally the block that committed the leg. Returns `null` when no leaf
+holds the value in that batch. The batch must be executed on the settlement layer first; until then
+the node returns an error.
+
+---
+
+### `getImtNonInclusionProof(commitValue: Hex, batchNumber: bigint | number) → Promise<ImtProofResponse | null>`
+
+**Atomic interop.** Returns the proof that `commitValue` is **absent** from the commitment tree at
+the **start** of batch `batchNumber`: the refund path's timeout proof. Pick a batch the settlement
+layer included after the flow's deadline. Returns `null` when the value is present.
+
+---
+
+### `getImtLowNullifierIndex(value: Hex, blockNumber: bigint | number) → Promise<bigint | null>`
+
+**Atomic interop.** Returns the index of the commitment tree leaf that would precede `value` in the
+tree as of `blockNumber`: the `lowNullifierIndex` the `atomicBundle` attribute takes.
+
+**Parameters** (all three methods)
+
+| Name                          | Type              | Description                                                    |
+| ----------------------------- | ----------------- | -------------------------------------------------------------- |
+| `commitValue` / `value`       | Hex (32 bytes)    | The leg's commit value (`computeCommitValue(flowId, bundleHash)`). |
+| `blockNumber` / `batchNumber` | bigint \| number | A block (or batch) number; must be a non-negative safe integer. |
+
+**Returns** `ImtProofResponse`
+
+```ts
+{{#include ../../../snippets/core/rpc.test.ts:imt-proof-type}}
+```
+
+Convert it with `toOnchainImtProof(proof, sourceChainId)` before passing it to the contracts.
+
+---
+
 ## Types (overview)
 
 ```ts
@@ -134,6 +174,8 @@ Retrieves the L2 genesis configuration exposed by the node, including initial co
 {{#include ../../../snippets/core/rpc.test.ts:metadata-type}}
 
 {{#include ../../../snippets/core/rpc.test.ts:genesis-type}}
+
+{{#include ../../../snippets/core/rpc.test.ts:imt-proof-type}}
 ```
 
 ---
