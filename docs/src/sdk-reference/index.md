@@ -63,8 +63,9 @@ The **zksync-js** provides lightweight adapters for **ethers** and **viem** to b
 | [**Viem · Deposits**](./viem/deposits.md)           | L1 → L2 flow with quote, prepare, create, status, and wait.                                   |
 | [**Viem · Withdrawals**](./viem/withdrawals.md)     | L2 → L1 flow with quote, prepare, create, status, wait, and finalize.                         |
 | [**Viem · Interop**](./viem/interop.md)             | L2 → L2 cross-chain execution with quote, prepare, create, status, wait, and finalize.        |
-| [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getBlockMetadataByNumber`, `getL2ToL1LogProof`. |
+| [**Core · ZK RPC**](./core/rpc.md)                  | ZKsync-specific RPC: `getBridgehubAddress`, `getBytecodeSupplierAddress`, `getBlockMetadataByNumber`, `getL2ToL1LogProof`, `getImt*Proof`. |
 | [**Core · Error model**](./core/errors.md)          | Typed `ZKsyncError` envelope and `try*` result helpers.                                       |
+| [**Core · Atomic interop**](./core/atomic-interop.md) | Flow ids, commit values, `atomicBundle` attribute, bundle encoding, finality and refund proofs. |
 
 ---
 

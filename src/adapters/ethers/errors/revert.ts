@@ -11,6 +11,7 @@ import {
   IERC20ABI,
   IL1ContractErrorsABI,
   IInteropErrorsABI,
+  IAtomicInteropErrorsABI,
 } from '../../../core/abi';
 
 // TODO: refactor as lots of duplication here
@@ -76,6 +77,14 @@ const IFACE_PANIC = new Interface(['error Panic(uint256)']);
   }
   try {
     ERROR_IFACES.push({ name: 'IInteropErrors', iface: new Interface(IInteropErrorsABI) });
+  } catch {
+    // ignore
+  }
+  try {
+    ERROR_IFACES.push({
+      name: 'IAtomicInteropErrors',
+      iface: new Interface(IAtomicInteropErrorsABI),
+    });
   } catch {
     // ignore
   }

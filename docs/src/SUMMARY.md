@@ -26,6 +26,7 @@
 - [SDK Reference](sdk-reference/index.md)
   - [Core]()
     - [rpc](sdk-reference/core/rpc.md)
+    - [atomic interop](sdk-reference/core/atomic-interop.md)
     - [errors](sdk-reference/core/errors.md)
   - [Ethers]()
     - [client](sdk-reference/ethers/client.md)

@@ -10,10 +10,11 @@ import type {
   BlockMetadata,
 } from './types';
 import type { Hex, Address } from '../types/primitives';
+import type { ImtLeaf, ImtProofResponse } from '../types/flows/atomic-interop';
 import { createError, shapeCause } from '../errors/factory';
 import { withRpcOp } from '../errors/rpc';
 import { isZKsyncError, type Resource } from '../types/errors';
-import { isBigint, isNumber } from '../utils';
+import { isBigint, isHash66, isNumber } from '../utils';
 
 // The root that the returned merkle proof anchors to.
 export enum ProofTarget {
@@ -52,6 +53,26 @@ export interface ZksRpc {
 
   // Fetches the genesis configuration returned by `zks_getGenesis`.
   getGenesis(): Promise<GenesisInput>;
+
+  // Atomic interop: fetches the proof that the leaf holding `commitValue` is in the commitment tree
+  // at the end of the batch that contains `blockNumber` (normally the leg's commit block). Resolves
+  // to `null` when no leaf holds the value in that batch; fails until the batch is executed on the
+  // settlement layer.
+  getImtInclusionProof(
+    commitValue: Hex,
+    blockNumber: bigint | number,
+  ): Promise<ImtProofResponse | null>;
+
+  // Atomic interop: fetches the proof that `commitValue` is absent from the commitment tree at the
+  // start of batch `batchNumber`, for the refund path. Resolves to `null` when the value is present.
+  getImtNonInclusionProof(
+    commitValue: Hex,
+    batchNumber: bigint | number,
+  ): Promise<ImtProofResponse | null>;
+
+  // Atomic interop: fetches the commitment tree index of the leaf below `value` in the tree as of
+  // `blockNumber`: the `lowNullifierIndex` the `atomicBundle` attribute takes.
+  getImtLowNullifierIndex(value: Hex, blockNumber: bigint | number): Promise<bigint | null>;
 }
 
 const METHODS = {
@@ -61,6 +82,9 @@ const METHODS = {
   getBytecodeSupplier: 'zks_getBytecodeSupplierContract',
   getBlockMetadataByNumber: 'zks_getBlockMetadataByNumber',
   getGenesis: 'zks_getGenesis',
+  getImtInclusionProof: 'zks_getImtInclusionProof',
+  getImtNonInclusionProof: 'zks_getImtNonInclusionProof',
+  getImtLowNullifierIndex: 'zks_getImtLowNullifierIndex',
 } as const;
 
 // TODO: move to utils
@@ -396,6 +420,131 @@ export function normalizeBlockMetadata(raw: unknown): BlockMetadata {
   }
 }
 
+const IMT_OP = 'zksrpc.normalizeImtProof';
+const IMT_MSG = 'Malformed IMT proof response';
+
+function imtHexArray(value: unknown, field: string): Hex[] {
+  if (!Array.isArray(value)) {
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: IMT_OP,
+      message: `${IMT_MSG}: ${field} must be an array.`,
+      context: { field, valueType: typeof value },
+    });
+  }
+  return value.map((word, index) => {
+    if (!isHash66(word)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: IMT_OP,
+        message: `${IMT_MSG}: expected 32-byte hex words.`,
+        context: { field, index },
+      });
+    }
+    return word;
+  });
+}
+
+function imtLeaf(value: unknown): ImtLeaf {
+  if (!isRecord(value)) {
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: IMT_OP,
+      message: `${IMT_MSG}: leaf must be an object.`,
+      context: { valueType: typeof value },
+    });
+  }
+  const opts = { operation: IMT_OP, messagePrefix: IMT_MSG };
+  return {
+    value: ensureBigInt(value['value'], 'leaf.value', opts),
+    nextIndex: ensureBigInt(value['nextIndex'], 'leaf.nextIndex', opts),
+    nextValue: ensureBigInt(value['nextValue'], 'leaf.nextValue', opts),
+  };
+}
+
+// Normalizes a `zks_getImtInclusionProof` / `zks_getImtNonInclusionProof` response. The node
+// serializes U256 and B256 fields as hex strings and u64 fields as JSON numbers.
+export function normalizeImtProof(raw: unknown): ImtProofResponse {
+  try {
+    if (!isRecord(raw)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: IMT_OP,
+        message: `${IMT_MSG}: expected object.`,
+        context: { receivedType: typeof raw },
+      });
+    }
+    const opts = { operation: IMT_OP, messagePrefix: IMT_MSG };
+    const chainImtRoot = raw['chainImtRoot'];
+    if (!isHash66(chainImtRoot)) {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: IMT_OP,
+        message: `${IMT_MSG}: chainImtRoot must be a 32-byte hex word.`,
+        context: { valueType: typeof chainImtRoot },
+      });
+    }
+    const provesAgainstBeginRoot = raw['provesAgainstBeginRoot'];
+    if (typeof provesAgainstBeginRoot !== 'boolean') {
+      throw createError('RPC', {
+        resource: 'zksrpc' as Resource,
+        operation: IMT_OP,
+        message: `${IMT_MSG}: provesAgainstBeginRoot must be a boolean.`,
+        context: { valueType: typeof provesAgainstBeginRoot },
+      });
+    }
+    return {
+      batchNumber: ensureBigInt(raw['batchNumber'], 'batchNumber', opts),
+      settlementBlockNumber: ensureBigInt(
+        raw['settlementBlockNumber'],
+        'settlementBlockNumber',
+        opts,
+      ),
+      provesAgainstBeginRoot,
+      chainImtRoot,
+      settlementProof: imtHexArray(raw['settlementProof'], 'settlementProof'),
+      leaf: imtLeaf(raw['leaf']),
+      imtLeafIndex: ensureBigInt(raw['imtLeafIndex'], 'imtLeafIndex', opts),
+      imtProof: imtHexArray(raw['imtProof'], 'imtProof'),
+    };
+  } catch (e) {
+    if (isZKsyncError(e)) throw e;
+    throw createError('RPC', {
+      resource: 'zksrpc' as Resource,
+      operation: IMT_OP,
+      message: 'Failed to normalize IMT proof response.',
+      context: { receivedType: typeof raw },
+      cause: shapeCause(e),
+    });
+  }
+}
+
+// The node takes block and batch numbers as JSON numbers (u64).
+function toU64Param(value: bigint | number, field: string, operation: string): number {
+  const n = typeof value === 'bigint' ? value : Number.isSafeInteger(value) ? BigInt(value) : -1n;
+  if (n < 0n || n > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw createError('VALIDATION', {
+      resource: 'zksrpc' as Resource,
+      operation,
+      message: `${field} must be a non-negative safe integer.`,
+      context: { field, value: String(value) },
+    });
+  }
+  return Number(n);
+}
+
+function ensureWordParam(value: Hex, field: string, operation: string): Hex {
+  if (!isHash66(value)) {
+    throw createError('VALIDATION', {
+      resource: 'zksrpc' as Resource,
+      operation,
+      message: `${field} must be a 32-byte hex word.`,
+      context: { field, value },
+    });
+  }
+  return value;
+}
+
 // Constructs a ZksRpc instance using the given transport function.
 export function createZksRpc(transport: RpcTransport): ZksRpc {
   return {
@@ -508,6 +657,66 @@ export function createZksRpc(transport: RpcTransport): ZksRpc {
         async () => {
           const genesisRaw: unknown = await transport(METHODS.getGenesis, []);
           return normalizeGenesis(genesisRaw);
+        },
+      );
+    },
+
+    // Fetches an atomic-interop inclusion proof for `commitValue`.
+    async getImtInclusionProof(commitValue, blockNumber) {
+      const op = 'zksrpc.getImtInclusionProof';
+      return withRpcOp(
+        op,
+        'Failed to fetch IMT inclusion proof.',
+        { commitValue, blockNumber: String(blockNumber) },
+        async () => {
+          const params = [
+            ensureWordParam(commitValue, 'commitValue', op),
+            toU64Param(blockNumber, 'blockNumber', op),
+          ];
+          const raw: unknown = await transport(METHODS.getImtInclusionProof, params);
+          if (raw == null) return null;
+          return normalizeImtProof(raw);
+        },
+      );
+    },
+
+    // Fetches an atomic-interop non-inclusion (absence) proof for `commitValue`.
+    async getImtNonInclusionProof(commitValue, batchNumber) {
+      const op = 'zksrpc.getImtNonInclusionProof';
+      return withRpcOp(
+        op,
+        'Failed to fetch IMT non-inclusion proof.',
+        { commitValue, batchNumber: String(batchNumber) },
+        async () => {
+          const params = [
+            ensureWordParam(commitValue, 'commitValue', op),
+            toU64Param(batchNumber, 'batchNumber', op),
+          ];
+          const raw: unknown = await transport(METHODS.getImtNonInclusionProof, params);
+          if (raw == null) return null;
+          return normalizeImtProof(raw);
+        },
+      );
+    },
+
+    // Fetches the low-nullifier index for inserting `value` into the commitment tree.
+    async getImtLowNullifierIndex(value, blockNumber) {
+      const op = 'zksrpc.getImtLowNullifierIndex';
+      return withRpcOp(
+        op,
+        'Failed to fetch IMT low-nullifier index.',
+        { value, blockNumber: String(blockNumber) },
+        async () => {
+          const params = [
+            ensureWordParam(value, 'value', op),
+            toU64Param(blockNumber, 'blockNumber', op),
+          ];
+          const raw: unknown = await transport(METHODS.getImtLowNullifierIndex, params);
+          if (raw == null) return null;
+          return ensureBigInt(raw, 'lowNullifierIndex', {
+            operation: op,
+            messagePrefix: 'Malformed IMT low-nullifier index response',
+          });
         },
       );
     },

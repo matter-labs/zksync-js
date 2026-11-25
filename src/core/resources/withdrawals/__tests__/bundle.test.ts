@@ -143,8 +143,8 @@ describe('withdrawals/buildWithdrawalBundle', () => {
     expect(iface.decodeFunctionData('interopBundleSalt', bundle.bundleAttributes[0])[0]).toBe(SALT);
 
     // L2→L1 withdrawals are non-atomic: they are published to L1, not committed to the IMT.
-    const atomicSelector = iface.getFunction('atomicBundle')?.selector;
-    expect(atomicSelector).toBeUndefined();
+    const atomicSelector = iface.getFunction('atomicBundle')!.selector;
+    expect(bundle.bundleAttributes.some((attr) => attr.startsWith(atomicSelector))).toBe(false);
   });
 });
 

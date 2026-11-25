@@ -268,6 +268,44 @@ const IInteropErrorsABI = [
     name: 'ZKTokenNotAvailable',
     inputs: [],
   },
+  // InteropCenter send-side errors of atomic interop (era-contracts draft/v0.36.0
+  // `interop/InteropErrors.sol`). On chains with atomic interop, every L2 -> L2 bundle must be an
+  // atomic leg and no atomic leg may go to L1.
+  {
+    type: 'error',
+    name: 'NonAtomicSendUnsupported',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'AtomicBundleToL1NotSupported',
+    inputs: [],
+  },
+  {
+    // Always raised by `InteropCenter.previewBundleHash`, carrying the hash the send would produce.
+    type: 'error',
+    name: 'InteropPreviewHash',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'InteropBundleSaltAlreadyUsed',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+      },
+      {
+        name: 'salt',
+        type: 'bytes32',
+      },
+    ],
+  },
 ] as const;
 
 export default IInteropErrorsABI;

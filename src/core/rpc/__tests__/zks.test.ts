@@ -8,6 +8,7 @@ import {
   normalizeProof,
   normalizeGenesis,
   normalizeBlockMetadata,
+  normalizeImtProof,
   ProofTarget,
 } from '../zks';
 import type { RpcTransport } from '../types';
@@ -390,5 +391,153 @@ describe('rpc/zks.getBlockMetadataByNumber', () => {
       nativePrice: 0x2bn,
       executionVersion: 3,
     });
+  });
+});
+
+// An IMT proof as zksync-os-server serializes it: U256/B256 as hex strings, u64 as JSON numbers.
+const W = (byte: string): `0x${string}` => `0x${byte.repeat(32)}`;
+const RAW_IMT_PROOF = {
+  batchNumber: 12,
+  settlementBlockNumber: 345,
+  provesAgainstBeginRoot: false,
+  chainImtRoot: W('11'),
+  settlementProof: [W('22'), W('33')],
+  leaf: { value: '0x2a', nextIndex: '0x0', nextValue: '0xff' },
+  imtLeafIndex: 7,
+  imtProof: [W('44')],
+};
+const NORMALIZED_IMT_PROOF = {
+  batchNumber: 12n,
+  settlementBlockNumber: 345n,
+  provesAgainstBeginRoot: false,
+  chainImtRoot: W('11'),
+  settlementProof: [W('22'), W('33')],
+  leaf: { value: 42n, nextIndex: 0n, nextValue: 255n },
+  imtLeafIndex: 7n,
+  imtProof: [W('44')],
+};
+const COMMIT_VALUE = W('ab');
+
+describe('rpc/zks.normalizeImtProof', () => {
+  it('normalizes the node response into bigints', () => {
+    expect(normalizeImtProof(RAW_IMT_PROOF)).toEqual(NORMALIZED_IMT_PROOF);
+  });
+
+  it('throws ZKsyncError on malformed responses', () => {
+    for (const bad of [
+      null,
+      { ...RAW_IMT_PROOF, chainImtRoot: '0x12' },
+      { ...RAW_IMT_PROOF, provesAgainstBeginRoot: 'no' },
+      { ...RAW_IMT_PROOF, settlementProof: 'nope' },
+      { ...RAW_IMT_PROOF, imtProof: ['0x1'] },
+      { ...RAW_IMT_PROOF, leaf: null },
+      { ...RAW_IMT_PROOF, batchNumber: undefined },
+    ]) {
+      expect(() => normalizeImtProof(bad)).toThrow();
+      try {
+        normalizeImtProof(bad);
+      } catch (e) {
+        expect(isZKsyncError(e, { type: 'RPC' })).toBe(true);
+      }
+    }
+  });
+});
+
+describe('rpc/zks.getImtInclusionProof', () => {
+  it('sends the commit value and block number and normalizes the proof', async () => {
+    let seen: unknown[] = [];
+    const rpc = createZksRpc(
+      fakeTransport({
+        zks_getImtInclusionProof: (...params: unknown[]) => {
+          seen = params;
+          return RAW_IMT_PROOF;
+        },
+      }),
+    );
+    expect(await rpc.getImtInclusionProof(COMMIT_VALUE, 99n)).toEqual(NORMALIZED_IMT_PROOF);
+    expect(seen).toEqual([COMMIT_VALUE, 99]);
+  });
+
+  it('returns null when no leaf holds the value', async () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getImtInclusionProof: null }));
+    expect(await rpc.getImtInclusionProof(COMMIT_VALUE, 1)).toBeNull();
+  });
+
+  it('rejects a commit value that is not a 32-byte word, without calling the node', async () => {
+    const rpc = createZksRpc(fakeTransport({}));
+    let err: unknown;
+    try {
+      await rpc.getImtInclusionProof('0x2a', 1);
+    } catch (e) {
+      err = e;
+    }
+    expect(isZKsyncError(err, { type: 'VALIDATION' })).toBe(true);
+  });
+
+  it('rejects a block number that is not a non-negative safe integer', async () => {
+    const rpc = createZksRpc(fakeTransport({}));
+    for (const bad of [-1n, 1n << 60n, 1.5]) {
+      let err: unknown;
+      try {
+        await rpc.getImtInclusionProof(COMMIT_VALUE, bad);
+      } catch (e) {
+        err = e;
+      }
+      expect(isZKsyncError(err, { type: 'VALIDATION' })).toBe(true);
+    }
+  });
+});
+
+describe('rpc/zks.getImtNonInclusionProof', () => {
+  it('sends the commit value and batch number and normalizes the proof', async () => {
+    let seen: unknown[] = [];
+    const rpc = createZksRpc(
+      fakeTransport({
+        zks_getImtNonInclusionProof: (...params: unknown[]) => {
+          seen = params;
+          return { ...RAW_IMT_PROOF, provesAgainstBeginRoot: true };
+        },
+      }),
+    );
+    expect(await rpc.getImtNonInclusionProof(COMMIT_VALUE, 12)).toEqual({
+      ...NORMALIZED_IMT_PROOF,
+      provesAgainstBeginRoot: true,
+    });
+    expect(seen).toEqual([COMMIT_VALUE, 12]);
+  });
+
+  it('returns null when the value is present', async () => {
+    const rpc = createZksRpc(fakeTransport({ zks_getImtNonInclusionProof: null }));
+    expect(await rpc.getImtNonInclusionProof(COMMIT_VALUE, 12)).toBeNull();
+  });
+});
+
+describe('rpc/zks.getImtLowNullifierIndex', () => {
+  it('returns the index as a bigint', async () => {
+    let seen: unknown[] = [];
+    const rpc = createZksRpc(
+      fakeTransport({
+        zks_getImtLowNullifierIndex: (...params: unknown[]) => {
+          seen = params;
+          return 5;
+        },
+      }),
+    );
+    expect(await rpc.getImtLowNullifierIndex(COMMIT_VALUE, 100)).toBe(5n);
+    expect(seen).toEqual([COMMIT_VALUE, 100]);
+  });
+
+  it('returns null when the node has no answer, and wraps a malformed one', async () => {
+    const none = createZksRpc(fakeTransport({ zks_getImtLowNullifierIndex: null }));
+    expect(await none.getImtLowNullifierIndex(COMMIT_VALUE, 1)).toBeNull();
+
+    const bad = createZksRpc(fakeTransport({ zks_getImtLowNullifierIndex: { index: 1 } }));
+    let err: unknown;
+    try {
+      await bad.getImtLowNullifierIndex(COMMIT_VALUE, 1);
+    } catch (e) {
+      err = e;
+    }
+    expect(isZKsyncError(err, { type: 'RPC' })).toBe(true);
   });
 });

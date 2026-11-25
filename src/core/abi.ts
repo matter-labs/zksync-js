@@ -17,3 +17,6 @@ export { default as IInteropRootStorageABI } from './internal/abis/IInteropRootS
 export { default as L2MessageVerificationABI } from './internal/abis/L2MessageVerification';
 export { default as IInteropErrorsABI } from './internal/abis/IInteropErrors';
 export { default as IL1ContractErrorsABI } from './internal/abis/IL1ContractErrors';
+export { default as IAtomicFlowManagerABI } from './internal/abis/IAtomicFlowManager';
+export { default as IL2InteropHandlerABI } from './internal/abis/IL2InteropHandler';
+export { default as IAtomicInteropErrorsABI } from './internal/abis/IAtomicInteropErrors';

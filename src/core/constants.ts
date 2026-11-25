@@ -56,11 +56,79 @@ export const L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS: Address =
 export const L2_MESSAGE_VERIFICATION_ADDRESS: Address =
   '0x0000000000000000000000000000000000010009';
 
+/** The address of the L2 Bridgehub contract. */
+export const L2_BRIDGEHUB_ADDRESS: Address = '0x0000000000000000000000000000000000010002';
+
+/**
+ * The address of the per-chain atomic-interop commitment tree (an Indexed Merkle Tree). Every
+ * committed atomic leg inserts its commit value here.
+ */
+export const L2_INTEROP_COMMITMENT_TREE_ADDRESS: Address =
+  '0x0000000000000000000000000000000000010012';
+
+/**
+ * The address of the atomic-interop flow manager: it records committed legs (`legState`), gates
+ * atomic execution (`requireFlowFinalized`) and runs the refund path (`authorizeRefund`,
+ * `claimRefund`).
+ */
+export const L2_ATOMIC_FLOW_MANAGER_ADDRESS: Address = '0x0000000000000000000000000000000000010014';
+
 /** L1 token address (SOPH). */
 export const L1_SOPH_TOKEN_ADDRESS: Address = '0xa9544a49d4aEa4c8E074431c89C79fA9592049d8';
 
 /** Prefix byte used by InteropCenter when emitting L2->L1 bundle messages. */
 export const BUNDLE_IDENTIFIER: Hex = '0x01';
+
+// -----------------------------------------------------------------------------
+// Atomic interop
+// Source of truth: era-contracts `l1-contracts/contracts/atomic-interop/IAtomicInterop.sol`.
+// -----------------------------------------------------------------------------
+
+/**
+ * The atomic flow preimage version the contracts accept (`ATOMIC_FLOW_PREIMAGE_VERSION`). It is the
+ * first field of the hashed preimage, so a different value yields a different `flowId`.
+ */
+export const ATOMIC_FLOW_PREIMAGE_VERSION: Hex = '0x01';
+
+/**
+ * Domain tag of a commit value: `bytes4(keccak256("AtomicInterop.commit.v1"))`. A committed leg
+ * inserts `uint256(keccak256(abi.encode(tag, flowId, bundleHash)))` into its chain's commitment tree.
+ */
+export const ATOMIC_COMMIT_LEAF_TAG: Hex = k256hex('AtomicInterop.commit.v1').slice(0, 10) as Hex;
+
+/** The most legs an atomic flow may have (`MAX_ATOMIC_FLOW_LEGS`). */
+export const MAX_ATOMIC_FLOW_LEGS = 8;
+
+/**
+ * A leg's state on its source chain, as `AtomicFlowManager.legState` reports it: `Unset ->
+ * Committed` on send, then `Revertable -> Reverted` on the refund path.
+ */
+export const ATOMIC_LEG_STATE = {
+  Unset: 0,
+  Committed: 1,
+  Revertable: 2,
+  Reverted: 3,
+} as const;
+
+/** `InteropHandler.bundleStatus` values (`BundleStatus` in `Messaging.sol`). */
+export const INTEROP_BUNDLE_STATUS = {
+  Unreceived: 0,
+  Verified: 1,
+  FullyExecuted: 2,
+  Unbundled: 3,
+} as const;
+
+/** The version byte of an `InteropBundle` (`INTEROP_BUNDLE_VERSION`). */
+export const INTEROP_BUNDLE_VERSION: Hex = '0x01';
+
+/** The version byte of an `InteropCall` (`INTEROP_CALL_VERSION`). */
+export const INTEROP_CALL_VERSION: Hex = '0x01';
+
+/**
+ * The only metadata version of multi-hop settlement proofs the contracts accept
+ * (`SUPPORTED_PROOF_METADATA_VERSION`).
+ */
+export const SUPPORTED_PROOF_METADATA_VERSION = 1;
 
 // -----------------------------------------------------------------------------
 // Event topics
