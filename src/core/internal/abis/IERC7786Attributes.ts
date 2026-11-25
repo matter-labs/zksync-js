@@ -1,4 +1,27 @@
+import { ATOMIC_FLOW_PREIMAGE_COMPONENTS } from './AtomicInteropTypes';
+
 const IERC7786AttributesABI = [
+  {
+    // Atomic interop (bundle attribute): marks the bundle as a leg of the flow whose full preimage
+    // it carries. The preimage's `bytes1 version` is part of the selector.
+    type: 'function',
+    name: 'atomicBundle',
+    inputs: [
+      {
+        name: '_flowPreimage',
+        type: 'tuple',
+        internalType: 'struct AtomicFlowPreimage',
+        components: ATOMIC_FLOW_PREIMAGE_COMPONENTS,
+      },
+      {
+        name: '_lowNullifierIndex',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'pure',
+  },
   {
     type: 'function',
     name: 'executionAddress',

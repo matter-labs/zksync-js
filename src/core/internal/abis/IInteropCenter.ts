@@ -306,6 +306,85 @@ const IInteropCenterABI = [
     stateMutability: 'nonpayable',
   },
   {
+    // Protocol v32+: whether `user` already used `salt`; each (sender, salt) pair sends once.
+    type: 'function',
+    name: 'isInteropBundleSaltUsed',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'salt',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    // Atomic interop: simulates `sendBundle` for the same caller and inputs and always reverts with
+    // `InteropPreviewHash(bundleHash)`. Call it statically and read the hash from the revert; it is
+    // how a sender learns an atomic leg's hash before deriving the flow id.
+    type: 'function',
+    name: 'previewBundleHash',
+    inputs: [
+      {
+        name: '_destinationChainId',
+        type: 'bytes',
+        internalType: 'bytes',
+      },
+      {
+        name: '_callStarters',
+        type: 'tuple[]',
+        internalType: 'struct InteropCallStarter[]',
+        components: [
+          {
+            name: 'to',
+            type: 'bytes',
+            internalType: 'bytes',
+          },
+          {
+            name: 'data',
+            type: 'bytes',
+            internalType: 'bytes',
+          },
+          {
+            name: 'callAttributes',
+            type: 'bytes[]',
+            internalType: 'bytes[]',
+          },
+        ],
+      },
+      {
+        name: '_bundleAttributes',
+        type: 'bytes[]',
+        internalType: 'bytes[]',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'error',
+    name: 'InteropPreviewHash',
+    inputs: [
+      {
+        name: 'bundleHash',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+  },
+  {
     type: 'function',
     name: 'sendBundle',
     inputs: [
