@@ -5,7 +5,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createViemClient, type ViemClient } from '../../../src/adapters/viem';
 import { Address, Hex, type ZksRpc as ZksType } from '../../../src/core';
 import { GenesisContractDeployment, GenesisInput as GenesisType, GenesisStorageEntry, L2ToL1Log, ProofNormalized as ProofN, ReceiptWithL2ToL1 as RWithLog, BlockMetadata as MetadataType } from '../../../src/core/rpc/types';
-import { ProofTarget } from '../../../src/core/rpc/zks';
+import { ProofTarget as ProofTargetType } from '../../../src/core/rpc/zks';
 import type { ImtLeaf, ImtProofResponse as ImtProofType } from '../../../src/core/types/flows/atomic-interop';
 
 import { l1Chain, l2Chain } from '../viem/chains';
@@ -57,6 +57,7 @@ type ProofNormalized = {
 };
 
 type ReceiptWithL2ToL1 = {
+  to: Address;
   transactionIndex: Hex;
   transactionHash?: Hex;
   status?: string | number;
@@ -122,7 +123,15 @@ beforeAll(() => {
 // this test will always succeed
 // but any errors will be highlighted
 it('checks to see if the zks rpc types are updated', async () => {
-    const _rpcType: Exact<ZksRpc, ZksType> = true;
+    // The docs declare their own `ProofTarget` enum, which TypeScript treats as a different type
+    // from the SDK's, so compare `getL2ToL1LogProof` by its enum values and return type.
+    type Rest<T> = Omit<T, 'getL2ToL1LogProof'>;
+    const _rpcType: Exact<Rest<ZksRpc>, Rest<ZksType>> = true;
+    const _proofTargetType: Exact<`${ProofTarget}`, `${ProofTargetType}`> = true;
+    const _proofResultType: Exact<
+      ReturnType<ZksRpc['getL2ToL1LogProof']>,
+      ReturnType<ZksType['getL2ToL1LogProof']>
+    > = true;
     const _proofType: Exact<ProofNormalized, ProofN> = true;
     const _receiptType: Exact<ReceiptWithL2ToL1, RWithLog> = true;
     const _genesisType: Exact<GenesisInput, GenesisType> = true;

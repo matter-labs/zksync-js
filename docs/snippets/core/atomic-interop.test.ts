@@ -92,17 +92,29 @@ describe('atomic interop docs examples', () => {
       },
     };
     const bundleData = atomic.encodeInteropBundle(bundle);
-    const declaredHash = computeBundleHash(bundleData);
     const agreedSender = `0x${'11'.repeat(20)}` as const;
+    // The flow the participants agreed on, with this bundle as one of its legs.
+    const agreedFlow = atomic.buildFlow({
+      deadline: 1n,
+      settlementLayerChainId: 1n,
+      legs: [{ bundleHash: computeBundleHash(bundleData), sourceChainId: 7101n }, LEGS[1]],
+    });
 
     // ANCHOR: check-bundle
-    // Bundle bytes received from another participant: bind them to the hash in the flow, then
-    // read what they do.
-    if (computeBundleHash(bundleData) !== declaredHash) throw new Error('bundle/hash mismatch');
+    // Bundle bytes received from another participant: bind them to a leg of the agreed flow,
+    // then check that they do what was agreed.
+    const bundleHash = computeBundleHash(bundleData);
+    const leg = atomic.legIndex(agreedFlow, bundleHash); // throws if the bytes are not a leg
     const received = atomic.decodeInteropBundle(bundleData);
-    // e.g. require permissionless execution, and the agreed sender as unbundler
+    if (received.sourceChainId !== agreedFlow.preimage.legSourceChainIds[leg]) {
+      throw new Error('the bundle comes from another chain than its leg');
+    }
+    // e.g. require permissionless execution, with the agreed sender as unbundler
     const permissionless = received.bundleAttributes.executionAddress === '0x';
     const unbundler = formatInteropEvmChainAddress(received.sourceChainId, agreedSender);
+    if (!permissionless || received.bundleAttributes.unbundlerAddress !== unbundler) {
+      throw new Error('the bundle does not have the agreed execution terms');
+    }
     // ANCHOR_END: check-bundle
 
     // ANCHOR: finality
@@ -116,8 +128,8 @@ describe('atomic interop docs examples', () => {
     // IL2InteropHandler.executeAtomicBundle(bundleData, finality).
     // ANCHOR_END: finality
 
-    expect(permissionless).toBe(true);
-    expect(unbundler).toBe(received.bundleAttributes.unbundlerAddress);
+    expect(agreedFlow.preimage.legBundleHashes[leg]).toBe(bundleHash);
+    expect(() => atomic.legIndex(flow, bundleHash)).toThrow(/not in the flow/);
     expect(finality.proofs.map((p) => p.sourceChainId)).toEqual(flow.preimage.legSourceChainIds);
   });
 
