@@ -6,11 +6,19 @@ const PREFIX_EVM_CHAIN = getBytes('0x00010000'); // version(0x0001) + chainType(
 const PREFIX_EVM_ADDRESS = getBytes('0x000100000014'); // version + chainType + zero chainRef len + addr len (20)
 
 /**
+ * The chain reference as InteroperableAddress._toChainReference writes it: the chain id's big-endian
+ * bytes, at least one byte long (so chain id 0 is `0x00`, not empty).
+ */
+function chainReference(chainId: bigint): Uint8Array {
+  return chainId === 0n ? new Uint8Array([0]) : toBeArray(chainId);
+}
+
+/**
  * Formats an ERC-7930 interoperable address (version 1) that describes an EVM chain
  * without specifying a destination address. Mirrors InteroperableAddress.formatEvmV1(chainId).
  */
 export function formatInteropEvmChain(chainId: bigint): Hex {
-  const chainRef = toBeArray(chainId);
+  const chainRef = chainReference(chainId);
   const chainRefLength = getBytes(toBeHex(chainRef.length, 1));
 
   const payload = concat([PREFIX_EVM_CHAIN, chainRefLength, chainRef, new Uint8Array([0])]);
@@ -35,7 +43,7 @@ export function formatInteropEvmAddress(address: Address): Hex {
  * `unbundlerAddress` defaults to, naming the sender on its source chain.
  */
 export function formatInteropEvmChainAddress(chainId: bigint, address: Address): Hex {
-  const chainRef = toBeArray(chainId);
+  const chainRef = chainReference(chainId);
   const chainRefLength = getBytes(toBeHex(chainRef.length, 1));
   const addrBytes = getBytes(getAddress(address));
 

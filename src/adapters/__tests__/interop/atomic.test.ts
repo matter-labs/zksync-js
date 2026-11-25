@@ -82,6 +82,11 @@ for (const [kind, adapter] of Object.entries(ADAPTERS)) {
       );
       // version 0x0001, chain type 0x0000, a 1-byte chain reference 0x01, a 20-byte address.
       expect(adapter.formatChainAddress(1n, SENDER)).toBe(`0x00010000010114${SENDER.slice(2)}`);
+      // InteroperableAddress.formatEvmV1 writes chain id 0 as a 1-byte reference 0x00 (log256(0) + 1).
+      expect(adapter.formatChain(0n)).toBe('0x00010000010000');
+      expect(adapter.formatChainAddress(0n, SENDER)).toBe(`0x00010000010014${SENDER.slice(2)}`);
+      // 256 needs two bytes.
+      expect(adapter.formatChain(256n)).toBe('0x0001000002010000');
     });
   });
 }
