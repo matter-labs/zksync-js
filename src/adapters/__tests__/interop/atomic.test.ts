@@ -14,11 +14,14 @@ import {
   formatInteropEvmChain as formatChainViem,
   formatInteropEvmChainAddress as formatChainAddressViem,
 } from '../../viem/resources/interop/address.ts';
+import { decodeRevert as decodeRevertEthers } from '../../ethers/errors/revert.ts';
+import { decodeRevert as decodeRevertViem } from '../../viem/errors/revert.ts';
 import {
   IAtomicFlowManagerABI,
   IAtomicInteropErrorsABI,
   IERC7786AttributesABI,
   IInteropCenterABI,
+  IInteropErrorsABI,
   IL2InteropHandlerABI,
 } from '../../../core/abi.ts';
 import {
@@ -27,6 +30,7 @@ import {
   BUNDLE_DATA,
   BUNDLE_HASH,
   FLOW,
+  SALT,
   SELECTORS,
   SENDER,
   TOPICS,
@@ -38,12 +42,14 @@ const ADAPTERS = {
     attributes: createEthersAttributesResource(),
     formatChain: formatChainEthers,
     formatChainAddress: formatChainAddressEthers,
+    decodeRevert: decodeRevertEthers,
   },
   viem: {
     atomic: createViemAtomicInteropHelpers(),
     attributes: createViemAttributesResource(),
     formatChain: formatChainViem,
     formatChainAddress: formatChainAddressViem,
+    decodeRevert: decodeRevertViem,
   },
 } as const;
 
@@ -87,6 +93,29 @@ for (const [kind, adapter] of Object.entries(ADAPTERS)) {
       expect(adapter.formatChainAddress(0n, SENDER)).toBe(`0x00010000010014${SENDER.slice(2)}`);
       // 256 needs two bytes.
       expect(adapter.formatChain(256n)).toBe('0x0001000002010000');
+    });
+
+    it('names the InteropCenter atomic send errors in a revert', () => {
+      const word = (hex: string) => hex.slice(2).toLowerCase().padStart(64, '0');
+      expect(adapter.decodeRevert({ data: SELECTORS.NonAtomicSendUnsupported })?.name).toBe(
+        'NonAtomicSendUnsupported',
+      );
+      expect(adapter.decodeRevert({ data: SELECTORS.AtomicBundleToL1NotSupported })?.name).toBe(
+        'AtomicBundleToL1NotSupported',
+      );
+
+      const preview = adapter.decodeRevert({
+        data: `${SELECTORS.InteropPreviewHash}${word(BUNDLE_HASH)}`,
+      });
+      expect(preview?.name).toBe('InteropPreviewHash');
+      expect(preview?.args?.[0]).toBe(BUNDLE_HASH);
+
+      const saltUsed = adapter.decodeRevert({
+        data: `${SELECTORS.InteropBundleSaltAlreadyUsed}${word(SENDER)}${word(SALT)}`,
+      });
+      expect(saltUsed?.name).toBe('InteropBundleSaltAlreadyUsed');
+      expect(String(saltUsed?.args?.[0]).toLowerCase()).toBe(SENDER);
+      expect(saltUsed?.args?.[1]).toBe(SALT);
     });
   });
 }
@@ -136,6 +165,15 @@ describe('atomic interop ABIs', () => {
       'ManagerFlowPreimageVersionMismatch',
     ] as const) {
       expect(errors.getError(name)!.selector).toBe(SELECTORS[name]);
+    }
+    const sendErrors = new Interface(IInteropErrorsABI);
+    for (const name of [
+      'NonAtomicSendUnsupported',
+      'AtomicBundleToL1NotSupported',
+      'InteropPreviewHash',
+      'InteropBundleSaltAlreadyUsed',
+    ] as const) {
+      expect(sendErrors.getError(name)!.selector).toBe(SELECTORS[name]);
     }
     for (const name of ['FlowCommitted', 'FlowRefunded'] as const) {
       const event = IAtomicFlowManagerABI.find(

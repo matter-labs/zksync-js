@@ -14,7 +14,8 @@ finality proofs), and read the node's proofs. They make no network calls; pair t
 ## How a flow works
 
 1. **Agree on the legs.** Each participant builds its leg (an `InteropBundle`) and learns its hash,
-   for example from `InteropCenter.previewBundleHash`, which reverts with `InteropPreviewHash(hash)`.
+   for example from `InteropCenter.previewBundleHash`, which reverts with `InteropPreviewHash(hash)`
+   (the adapters' `decodeRevert` names it and returns the hash as its first argument).
    Every participant derives the same flow from the legs' hashes and source chains, a deadline on the
    settlement layer, and the settlement layer's chain id.
 2. **Commit.** Each sender sends its leg with `sendBundle`, adding the `atomicBundle(preimage,
@@ -132,5 +133,8 @@ where a leg is (`ATOMIC_LEG_STATE`).
 The ABIs are in the `abi` namespace: `IAtomicFlowManagerABI` (`authorizeRefund`, `claimRefund`,
 `legState`, `requireFlowFinalized`, the `FlowCommitted` and `FlowRefunded` events),
 `IL2InteropHandlerABI` (`executeAtomicBundle`, `verifyAtomicBundle`, `bundleStatus`),
-`IAtomicInteropErrorsABI` (the custom errors, which both adapters decode in reverts), and
-`IInteropCenterABI` (`previewBundleHash`, `isInteropBundleSaltUsed`).
+`IAtomicInteropErrorsABI` (the custom errors of the atomic-interop contracts), and
+`IInteropCenterABI` (`previewBundleHash`, `isInteropBundleSaltUsed`). `IInteropErrorsABI` has the
+InteropCenter's send errors: `NonAtomicSendUnsupported` (an L2 → L2 bundle without the
+`atomicBundle` attribute), `AtomicBundleToL1NotSupported`, `InteropBundleSaltAlreadyUsed` and
+`InteropPreviewHash`. Both adapters decode all of these errors in reverts.

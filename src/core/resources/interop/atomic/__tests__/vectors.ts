@@ -104,6 +104,9 @@ export const SELECTORS = {
   atomicBundle: '0xe6b4aade',
   // errors
   InteropPreviewHash: '0x290dc1c0',
+  NonAtomicSendUnsupported: '0x1db1b07e',
+  AtomicBundleToL1NotSupported: '0x979e85dd',
+  InteropBundleSaltAlreadyUsed: '0xbfa9bcca',
   ProofDeadlineExceeded: '0x2911a778',
   ManagerLegNotRevertable: '0x83562707',
   ManagerFlowPreimageVersionMismatch: '0x1f6b4d47',
