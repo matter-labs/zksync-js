@@ -356,4 +356,14 @@ export const OP_INTEROP = {
       protocolFee: 'interop.svc.fees:protocolFee',
     },
   },
+
+  // atomic interop helpers (flows, commit values, proofs)
+  atomic: {
+    flow: 'interop.atomic:flow',
+    legIndex: 'interop.atomic:legIndex',
+    finality: 'interop.atomic:finality',
+    settlementReference: 'interop.atomic:settlementReference',
+    proof: 'interop.atomic:proof',
+    bundle: 'interop.atomic:bundle',
+  },
 } as const;

@@ -23,6 +23,13 @@ export { createInteropFinalizationServices } from './resources/interop';
 export type { InteropResource, InteropFinalizationServices } from './resources/interop';
 export type { ViemTransactionRequest } from './resources/interop/routes/types';
 export type { InteropConfig, ChainRef } from './resources/interop/types';
+export { createViemAtomicInteropHelpers, viemAtomicInteropCodec } from './resources/interop/atomic';
+export { createViemAttributesResource } from './resources/interop/attributes/resource';
+export {
+  formatInteropEvmChain,
+  formatInteropEvmAddress,
+  formatInteropEvmChainAddress,
+} from './resources/interop/address';
 
 export * from './errors/error-ops';
 export * from './errors/revert';

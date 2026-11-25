@@ -19,6 +19,7 @@ export * from './core/resources/deposits/route';
 export * from './core/resources/withdrawals/route';
 export * from './core/utils/events';
 export * from './core/resources/withdrawals/logs';
+export * from './core/resources/interop/atomic';
 
 // Core types (type-only so we don't emit)
 export type * from './core/types';
@@ -28,4 +29,5 @@ export type * from './core/types/flows/deposits';
 export type * from './core/types/flows/withdrawals';
 export type * from './core/types/flows/route';
 export type * from './core/types/flows/token';
+export type * from './core/types/flows/atomic-interop';
 export type * from './core/types/primitives';

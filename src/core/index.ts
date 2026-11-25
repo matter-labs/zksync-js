@@ -8,6 +8,20 @@ export {
   L2_NATIVE_TOKEN_VAULT_ADDRESS,
   L1_SOPH_TOKEN_ADDRESS,
   L2_INTEROP_ATTRIBUTE_PARSER_ADDRESS,
+  L2_INTEROP_CENTER_ADDRESS,
+  L2_INTEROP_HANDLER_ADDRESS,
+  L2_INTEROP_ROOT_STORAGE_ADDRESS,
+  L2_BRIDGEHUB_ADDRESS,
+  L2_INTEROP_COMMITMENT_TREE_ADDRESS,
+  L2_ATOMIC_FLOW_MANAGER_ADDRESS,
+  ATOMIC_FLOW_PREIMAGE_VERSION,
+  ATOMIC_COMMIT_LEAF_TAG,
+  MAX_ATOMIC_FLOW_LEGS,
+  ATOMIC_LEG_STATE,
+  INTEROP_BUNDLE_STATUS,
+  INTEROP_BUNDLE_VERSION,
+  INTEROP_CALL_VERSION,
+  SUPPORTED_PROOF_METADATA_VERSION,
 } from './constants';
 
 export * as abi from './abi';
@@ -32,6 +46,7 @@ export * from './resources/withdrawals/finalization';
 export * from './resources/protocol/semver';
 export * from './utils/events';
 export * from './resources/withdrawals/logs';
+export * from './resources/interop/atomic';
 
 // Core types (type-only)
 export type * from './types';
@@ -41,4 +56,5 @@ export type * from './types/flows/deposits';
 export type * from './types/flows/withdrawals';
 export type * from './types/flows/route';
 export type * from './types/flows/token';
+export type * from './types/flows/atomic-interop';
 export type * from './types/primitives';

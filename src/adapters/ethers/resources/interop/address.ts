@@ -30,9 +30,30 @@ export function formatInteropEvmAddress(address: Address): Hex {
 }
 
 /**
+ * Formats an ERC-7930 interoperable address (version 1) that describes an EVM address on a given
+ * chain. Mirrors InteroperableAddress.formatEvmV1(chainId, address): the form a bundle's
+ * `unbundlerAddress` defaults to, naming the sender on its source chain.
+ */
+export function formatInteropEvmChainAddress(chainId: bigint, address: Address): Hex {
+  const chainRef = toBeArray(chainId);
+  const chainRefLength = getBytes(toBeHex(chainRef.length, 1));
+  const addrBytes = getBytes(getAddress(address));
+
+  const payload = concat([
+    PREFIX_EVM_CHAIN,
+    chainRefLength,
+    chainRef,
+    new Uint8Array([20]),
+    addrBytes,
+  ]);
+  return hexlify(payload) as Hex;
+}
+
+/**
  * Codec for interop address encoding used by route builders.
  */
 export const interopCodec = {
   formatChain: formatInteropEvmChain,
   formatAddress: formatInteropEvmAddress,
+  formatChainAddress: formatInteropEvmChainAddress,
 };
